@@ -66,3 +66,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Controller sessione fail-closed con owner scope e grant amministrativo esterno.
 - Rules private in file test-only e suite Firebase Emulator bloccante in CI.
 - **Non ancora implementati**: replica cloud, scritture con ownership, login pubblico, deploy Rules, verifiche OAuth live, cancellazione account. M2b e audit provider restano obbligatori.
+
+## Stato M2b — confine di trasporto cloud
+- Contratto append-only di operazioni private, transazioni idempotenti e Rules verificate su Firebase Emulator.
+- Ricontrollo di owner, session epoch e journal durevole durante errori ambigui.
+- Modulo deliberatamente **non collegato a UI/Auth e non attivo sul provider**. Nessuna hydration, merge cross-device, ack automatico, account deletion o Rules live.
+- Specifica: [`docs/architecture/cloud-journal.md`](cloud-journal.md).

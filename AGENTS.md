@@ -71,3 +71,9 @@
 - `npm run test:rules` è un required gate CI con Emulator, Java e checksum del JAR. Non sostituirlo con test mock o statici.
 - Le Rules live devono essere lette dal provider e riconciliate con il legacy prima di distribuire qualsiasi versione.
 - M2b deve implementare e testare le scritture cloud, la sincronizzazione/recovery e la cancellazione prima dell'apertura degli account.
+
+## M2b — append-only cloud transport di laboratorio
+- Prima di toccare `src/cloud/*` o le Rules leggere `.agents/rules/cloud-journal.md`.
+- Trasporto Firestore testato solo contro Emulator: nessuna connessione runtime, nessun deploy sul progetto condiviso.
+- Idempotenza basata su operationId/payload, owner+grant lato Rules, collisioni vietate, nessuna rimozione del journal in M2b.
+- `uploaded-awaiting-reconciliation` non significa sincronizzazione completa. Hydration e account deletion restano future milestone CRITICAL.
