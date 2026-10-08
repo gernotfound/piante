@@ -46,7 +46,7 @@ function same(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 function compare(a: CloudJournalRecord, b: CloudJournalRecord): number {
-  return a.appliedAt - b.appliedAt || a.operationId.localeCompare(b.operationId, 'en');
+  return a.appliedAt - b.appliedAt || (a.operationId < b.operationId ? -1 : a.operationId > b.operationId ? 1 : 0);
 }
 
 /** Check locally persisted state is rebuildable before trusting it as a replica. */
@@ -106,7 +106,9 @@ export function buildReconciliationPreview(
     byId.set(row.operationId, row);
   }
   for (const pending of envelope.pending) {
-    const row = prepareCloudRecord(ownerUid, envelope, pending);
+    let row: CloudJournalRecord;
+    try { row = prepareCloudRecord(ownerUid, envelope, pending); }
+    catch { throw new ReconciliationBlocked('local-divergence'); }
     const previous = byId.get(row.operationId);
     if (previous && !same(previous, row)) throw new ReconciliationBlocked('invalid-receipt');
     byId.set(row.operationId, row);
@@ -181,7 +183,10 @@ export async function inspectRemoteJournal(
   if (before.ownerScope !== 'user:' + ownerUid) throw new ReconciliationBlocked('identity-changed');
   let remote: readonly {id:string; data:unknown}[];
   try { remote = await reader.readAll(ownerUid, max); }
-  catch { throw new ReconciliationBlocked('remote-unavailable'); }
+  catch (error) {
+    if (error instanceof ReconciliationBlocked) throw error;
+    throw new ReconciliationBlocked('remote-unavailable');
+  }
   if (!isStillAuthorized()) throw new ReconciliationBlocked('identity-changed');
   const after = await repository.read();
   if (!isStillAuthorized()) throw new ReconciliationBlocked('identity-changed');

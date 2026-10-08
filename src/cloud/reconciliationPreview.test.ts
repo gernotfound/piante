@@ -139,6 +139,15 @@ describe('M2c safe full-scan reconciliation preview (CRITICAL)', () => {
     expect((await repo.read()).data.plants.new).toBeDefined();
   });
 
+  it('preserves typed limit errors raised by the server reader', async () => {
+    const repo = local();
+    const reader: CloudJournalReader = {readAll: async () => {
+      throw new ReconciliationBlocked('limit-exceeded');
+    }};
+    await expect(inspectRemoteJournal(repo, reader, 'alice', () => true))
+      .rejects.toMatchObject({reason:'limit-exceeded'});
+  });
+
   it('never treats remote failure as an empty cloud', async () => {
     const repo = local();
     const reader: CloudJournalReader = {readAll: async () => {throw new Error('offline');}};
