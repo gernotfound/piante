@@ -75,6 +75,16 @@ describe('M2b durable append-only journal transport (CRITICAL)', () => {
     expect((await local.read()).pending).toHaveLength(2);
   });
 
+  it('invalidates identity even when the last operation completes after logout', async () => {
+    const local = repo(); await local.commit(operation('last'));
+    let active = true;
+    const port: CloudJournalPort = { appendOnce: async () => { active = false; return 'created'; } };
+    expect(await uploadPendingJournal(local, port, 'alice', () => active)).toEqual({
+      status: 'failed', count: 1, reason: 'identity-changed'
+    });
+    expect((await local.read()).pending).toHaveLength(1);
+  });
+
   it('never returns a safe pending outcome when the journal changed after ambiguous transport', async () => {
     const local = repo(); await local.commit(operation('a'));
     const port: CloudJournalPort = { appendOnce: async () => {

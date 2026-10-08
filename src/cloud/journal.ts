@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { domainOperationSchema, type DomainOperation } from '../domain/schema';
+import { domainOperationSchema } from '../domain/schema';
 import { type LocalEnvelope, type PendingOperation, LocalGardenRepository } from '../storage/localRepository';
 
 /**
@@ -83,6 +83,7 @@ export async function uploadPendingJournal(
     try {
       await port.appendOnce(record);
       uploaded++;
+      if (!isStillAuthorized()) return { status: 'failed', count: uploaded, reason: 'identity-changed' };
     } catch (error) {
       if (isPermissionDenied(error)) return { status: 'rejected', count: uploaded };
       // A timeout could occur after remote commit. Only durable matching journal

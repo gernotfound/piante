@@ -32,32 +32,7 @@ service cloud.firestore {
         && e.keys().hasAll(['id', 'plantId', 'date', 'type'])
         && e.id is string && e.id.size() <= 96
         && e.plantId is string && e.plantId.size() <= 96
-        && e.date is string && e.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}
-    match /piante_access/{uid} {
-      allow get: if request.auth != null && request.auth.uid == uid;
-      allow list, create, update, delete: if false;
-    }
-    match /piante_users/{uid} {
-      allow get: if invitedOwner(uid);
-      allow list, create, update, delete: if false;
-      // Laboratory-only append-only transport: not a live permissions release.
-      match /operations/{operationId} {
-        allow get, list: if invitedOwner(uid);
-        allow create: if invitedOwner(uid) && validCloudJournal(uid, operationId);
-        allow update, delete: if false;
-      }
-      match /{path=**} {
-        allow get, list: if invitedOwner(uid);
-        allow create, update, delete: if false;
-      }
-    }
-    // No public catalog or legacy grants in these test-only rules.
-    match /{path=**} {
-      allow read, write: if false;
-    }
-  }
-}
-)
+        && e.date is string && e.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && e.type in ['observation', 'care', 'measurement', 'flowering', 'fruiting', 'harvest'];
     }
     function validPlantPatch(p) {
@@ -96,32 +71,7 @@ service cloud.firestore {
         && d.keys().hasOnly(['protocol', 'ownerUid', 'operationId', 'replicaId',
                              'sequence', 'appliedAt', 'operation'])
         && d.protocol == 1 && d.ownerUid == uid && d.operationId == id
-        && d.replicaId is string && d.replicaId.matches('^[0-9a-f-]{36}
-    match /piante_access/{uid} {
-      allow get: if request.auth != null && request.auth.uid == uid;
-      allow list, create, update, delete: if false;
-    }
-    match /piante_users/{uid} {
-      allow get: if invitedOwner(uid);
-      allow list, create, update, delete: if false;
-      // Laboratory-only append-only transport: not a live permissions release.
-      match /operations/{operationId} {
-        allow get, list: if invitedOwner(uid);
-        allow create: if invitedOwner(uid) && validCloudJournal(uid, operationId);
-        allow update, delete: if false;
-      }
-      match /{path=**} {
-        allow get, list: if invitedOwner(uid);
-        allow create, update, delete: if false;
-      }
-    }
-    // No public catalog or legacy grants in these test-only rules.
-    match /{path=**} {
-      allow read, write: if false;
-    }
-  }
-}
-)
+        && d.replicaId is string && d.replicaId.matches('^[0-9a-f-]{36}$')
         && d.sequence is int && d.sequence > 0 && d.sequence < 2000000000
         && d.appliedAt is int && d.appliedAt >= 0
         && validIntent(d.operation);
