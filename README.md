@@ -77,3 +77,7 @@ Disponibile una *anteprima* di riconciliazione fra journal locale e operazioni r
 
 ## M2d: recupero offline da Firestore, ancora in laboratorio
 È ora possibile testare un ripristino persistente da receipt remoti con verifica owner, CAS e salvataggio atomico in IndexedDB; i device convergono per modifiche non conflittuali. Il journal locale rimane durevole e il codice **non viene eseguito nella PWA distribuita**. Il trasporto completo richiede checkpoint, gestione conflitti, quota Spark, ciclo account e audit Rules legacy. Leggi [`cloud-journal.md`](docs/architecture/cloud-journal.md).
+
+
+## M2e: ciclo privato cloud (solo laboratorio)
+L'orchestratore dei batch invia operazioni pending da IndexedDB, verifica dopo ogni batch i receipt Firestore e riparte senza duplicare le operazioni già confermate. Offline e conferme di rete ambigue sono espliciti e non eliminano le pending. Funziona per test unitari/Emulator, con limite 200 receipt: **non è una sync generale attiva sul sito**.

@@ -76,3 +76,14 @@ L'array additivo `remoteReceipts` mantiene compatibilità di lettura con envelop
 - Il database condiviso `pianta-db` non viene modificato in M2d.
 
 Test: Vitest con fake-indexeddb per race, recovery e rollback I/O; Firestore Emulator con due repository IDB, grant owner e revoca. Il risultato `hydrated-locally` certifica il **solo commit IDB**, non la convergenza globale o una pubblicazione cloud.
+
+
+## M2e — coordinamento dei batch (laboratorio)
+L'orchestratore opt-in `src/cloud/cycle.ts` coordina: hydration read-only server verificata e persistita → raccolta delle pending non ancora presenti nei receipt salvati → upload massimo 20 → nuova hydration e confronto. Il loop termina soltanto quando tutte le pending hanno un receipt server autenticato e identico nella stessa busta IDB, oppure dichiara un esito di blocco/retry.
+
+`missingRemoteReceipts` permette di avanzare oltre i primi 20 intenti senza cancellare il journal: considera confermate solo le operazioni il cui payload completo è presente nei `remoteReceipts` persistiti da una precedente lettura server con Security Rules. Una collisione con lo stesso operationId fallisce.
+- `verified-receipts-journal-retained`: receipt remoti verificati, pending **ancora conservate**.
+- `retry-required`: timeout ambiguo, server non conferma la write o conferma non leggibile; *nessun* errore occultato.
+- `blocked`: autorizzazione revocata o owner/permessi locali non coerenti; possono verificarsi eccezioni di schema, concorrenza, limite o corruzione.
+
+Non esiste un job automatico, scheduler, registrazione aperta o UI sync. Le quote Spark impediscono scansioni complete frequenti su collezioni grandi: max 200 receipt in laboratorio, no checkpoint/retention. Il ciclo è un modello di validazione per test Unit + Firebase Emulator, non un protocollo produzione.
