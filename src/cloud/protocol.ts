@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { domainOperationSchema } from '../domain/schema';
 
-const uidSchema = z.string().regex(/^[A-Za-z0-9_-]{1,96}$/);
+export const uidSchema = z.string().regex(/^[A-Za-z0-9_-]{1,96}$/);
 export const cloudJournalRecordSchema = z.strictObject({
   protocol: z.literal(1),
   ownerUid: uidSchema,

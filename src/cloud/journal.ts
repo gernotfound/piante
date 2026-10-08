@@ -6,7 +6,7 @@ import { type LocalEnvelope, type PendingOperation, LocalGardenRepository } from
  */
 export { cloudJournalRecordSchema } from './protocol';
 export type { CloudJournalRecord } from './protocol';
-import { cloudJournalRecordSchema, type CloudJournalRecord } from './protocol';
+import { cloudJournalRecordSchema, uidSchema, type CloudJournalRecord } from './protocol';
 
 export interface CloudJournalPort {
   /** Server-backed transaction; "duplicate" means byte-for-byte equivalent logical intent. */
