@@ -27,6 +27,18 @@ describe('IndexedDB atomic state + operation journal (CRITICAL)',()=>{
     expect(a.replicaId).toBe(b.replicaId);
     expect((await instance(db).read()).replicaId).toBe(a.replicaId);
   });
+  it('compares all values in CAS but ignores object key enumeration order',async()=>{
+    const repo=instance(dbName());
+    const current=await repo.read();
+    const equivalent={
+      ...current,
+      data:{events:current.data.events,places:current.data.places,plants:current.data.plants}
+    };
+    const next=await repo.persistRemoteSnapshot(equivalent,[],state=>state.data,()=>true);
+    expect(next.revision).toBe(current.revision+1);
+    await expect(repo.persistRemoteSnapshot(current,[],state=>state.data,()=>true))
+      .rejects.toThrow('Concurrent local change');
+  });
   it('persists state, sequence, ID and operations across repository restarts',async()=>{
     const db=dbName();
     const first=await instance(db).commit(avocado('p1'));

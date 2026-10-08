@@ -50,6 +50,19 @@ export const localEnvelopeSchema = z.strictObject({
 export type LocalEnvelope = z.infer<typeof localEnvelopeSchema>;
 export type PendingOperation = z.infer<typeof pendingOperationSchema>;
 
+/** Structural CAS: JSON key enumeration order is not a change in user data. */
+function dataEqual(a:unknown,b:unknown):boolean {
+  if(Object.is(a,b))return true;
+  if(typeof a!=='object'||a===null||typeof b!=='object'||b===null)return false;
+  if(Array.isArray(a)||Array.isArray(b)){
+    return Array.isArray(a)&&Array.isArray(b)&&a.length===b.length
+      &&a.every((value,index)=>dataEqual(value,b[index]));
+  }
+  const first=a as Record<string,unknown>,second=b as Record<string,unknown>;
+  const keys=Object.keys(first);
+  return keys.length===Object.keys(second).length
+    &&keys.every(key=>Object.hasOwn(second,key)&&dataEqual(first[key],second[key]));
+}
 function newReplicaId(): string {
   if (typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') {
     throw new Error('Identificatore replica sicuro non disponibile');
@@ -191,7 +204,7 @@ export class LocalGardenRepository {
   ): Promise<LocalEnvelope> {
     return this.write(current=>{
       if(!isStillAuthorized())throw new Error('Identity changed before hydration');
-      if(JSON.stringify(current)!==JSON.stringify(expected))throw new Error('Concurrent local change before hydration');
+      if(!dataEqual(current,expected))throw new Error('Concurrent local change before hydration');
       const data=project(current);
       const remoteReceipts=rawRemote.map(item=>({
         id:item.id,
