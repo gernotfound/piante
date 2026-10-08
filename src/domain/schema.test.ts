@@ -15,6 +15,10 @@ describe('M1 botanical schemas',()=>{
   });
   it('rejects unknown and sensitive unmodeled properties',()=>{
     expect(plantDraftSchema.safeParse({...plant,secretToken:'password'}).success).toBe(false);
+    for (const id of ['__proto__', 'constructor', 'toString']) {
+      expect(plantDraftSchema.safeParse({...plant,id}).success).toBe(false);
+      expect(plantDraftSchema.safeParse({...plant,motherId:id}).success).toBe(false);
+    }
     expect(plantDraftSchema.safeParse({...plant,soilPhMin:8,soilPhMax:6}).success).toBe(false);
     expect(plantDraftSchema.safeParse({...plant,motherId:plant.id}).success).toBe(false);
     expect(plantDraftSchema.safeParse({...plant,potLiters:-3}).success).toBe(false);

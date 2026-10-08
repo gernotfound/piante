@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-export const ENTITY_ID = z.string().regex(/^[A-Za-z0-9_-]{1,96}$/);
+// These keys collide with the inherited prototype of plain JS record maps.
+const RESERVED_IDS = new Set([
+  '__proto__', 'constructor', 'prototype', 'toString', 'valueOf',
+  'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString',
+  '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__'
+]);
+export const ENTITY_ID = z.string().regex(/^[A-Za-z0-9_-]{1,96}$/)
+  .refine(id => !RESERVED_IDS.has(id), 'ID riservato');
 const timestamp = z.number().int().nonnegative().max(8_640_000_000_000_000);
 const name = z.string().trim().min(1).max(120);
 const optionalText = (n: number) => z.string().trim().max(n).optional();
