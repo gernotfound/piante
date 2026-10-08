@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+firebase-debug.log
+firestore-debug.log
+public/pwa-192.png
+public/pwa-512.png
