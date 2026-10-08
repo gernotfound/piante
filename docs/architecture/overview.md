@@ -79,3 +79,10 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - `buildReconciliationPreview`: replay indipendente dalle condizioni di caricamento; fail-closed su lacune, conflitti e corrupt data.
 - `inspectRemoteJournal`: invalidazione se cambiano account o IndexedDB durante l'I/O.
 - È **solo un'anteprima in memoria**: non è stato implementato merge persistente, hydration, sync completa o aggiornamento UI. Nessun deploy verso Firebase né Rules live.
+
+
+## Stato M2d — idratazione locale sicura
+- `remoteReceipts` persistiti con `data` in un solo envelope IndexedDB; ripristino dopo reload e commit di nuovi eventi su piante remote.
+- CAS e replay validante nel commit IDB; edit tra tab, revoca owner, receipt corrotti e conflitti portano a rifiuto senza perdere l'archivio precedente.
+- Suite Firestore Emulator con due device: upload idempotente e lettura convergente su un sottoinsieme compatibile di operazioni.
+- **Non attiva in UI/cloud live:** no checkpoint scalabile, tombstone, conflitti semantici, registrazione account, cancellazione sicura o Rules legacy riconciliate.

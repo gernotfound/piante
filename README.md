@@ -73,3 +73,7 @@ Prima di abilitare il login è obbligatoria la configurazione OAuth esterna e la
 
 ## M2c: verifica di convergenza read-only
 Disponibile una *anteprima* di riconciliazione fra journal locale e operazioni remote, con lettura server bounded e test Emulator. Non viene modificato lo stato locale, non vengono confermati upload e non esiste ancora un sync bidirezionale. Vedi [contratto cloud](docs/architecture/cloud-journal.md).
+
+
+## M2d: recupero offline da Firestore, ancora in laboratorio
+È ora possibile testare un ripristino persistente da receipt remoti con verifica owner, CAS e salvataggio atomico in IndexedDB; i device convergono per modifiche non conflittuali. Il journal locale rimane durevole e il codice **non viene eseguito nella PWA distribuita**. Il trasporto completo richiede checkpoint, gestione conflitti, quota Spark, ciclo account e audit Rules legacy. Leggi [`cloud-journal.md`](docs/architecture/cloud-journal.md).

@@ -1,26 +1,12 @@
-import { z } from 'zod';
-import { domainOperationSchema } from '../domain/schema';
 import { type LocalEnvelope, type PendingOperation, LocalGardenRepository } from '../storage/localRepository';
 
 /**
  * M2b laboratory transport: append-only owner-scoped receipts, not multi-device
  * synchronization. No cloud adapter is wired to the application.
  */
-const uidSchema = z.string().regex(/^[A-Za-z0-9_-]{1,96}$/);
-export const cloudJournalRecordSchema = z.strictObject({
-  protocol: z.literal(1),
-  ownerUid: uidSchema,
-  operationId: z.string().min(1).max(160),
-  replicaId: z.uuid(),
-  sequence: z.number().int().positive().safe(),
-  appliedAt: z.number().int().nonnegative().safe(),
-  operation: domainOperationSchema
-}).superRefine((value, ctx) => {
-  if (value.operationId !== `${value.replicaId}:${value.sequence}`) {
-    ctx.addIssue({ code: 'custom', message: 'Identità dell’operazione incoerente' });
-  }
-});
-export type CloudJournalRecord = z.infer<typeof cloudJournalRecordSchema>;
+export { cloudJournalRecordSchema } from './protocol';
+export type { CloudJournalRecord } from './protocol';
+import { cloudJournalRecordSchema, type CloudJournalRecord } from './protocol';
 
 export interface CloudJournalPort {
   /** Server-backed transaction; "duplicate" means byte-for-byte equivalent logical intent. */

@@ -3,6 +3,7 @@ import {
   domainOperationSchema, emptyGarden, gardenStateSchema, type DomainOperation, type GardenState
 } from '../domain/schema';
 import { applyDomainOperation } from '../domain/operations';
+import { cloudJournalRecordSchema } from '../cloud/protocol';
 
 /**
  * M1 local-only durable repository. No Firestore calls, Auth wiring or persistent Firestore cache.
@@ -30,7 +31,9 @@ export const localEnvelopeSchema = z.strictObject({
   revision: sequence,
   lastSequence: sequence,
   data: gardenStateSchema,
-  pending: z.array(pendingOperationSchema).max(MAX_PENDING)
+  pending: z.array(pendingOperationSchema).max(MAX_PENDING),
+  // Backward-compatible, optional extension; existing M1 envelopes migrate on next write.
+  remoteReceipts: z.array(z.strictObject({id:z.string().min(1),data:cloudJournalRecordSchema})).max(200).default([])
 }).superRefine((value,ctx)=>{
   let previous = value.pending.length ? value.pending[0].sequence - 1 : value.lastSequence;
   for(const entry of value.pending){
@@ -56,7 +59,7 @@ function newReplicaId(): string {
 function fresh(ownerScope:string):LocalEnvelope {
   return {
     ownerScope,replicaId:newReplicaId(),envelopeVersion:LOCAL_ENVELOPE_VERSION,
-    dataSchemaVersion:LOCAL_DATA_SCHEMA_VERSION,revision:0,lastSequence:0,data:emptyGarden(),pending:[]
+    dataSchemaVersion:LOCAL_DATA_SCHEMA_VERSION,revision:0,lastSequence:0,data:emptyGarden(),pending:[],remoteReceipts:[]
   };
 }
 function parseStored(raw:unknown,ownerScope:string):LocalEnvelope {
@@ -169,4 +172,30 @@ export class LocalGardenRepository {
       return {next,value:next};
     });
   }
+  /**
+   * CRITICAL: in-memory candidate and durable local snapshot must refer to the
+   * SAME envelope. A read-only server scan cannot overwrite a concurrent IDB edit.
+   * The projection is verified AGAIN inside the serialized IDB transaction.
+   */
+  persistRemoteSnapshot(
+    expected: LocalEnvelope,
+    rawRemote: readonly {id:string;data:unknown}[],
+    project: (current:LocalEnvelope) => GardenState,
+    isStillAuthorized: () => boolean
+  ): Promise<LocalEnvelope> {
+    return this.write(current=>{
+      if(!isStillAuthorized())throw new Error('Identity changed before hydration');
+      if(JSON.stringify(current)!==JSON.stringify(expected))throw new Error('Concurrent local change before hydration');
+      const data=project(current);
+      const remoteReceipts=rawRemote.map(item=>({
+        id:item.id,
+        data:cloudJournalRecordSchema.parse(item.data)
+      }));
+      const next:LocalEnvelope={
+        ...current,data,remoteReceipts,revision:current.revision+1
+      };
+      return {next,value:next};
+    });
+  }
+
 }
