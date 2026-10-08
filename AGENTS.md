@@ -48,3 +48,14 @@
 - Il gate canonico è `Canonical Verification`: lint, unit test, build, E2E e CodeQL.
 - Nessun job M0 ha permessi/secret per deploy verso Firebase.
 - La branch protection di `main` deve richiedere il check canonico prima di abilitare future release.
+
+
+## M1 — modulo botanico e storage locale
+- `src/domain/schema.ts` è il contratto Zod private-only: identità stabili, dati di calendario, relazioni senza cicli, luoghi e diario. Nessun campo pubblico deriva implicitamente dal modello privato.
+- `src/domain/operations.ts` applica intenti tipizzati e valida lo stato risultante. Patch: chiave assente = invariata, `null` = cancellazione di campo opzionale, `undefined` = errore.
+- `src/storage/localRepository.ts` è la sola sorgente durevole del nuovo modulo M1: un record IndexedDB per owner contiene stato, sequence e journal nella **stessa transazione readwrite**. La read-modify-write deve restare atomica anche tra schede.
+- Errori IndexedDB, schema/versione futura incompatibile, ID duplicati e riferimenti invalidi **falliscono chiusi**: non ricreare silenziosamente lo stato vuoto.
+- Acknowledge del journal permesso solo dopo conferma remota autorevole: M1 NON ha un adattatore cloud. L'ack di un prefisso non deve rimuovere operazioni più recenti o sovrascrivere lo stato business.
+- Owner scope valido: `user:<uid>` o `guest:<id>`. In M1 il modulo non viene chiamato dall'interfaccia: Auth, session lifecycle e isolamento effettivo utenti saranno implementati e testati prima di abilitarlo in UI.
+- Le versioni `LOCAL_ENVELOPE_VERSION=1` e `LOCAL_DATA_SCHEMA_VERSION=1` sono proprie di Piante, non versioni TheLogBook.
+- I dati Firebase legacy sono fuori perimetro; nessun nuovo listener, scrittura cloud o deploy Rules/Hosting in M1.

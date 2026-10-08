@@ -52,3 +52,10 @@ Gli asset generati sono esclusi dal repository.
 Il progetto Firebase `pianta-db` contiene anche dati e configurazioni della vecchia Pianta. **Non eliminare o modificare collezioni legacy, Rules live, utenti Auth o hosting esistente senza audit e piano di migrazione reversibile.** In M0 non è previsto alcun deployment automatico.
 
 La pipeline di verifica non usa segreti o credenziali Firebase reali. Solo una modifica verificata e approvata potrà successivamente attivare la distribuzione.
+
+
+## M1 — Fondamenta del dominio offline
+
+Il modulo botanico dispone ora di schemi runtime Zod, operazioni di dominio e una repository locale IndexedDB con journal atomico. **Non è ancora collegato all'interfaccia, all'autenticazione o a Firestore.** L'area `/app` continua a mostrare un segnaposto fino alle milestone UI e account.
+
+Vedi [contratto di persistenza locale](docs/architecture/offline-storage.md) per recovery, versioni e limiti.

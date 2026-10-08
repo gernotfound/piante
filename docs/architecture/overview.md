@@ -52,3 +52,11 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - **M8**: cutover controllato dopo verifiche e revisione.
 
 **Nessuna versione numerica di protocolli LogBook è trasferita automaticamente.**
+
+
+## Stato implementativo M1
+- Modello privato di esemplare, luogo ed evento botanico con vincoli e referenze verificate.
+- Reducer puro di operazioni `plant.create`, `plant.patch`, `place.create`, `place.patch`, `event.add`.
+- Repository IndexedDB owner-scoped: snapshot e journal diventano durevoli atomicamente nella medesima transazione, con sequence e operation ID stabili.
+- Read/commit/ack falliscono in presenza di versioni future, dati corrotti o I/O non disponibile.
+- Solo foundation: nessun connettore Firestore, login, UI CRUD, pubblicazione o cancellazione account introdotti in M1.
