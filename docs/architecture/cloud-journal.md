@@ -42,3 +42,15 @@ Questi sono stati di **trasporto**, non stati business di sincronizzazione compl
 - Limiti quota, retention e gestione media saranno progettati prima di abilitare le scritture vere.
 
 Per rendere operativo il cloud serviranno validazione completa delle Rules reali, algoritmo di riconciliazione idempotente e test end-to-end su Emulator, oltre al piano di cancellazione account. Non dichiarare il cloud «sincronizzato» perché esistono operation receipts.
+
+
+## M2c — anteprima di convergenza (NON hydration)
+Lettura read-only del journal privato remoto, forzata al server con `getDocsFromServer`. Il reader esegue **una singola query** limitata a `max+1`: se il risultato supera il tetto (massimo 200 operazioni in laboratorio) rifiuta il risultato; **non** assume che la prima pagina rappresenti tutto il cloud.
+
+`inspectRemoteJournal()` legge IndexedDB prima e dopo la scansione e invalida ogni risultato se cambia sessione, owner, revision o contenuto. `buildReconciliationPreview()` valida schemi, ID, owner, sequenze per replica, replica locale completa e duplicati; ricostruisce un output puramente in memoria. La lista remote + pending locali viene deduplicata per `operationId`.
+
+L'ordinamento è deterministico sulle teste delle sequence di ogni replica e non usa il tempo muro come prova causale. Le creazioni referenziate da operazioni dipendenti possono essere riordinate conservando le sequence della singola replica. Le scritture concorrenti sullo stesso campo, le lacune e le cronologie non ricostruibili producono un blocco esplicito anziché sovrascrivere dati.
+
+**Vincoli intenzionali:** non vengono persiste né idratazione né ack; non ci sono tombstone, deletions, epoch causali, gestione completamento upload o conflitti semantici attraverso aggiornamenti di schema. Il limite di 200 documenti è incompatibile con un prodotto general-purpose e impedisce l'uso runtime: prima di abilitare M2 serviranno checkpoint, paginazione coerente e limiti di lettura Spark sostenibili.
+
+Il preview non deve essere considerato una dimostrazione di convergenza generale: rileva conflitti ovvi senza risolvere in modo silenzioso situazioni ambigue. Le Rules di laboratorio restano non distribuibili su `pianta-db`.

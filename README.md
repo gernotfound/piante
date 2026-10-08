@@ -69,3 +69,7 @@ Prima di abilitare il login è obbligatoria la configurazione OAuth esterna e la
 
 ## M2b: trasporto cloud di laboratorio
 È disponibile un adapter Firestore per append idempotente del journal privato, con test Firebase Emulator. **Non è ancora una sincronizzazione funzionante**, non è abilitato nella PWA e le Rules di laboratorio non vanno distribuite su `pianta-db`. Vedi [contratto cloud](docs/architecture/cloud-journal.md).
+
+
+## M2c: verifica di convergenza read-only
+Disponibile una *anteprima* di riconciliazione fra journal locale e operazioni remote, con lettura server bounded e test Emulator. Non viene modificato lo stato locale, non vengono confermati upload e non esiste ancora un sync bidirezionale. Vedi [contratto cloud](docs/architecture/cloud-journal.md).

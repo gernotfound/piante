@@ -77,3 +77,11 @@
 - Trasporto Firestore testato solo contro Emulator: nessuna connessione runtime, nessun deploy sul progetto condiviso.
 - Idempotenza basata su operationId/payload, owner+grant lato Rules, collisioni vietate, nessuna rimozione del journal in M2b.
 - `uploaded-awaiting-reconciliation` non significa sincronizzazione completa. Hydration e account deletion restano future milestone CRITICAL.
+
+
+## M2c — anteprima di riconciliazione cloud (read-only)
+- `src/cloud/reconciliationPreview.ts` ricostruisce una **anteprima**, NON salva né conferma operazioni o riscrive lo snapshot. È necessario un protocollo causale e un boundary IDB atomico prima di una hydration effettiva.
+- Verificare con `getDocsFromServer` una scansione completa bounded; documenti sopra il limite, sequenze mancanti, dati malformati e collisioni impediscono la ricostruzione.
+- Verificare lo stesso owner e lo stesso epoch Auth prima/dopo la lettura; una modifica IDB concorrente rende obsoleto il risultato.
+- Non usare timestamp muro come arbitrato LWW: sovrascritture dello stesso campo da repliche diverse bloccano l'anteprima, non si risolvono silenziosamente.
+- Il journal locale rimane durevole e pending; la nuova API resta non collegata all'interfaccia. Suite Emulator obbligatoria. Nessun deploy Firebase/Rules per M2c.

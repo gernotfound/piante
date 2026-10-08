@@ -72,3 +72,10 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Ricontrollo di owner, session epoch e journal durevole durante errori ambigui.
 - Modulo deliberatamente **non collegato a UI/Auth e non attivo sul provider**. Nessuna hydration, merge cross-device, ack automatico, account deletion o Rules live.
 - Specifica: [`docs/architecture/cloud-journal.md`](cloud-journal.md).
+
+
+## Stato M2c — ispezione cloud sicura
+- `firestoreJournalReader`: lettura da server completa, bounded e owner-scoped; errore se il limite impedisce certezza.
+- `buildReconciliationPreview`: replay indipendente dalle condizioni di caricamento; fail-closed su lacune, conflitti e corrupt data.
+- `inspectRemoteJournal`: invalidazione se cambiano account o IndexedDB durante l'I/O.
+- È **solo un'anteprima in memoria**: non è stato implementato merge persistente, hydration, sync completa o aggiornamento UI. Nessun deploy verso Firebase né Rules live.

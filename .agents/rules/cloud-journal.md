@@ -14,3 +14,13 @@
 - **MUST:** non committare credenziali, utenti reali o screenshot provider nel repository pubblico; usare fixture sintetiche.
 
 Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello snapshot, il controllo quota e l'account lifecycle richiederanno un contratto distinto. Non copiare versioni di Sync Protocol TheLogBook.
+
+
+## M2c — scansione completa e riconciliazione non distruttiva
+- **MUST:** leggere da Firestore **server** soltanto una scansione completa della sottocollezione privata, mai da una cache persistente o pagina tronca. Il limite attuale di laboratorio è 200 receipt e comporta errore esplicito al superamento.
+- **MUST:** verificare schema esatto, id documento = operationId, owner, protocollo e sequenze 1..N di ogni replica. Una lacuna blocca il preview; nessun fallback a stato vuoto.
+- **MUST:** validare che lo snapshot locale sia esattamente ricostruibile dalle pending; se un `acknowledgeThrough` ha compattato la storia senza una baseline duratura, bloccare e non perdere dati.
+- **MUST:** non convertire `preview-only` in dati persistiti, cloud-synced o presentati nella UI. Non aggiornare le pending e non assegnare timestamp causali non dimostrati.
+- **MUST:** rilevare edit concorrenti sul medesimo campo tra repliche e duplicazioni di ID; bloccare senza LWW.
+- **MUST:** controllare identità/authorization epoch prima e dopo l'I/O remoto e verificare revision e contenuto IDB dopo la scansione. Il preview è di laboratorio e nessuna decisione di merge cloud reale si basa su di esso.
+- **MUST:** documentare costi delle scansioni complete e integrare un protocollo di checkpoint, causalità e retention prima di attivare il servizio.
