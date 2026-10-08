@@ -59,3 +59,8 @@ La pipeline di verifica non usa segreti o credenziali Firebase reali. Solo una m
 Il modulo botanico dispone ora di schemi runtime Zod, operazioni di dominio e una repository locale IndexedDB con journal atomico. **Non è ancora collegato all'interfaccia, all'autenticazione o a Firestore.** L'area `/app` continua a mostrare un segnaposto fino alle milestone UI e account.
 
 Vedi [contratto di persistenza locale](docs/architecture/offline-storage.md) per recovery, versioni e limiti.
+
+## M2a: autenticazione sperimentale e confini cloud
+La nuova web app può usare Google Auth con `piante.web.app` come `authDomain`, ma la modalità test è disabilitata per default. Non viene letta alcuna scheda privata e non viene effettuata alcuna scrittura live.
+Le Rules `firestore.m2-test.rules` vengono validate con Firebase Emulator tramite `npm run test:rules`, **mai distribuite sul progetto legacy**.
+Prima di abilitare il login è obbligatoria la configurazione OAuth esterna e la verifica del sito.

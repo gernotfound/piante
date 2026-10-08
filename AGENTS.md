@@ -59,3 +59,12 @@
 - Owner scope valido: `user:<uid>` o `guest:<id>`. In M1 il modulo non viene chiamato dall'interfaccia: Auth, session lifecycle e isolamento effettivo utenti saranno implementati e testati prima di abilitarlo in UI.
 - Le versioni `LOCAL_ENVELOPE_VERSION=1` e `LOCAL_DATA_SCHEMA_VERSION=1` sono proprie di Piante, non versioni TheLogBook.
 - I dati Firebase legacy sono fuori perimetro; nessun nuovo listener, scrittura cloud o deploy Rules/Hosting in M1.
+
+## M2a — dominio OAuth e Rules di laboratorio
+- Google OAuth della nuova Piante deve usare `authDomain=piante.web.app` e Project ID `pianta-db`. Non modificare la configurazione dei client Pianta legacy.
+- Il modulo Auth viene importato soltanto se `VITE_AUTH_TEST_MODE=true`; valore predefinito **false**. Questa protezione UI non impedisce la creazione di account Firebase Auth da accessi Google: l'apertura generale resta vietata.
+- Il controller Auth blocca la sessione fino al grant positivo `piante_access/{uid}.enabled===true`. Gli epoch di sessione invalidano i grant asincroni obsoleti. Nessun dato privato viene caricato in M2a.
+- `firestore.m2-test.rules` è un fixture per **Firebase Emulator soltanto**; NON è incluso in `firebase.json`. Contiene un default-deny intenzionale che interromperebbe il legacy se distribuito.
+- `npm run test:rules` è un required gate CI con Emulator, Java e checksum del JAR. Non sostituirlo con test mock o statici.
+- Le Rules live devono essere lette dal provider e riconciliate con il legacy prima di distribuire qualsiasi versione.
+- M2b deve implementare e testare le scritture cloud, la sincronizzazione/recovery e la cancellazione prima dell'apertura degli account.

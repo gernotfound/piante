@@ -106,18 +106,60 @@ jobs:
         with:
           category: "/language:javascript-typescript"
 
+  rules:
+    name: "Verification / Firestore Emulator"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact event head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify checked-out SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Setup Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Firestore Emulator rules tests
+        run: npm run test:rules
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: firestore-rules-failure-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: firestore-debug.log
+
   canonical:
     name: "Canonical Verification"
     if: ${{ always() }}
     runs-on: ubuntu-24.04
-    needs: [core, e2e, codeql]
+    needs: [core, e2e, codeql, rules]
     steps:
       - name: Require all gates
         env:
           CORE: ${{ needs.core.result }}
           E2E: ${{ needs.e2e.result }}
           CODEQL: ${{ needs.codeql.result }}
+          RULES: ${{ needs.rules.result }}
         run: |
           test "$CORE" = success
           test "$E2E" = success
           test "$CODEQL" = success
+          test "$RULES" = success

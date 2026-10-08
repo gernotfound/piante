@@ -60,3 +60,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Repository IndexedDB owner-scoped: snapshot e journal diventano durevoli atomicamente nella medesima transazione, con sequence e operation ID stabili.
 - Read/commit/ack falliscono in presenza di versioni future, dati corrotti o I/O non disponibile.
 - Solo foundation: nessun connettore Firestore, login, UI CRUD, pubblicazione o cancellazione account introdotti in M1.
+
+## Stato M2a
+- Gateway Auth Google dietro flag test esplicito, `authDomain` isolato su `piante.web.app`.
+- Controller sessione fail-closed con owner scope e grant amministrativo esterno.
+- Rules private in file test-only e suite Firebase Emulator bloccante in CI.
+- **Non ancora implementati**: replica cloud, scritture con ownership, login pubblico, deploy Rules, verifiche OAuth live, cancellazione account. M2b e audit provider restano obbligatori.

@@ -18,7 +18,8 @@
     "lint": "oxlint src tests vite.config.ts playwright.config.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "verify": "npm run lint && npm run test && npm run build"
+    "verify": "npm run lint && npm run test && npm run build",
+    "test:rules": "node scripts/run-firestore-rules-tests.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",
@@ -42,7 +43,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
     "vitest": "^4.1.11",
-    "fake-indexeddb": "6.2.5"
+    "fake-indexeddb": "6.2.5",
+    "@firebase/rules-unit-testing": "5.0.2"
   },
   "overrides": {
     "@babel/plugin-transform-runtime": "^7.29.0",
