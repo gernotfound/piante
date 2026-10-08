@@ -2,7 +2,7 @@
 
 Piante è una PWA botanica **offline-first**, con un'area privata per gestire la propria collezione e una vetrina pubblica per condividere singoli esemplari.
 
-**Stato:** M0 — fondazione tecnica. Il frontend è deliberatamente una shell non collegata ai dati reali.
+**Stato:** M3a — shell pubblica e prototipo privato **riservato ai test**; persistenza locale su IndexedDB. Login e archivio non sono attivi per default e non è collegata alcuna sincronizzazione Firebase live.
 
 - Repository nuovo: `gernotfound/piante`.
 - Riferimento tecnico: `gernotfound/logbook`; riferimento funzionale legacy: `gernotfound/pianta`.
@@ -81,3 +81,8 @@ Disponibile una *anteprima* di riconciliazione fra journal locale e operazioni r
 
 ## M2e: ciclo privato cloud (solo laboratorio)
 L'orchestratore dei batch invia operazioni pending da IndexedDB, verifica dopo ogni batch i receipt Firestore e riparte senza duplicare le operazioni già confermate. Offline e conferme di rete ambigue sono espliciti e non eliminano le pending. Funziona per test unitari/Emulator, con limite 200 receipt: **non è una sync generale attiva sul sito**.
+
+## M3a — Collezione privata locale dietro login sperimentale
+Solo con `VITE_AUTH_TEST_MODE=true`, configurazione Google Auth valida e risposta positiva del grant `piante_access/{uid}.enabled` viene montato `PrivateGarden`. La schermata gestisce primi esemplari, luoghi, diario e stato delle piante tramite `LocalGardenRepository.commit()`, senza scrivere su Firestore. In caso di errore la UI non dichiara salvata un'operazione che non ha raggiunto IndexedDB.
+
+**AVVERTENZA:** questi dati esistono solo nel browser corrente; la cancellazione dei dati locali può distruggerli. Non sono previsti backup, esportazione, recupero cross-device o dati pubblici nell'interfaccia M3a. Non usare informazioni reali importanti finché il lifecycle dati non è operativo. Questo modulo viene visualizzato soltanto agli utenti di test autorizzati; la modalità test rimane **false** nel deployment di default. Nessuna credenziale OAuth o apertura registrazioni aggiunta.

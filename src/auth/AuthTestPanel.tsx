@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { authTestModeEnabled } from './firebaseConfig';
 import { AuthSessionController, type AccessState } from './session';
+import { PrivateGarden } from '../private/PrivateGarden';
 
 const authEnabled = authTestModeEnabled(import.meta.env.VITE_AUTH_TEST_MODE);
 
@@ -40,5 +41,6 @@ export function AuthTestPanel() {
    {error?<p role="alert">{error}</p>:null}
    {state.status==='signed-out'?<button type="button" disabled={busy||!controller} onClick={()=>void act('signIn')}>Accedi con Google (test)</button>
     :<button type="button" disabled={busy||!controller} onClick={()=>void act('signOut')}>Disconnetti</button>}
+   {state.status==='authorized' ? <PrivateGarden key={state.uid} ownerScope={state.ownerScope} /> : null}
  </section>;
 }

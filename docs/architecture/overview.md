@@ -92,3 +92,8 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Il ciclo di laboratorio combina lettura server, applicazione IDB atomica, upload max 20 intenti e riconferma server prima di avanzare.
 - I batch successivi saltano soltanto i receipt **già verificati**; i timeout ambigui sono recuperabili senza deduplicazione cieca.
 - I test Emulator coprono più di 20 operazioni reali; il codice **non** è attivo in UI, Hosting o Rules live. Mancano protocollo causale, scalabilità, account deletion e gestione conflitti utente.
+
+## M3a — primo workflow botanico, con isolamento Auth
+- Dopo grant Firebase Auth test-only valido (feature flag disabilitato di default), un modulo `PrivateGarden` monta il repository IndexedDB per lo specifico `user:uid`. La vista è rimossa subito quando decade l'autorizzazione.
+- Funzionalità locali iniziali: aggiunta pianta e luogo, evento di diario, aggiornamento stato. La UI riflette il risultato solo dopo transazione durevole e segnala gli errori. Dati e cronologia pendente sono **private-only**.
+- Non c'è bridge con CloudJournal e non esistono backup/export o vetrina; l'account-lifecycle e l'audit Rules live restano requisiti per apertura reale.

@@ -20,7 +20,7 @@ function Shell({ children }: { children: ReactNode }) {
       <main id="main-content">{children}</main>
       <footer className="site-footer">
         <span>Il tuo giardino, documentato.</span>
-        <span>Fondamenta M0 · Nessuna connessione ai dati reali</span>
+        <span>Versione sperimentale · Nessun dato pubblicato</span>
       </footer>
     </div>
   );
@@ -53,7 +53,7 @@ export default function App() {
             <a className="primary-link" href="/app">La mia collezione <ArrowRight size={18} /></a>
             <a className="secondary-link" href="/gernotfound/public">Scopri la vetrina <ExternalLink size={16} /></a>
           </div>
-          <p className="release-note"><ShieldCheck size={16} /> Prototipo M0: nessun dato personale viene ancora letto o salvato.</p>
+          <p className="release-note"><ShieldCheck size={16} /> Sviluppo: gestione dati locali soltanto per gli account invitati nella modalità di prova.</p>
         </section>
         <section className="feature-grid" aria-label="Il progetto">
           <Panel icon={Sprout} title="Collezione" description="Una scheda per ogni esemplare, dal seme alla propagazione." />
@@ -67,7 +67,7 @@ export default function App() {
       <section className="simple-page">
         <span className="page-kicker"><LockKeyhole size={17} /> Area privata</span>
         <h1>Il tuo spazio botanico.</h1>
-        <p>La gestione privata arriverà nelle prossime milestone. Al momento questa pagina non permette accessi, modifiche o salvataggi.</p>
+        <p>L'archivio privato è in sviluppo. La modalità sperimentale consente solo agli account autorizzati di salvare dati locali su questo dispositivo; non è ancora attiva la sincronizzazione cloud.</p>
         <AuthTestPanel />
         <a className="secondary-link" href="/">Torna alla home <ArrowRight size={16} /></a>
       </section>
