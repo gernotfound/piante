@@ -26,7 +26,7 @@ Registro permanente delle iscrizioni e integrazioni esterne della PWA Piante, is
 | Firebase Project `pianta-db` / Google Cloud, display name **Piante** | **LEGACY + CONFIGURED-NOT-ACTIVE** per nuova app | progetto condiviso con Pianta, identità e dati | Firebase Spark mostrato; **no Blaze senza consenso** | `USER-SCREENSHOT` 2026-10-08; non sono state interrogate IAM/risorse live |
 | Firebase Hosting site `piante`, `https://piante.web.app` | **CONFIGURED-NOT-ACTIVE / VERIFY-LIVE** | destinazione frontend PWA e OAuth helper | Hosting statico, target Spark | `USER-REPORTED` per site; deploy e handler HTTP non verificati |
 | Firebase Authentication / Google | **CONFIGURED-NOT-ACTIVE / VERIFY-LIVE** | login Google previsto, accesso per account autorizzati | identità condivise col legacy; niente iscrizioni indiscriminate | `USER-SCREENSHOT` di Authorized domains; codice Auth M2a opt-in |
-| Google Auth Platform — Web OAuth client Firebase | **CONFIGURED-NOT-ACTIVE / VERIFY-LIVE** | popup Google, origini consentite e callback OAuth | un client Google esistente condiviso: **non eliminare redirect legacy** | `USER-SCREENSHOT` 2026-10-08; manca origine Piante nell'elenco mostrato |
+| Google Auth Platform — Web OAuth client Firebase | **CONFIGURED-NOT-ACTIVE / VERIFY-LIVE** | popup Google, origini consentite e callback OAuth | un client Google esistente condiviso: **non eliminare redirect legacy** | `USER-SCREENSHOT` + `USER-REPORTED` 2026-10-08; origine Piante aggiunta secondo il product owner, verifica diretta ancora aperta |
 | Google Cloud — Browser API key Firebase | **LEGACY + VERIFY-LIVE** | API Firebase Web; referrer e API allowlist | chiave Web non equivale a credenziale amministrativa | `USER-SCREENSHOT`: restrizioni HTTP referrer e API visibili, valori non aperti |
 | Cloud Firestore | **LEGACY + CONFIGURED-NOT-ACTIVE** per Piante | replica cloud futura, dati e Rules attuali di Pianta da preservare | quote Spark e privacy per utenti | `GITHUB-OBSERVED`: nuove Rules soltanto nel fixture Emulator |
 | Firebase Security Rules / indici live | **VERIFY-LIVE** | enforcement reale del database condiviso | **non distribuire** le Rules `firestore.m2-test.rules` | nessun read-back diretto del provider |
@@ -59,7 +59,7 @@ La schermata del client auto-creato da Google mostra stato **Attivato**, con ori
 - `http://localhost:5000`;
 - `https://pianta-db.firebaseapp.com`.
 
-**Non compare** l'origine JavaScript `https://piante.web.app` nella schermata: **aggiungerla** come origine del nuovo frontend, senza sostituire le origini già presenti.
+**Cronologia:** nello screenshot iniziale non compariva l'origine JavaScript `https://piante.web.app`. Il **2026-10-08 il product owner ha confermato di averla aggiunta e salvata** nel client OAuth esistente, seguendo la procedura indicata. Evidenza: `USER-REPORTED`, **non** `PROVIDER-OBSERVED`; lo stato corrente del provider e la conservazione delle origini legacy richiedono verifica diretta.
 
 Sono già mostrati come redirect autorizzati:
 - `https://pianta-db.firebaseapp.com/__/auth/handler`;
@@ -90,13 +90,14 @@ Non sono stati aperti/validati:
 | 2026-10-08 | GitHub | M2a integrata su `main` (squash SHA `8dc84e52`): Auth test-only e suite Firestore Emulator; post-merge CI verde | `GITHUB-OBSERVED` | nessun deploy Firebase |
 | 2026-10-08 | Firebase Auth | Screenshot del product owner conferma `piante.web.app` tra gli Authorized domains insieme ai domini legacy | `USER-SCREENSHOT` | aggiunta visibile; verifica diretta provider ancora aperta |
 | 2026-10-08 | Google OAuth | Screenshot conferma il redirect `https://piante.web.app/__/auth/handler` tra quelli autorizzati | `USER-SCREENSHOT` | redirect visibile; OAuth runtime non collaudato |
-| 2026-10-08 | Google OAuth | Screenshot del client Web **non** mostra `https://piante.web.app` nelle origini JavaScript | `USER-SCREENSHOT` | origine da aggiungere; conservare le legacy |
+| 2026-10-08 | Google OAuth | Screenshot antecedente alla modifica: l'origine `https://piante.web.app` non era presente | `USER-SCREENSHOT` | situazione storica, poi aggiornata dall'utente |
+| 2026-10-08 | Google OAuth | Il product owner riferisce di aver aggiunto e salvato `https://piante.web.app` nelle origini JavaScript autorizzate del client OAuth Web esistente | `USER-REPORTED` | aggiunta dichiarata completata; conferma diretta del provider, origini legacy e prova login runtime ancora aperte |
 | 2026-10-08 | Google Cloud | Browser API key con restrizioni ai referrer HTTP e lista API | `USER-SCREENSHOT` | valori referrer da ispezionare; nessuna modifica eseguita |
 | 2026-10-08 | Documentazione | Introdotto registro pubblico e regola per future iscrizioni/integrazioni | `GITHUB-OBSERVED` dopo merge e CI | aggiornare a ogni cambio esterno |
 
 ## Verifiche aperte, priorità
 
-1. **OAuth:** aggiungere `https://piante.web.app` alle *Origini JavaScript autorizzate* del client esistente, mantenendo tutto il legacy; verificare il salvataggio sul provider.
+1. **OAuth:** aggiunta di `https://piante.web.app` alle *Origini JavaScript autorizzate* **dichiarata completata dal product owner il 2026-10-08**. Verificare direttamente sul provider il salvataggio e la permanenza delle origini/callback legacy; quindi collaudare il login sulla nuova PWA quando sarà realmente distribuita.
 2. **API key:** controllare la Browser key, includere il referrer `https://piante.web.app/*` **solo se necessario**, senza interrompere i referrer legacy.
 3. **Hosting:** verificare che l'URL del sito e `/__/auth/handler` rispondano davvero, e associare la Web App Firebase corretta.
 4. **Auth:** verificare direttamente Authorized domains, provider Google, eventuali account/grant e restrizioni senza aprire le registrazioni.
