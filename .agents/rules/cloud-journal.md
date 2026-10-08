@@ -24,3 +24,15 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** rilevare edit concorrenti sul medesimo campo tra repliche e duplicazioni di ID; bloccare senza LWW.
 - **MUST:** controllare identità/authorization epoch prima e dopo l'I/O remoto e verificare revision e contenuto IDB dopo la scansione. Il preview è di laboratorio e nessuna decisione di merge cloud reale si basa su di esso.
 - **MUST:** documentare costi delle scansioni complete e integrare un protocollo di checkpoint, causalità e retention prima di attivare il servizio.
+
+
+## M2d — persistenza atomica della proiezione remota
+- **MUST:** la proiezione dei receipt server e i receipt stessi vanno salvati nel medesimo record IDB e nella medesima `readwrite` transaction; non introdurre un secondo storage per il cloud.
+- **MUST:** verificare owner ed epoch Auth, rileggere il record IDB nella transazione, applicare CAS sull'intero envelope e ripetere il replay validante **nella transazione stessa**. Nessun commit basato su uno snapshot locale obsoleto.
+- **MUST:** applicare una scansione `getDocsFromServer` completa e capped; mantenere nella base durevole tutti i vecchi receipt e rifiutare scansioni che ne perdano uno.
+- **MUST:** salvare i receipt remoti senza segreti e senza publish: sono operazioni **private** che possono includere note, coordinate, prezzi e informazioni riservate.
+- **MUST:** ritentare in sicurezza upload idempotenti, ma conservare pending fino a checkpoint/cloud watermark autenticati. Non invocare acknowledge automaticamente.
+- **MUST:** operazioni su una pianta ripristinata devono essere validate sullo stato idratato; alla lettura successiva verificare ricostruzione esatta da receipt+pending.
+- **MUST:** se emerge conflitto fra repliche, **nessun** last-write-wins: notificare condizione non risolta, conservare dati locali, richiedere protocollo causale/versioni per il futuro.
+- **MUST:** una estensione v1 retrocompatibile non autorizza upgrade/downgrade distruttivi. Sconosciute versioni future continuano a bloccare l'accesso.
+- **MUST:** questa milestone resta **solo laboratorio Emulator**; no live Rules, Auth/Hosting deploy, cloud in runtime UI o account registration.

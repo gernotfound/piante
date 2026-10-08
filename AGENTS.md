@@ -85,3 +85,13 @@
 - Verificare lo stesso owner e lo stesso epoch Auth prima/dopo la lettura; una modifica IDB concorrente rende obsoleto il risultato.
 - Non usare timestamp muro come arbitrato LWW: sovrascritture dello stesso campo da repliche diverse bloccano l'anteprima, non si risolvono silenziosamente.
 - Il journal locale rimane durevole e pending; la nuova API resta non collegata all'interfaccia. Suite Emulator obbligatoria. Nessun deploy Firebase/Rules per M2c.
+
+
+## M2d — hydration persistente e fallimento chiuso
+- `src/cloud/hydration.ts` salva la proiezione cloud validata e tutti i receipt remoti in un **solo record/transaction IndexedDB** con CAS completo contro modifiche locali simultanee. Prima e dentro la transazione ripete la verifica.
+- `remoteReceipts` è un'estensione additiva e retrocompatibile del contratto M1 v1: lettura di vecchi envelope senza tale campo = array vuoto. Nessun dato precedente è eliminato automaticamente.
+- La verifica locale usa `remoteReceipts + pending` per controllare che `data` sia ricostruibile; se un vecchio acknowledge ha perso storia senza una baseline/cloud receipt corrispondente, bloccare invece di azzerare.
+- Receipt server mancanti, corrotti o cambiati tra scansioni, scope sbagliato, edit concorrenti o conflitti tra device bloccano hydration preservando lo stato IDB. Nessun overwrite silenzioso.
+- Testare runtime di due client reali con Emulator, recovery offline dopo riavvio, fallimenti IndexedDB, logout/revoca, collisioni e storie incomplete.
+- Lo stato è **una convergenza limitata di laboratorio**, non un protocollo completo con checkpoint, deletion/tombstone, GC, gestione conflitti semantici, account deletion o registrazioni libere.
+- **NON collegare alla UI né distribuire su pianta-db** finché Security Rules live legacy, IAM, recovery end-to-end e cancellazione account non sono sottoposti a audit e test.

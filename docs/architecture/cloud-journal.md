@@ -54,3 +54,25 @@ L'ordinamento è deterministico sulle teste delle sequence di ogni replica e non
 **Vincoli intenzionali:** non vengono persiste né idratazione né ack; non ci sono tombstone, deletions, epoch causali, gestione completamento upload o conflitti semantici attraverso aggiornamenti di schema. Il limite di 200 documenti è incompatibile con un prodotto general-purpose e impedisce l'uso runtime: prima di abilitare M2 serviranno checkpoint, paginazione coerente e limiti di lettura Spark sostenibili.
 
 Il preview non deve essere considerato una dimostrazione di convergenza generale: rileva conflitti ovvi senza risolvere in modo silenzioso situazioni ambigue. Le Rules di laboratorio restano non distribuibili su `pianta-db`.
+
+
+## M2d — ripristino durevole in laboratorio
+
+`hydratePrivateJournal()` introduce una **scrittura locale IDB protetta**, distinta dal reader `inspectRemoteJournal()` non distruttivo.
+
+1. Leggere un envelope IDB completo e il journal Firestore server-only capped (max 200 receipt).
+2. Verificare owner, ID, sequence, compatibilità schema, invarianti, assenza di perdita receipt già salvati, dipendenze e conflitti.
+3. Prima/dentro la transazione `readwrite` verificare epoch Auth e compare-and-swap con l'intero envelope iniziale; se è cambiato, annullare.
+4. Ricalcolare la proiezione nel callback della transazione e scrivere `data` e `remoteReceipts` in un singolo record IDB; `pending` viene conservato integralmente.
+5. Promise risolta **solo su `tx.oncomplete`**. Un errore I/O, una revoca, una sessione diversa o un conflitto rendono l'operazione fallita, non un falso successo.
+
+L'array additivo `remoteReceipts` mantiene compatibilità di lettura con envelope M1 aventi `dataSchemaVersion=1`, che viene completato con `[]` in fase di parsing. Nessuna migrazione distruttiva. Dopo l'idratazione, `data` rappresenta il replay di `remoteReceipts + pending`, e un nuovo `commit()` può applicare operazioni a una pianta ripristinata da un secondo dispositivo. Ogni successivo sync ridetermina lo stato da storia completa, non da timestamp last-writer-wins.
+
+**Limiti da non mascherare:**
+- Questo algoritmo è volutamente conservativo. Blocca modifiche concorrenti allo stesso campo provenienti da repliche diverse, anche in alcune situazioni sequenziali lecite; non usa vector clock o risolutore semantico.
+- Non implementa causalità completa, tombstone, cancellazione, checkpoint, compattazione, upload+hydrate orchestrati in background, pending acknowledgements e retention. La scansione completa di 200 receipt è soltanto per test, non una strategia sostenibile con quote Spark.
+- Il metodo di riconciliazione **non è collegato all'interfaccia**, e le Security Rules `firestore.m2-test.rules` restano confinate a Emulator: distribuirle troncherebbe i path legacy.
+- La cancellazione account, il controllo delle registrazioni e la riconciliazione con Rules reali rimangono blocker prima di attivare dati/utenti live.
+- Il database condiviso `pianta-db` non viene modificato in M2d.
+
+Test: Vitest con fake-indexeddb per race, recovery e rollback I/O; Firestore Emulator con due repository IDB, grant owner e revoca. Il risultato `hydrated-locally` certifica il **solo commit IDB**, non la convergenza globale o una pubblicazione cloud.

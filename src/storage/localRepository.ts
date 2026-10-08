@@ -3,6 +3,7 @@ import {
   domainOperationSchema, emptyGarden, gardenStateSchema, type DomainOperation, type GardenState
 } from '../domain/schema';
 import { applyDomainOperation } from '../domain/operations';
+import { cloudJournalRecordSchema } from '../cloud/protocol';
 
 /**
  * M1 local-only durable repository. No Firestore calls, Auth wiring or persistent Firestore cache.
@@ -30,7 +31,9 @@ export const localEnvelopeSchema = z.strictObject({
   revision: sequence,
   lastSequence: sequence,
   data: gardenStateSchema,
-  pending: z.array(pendingOperationSchema).max(MAX_PENDING)
+  pending: z.array(pendingOperationSchema).max(MAX_PENDING),
+  // Backward-compatible, optional extension; existing M1 envelopes migrate on next write.
+  remoteReceipts: z.array(z.strictObject({id:z.string().min(1),data:cloudJournalRecordSchema})).max(200).default([])
 }).superRefine((value,ctx)=>{
   let previous = value.pending.length ? value.pending[0].sequence - 1 : value.lastSequence;
   for(const entry of value.pending){
@@ -47,6 +50,19 @@ export const localEnvelopeSchema = z.strictObject({
 export type LocalEnvelope = z.infer<typeof localEnvelopeSchema>;
 export type PendingOperation = z.infer<typeof pendingOperationSchema>;
 
+/** Structural CAS: JSON key enumeration order is not a change in user data. */
+function dataEqual(a:unknown,b:unknown):boolean {
+  if(Object.is(a,b))return true;
+  if(typeof a!=='object'||a===null||typeof b!=='object'||b===null)return false;
+  if(Array.isArray(a)||Array.isArray(b)){
+    return Array.isArray(a)&&Array.isArray(b)&&a.length===b.length
+      &&a.every((value,index)=>dataEqual(value,b[index]));
+  }
+  const first=a as Record<string,unknown>,second=b as Record<string,unknown>;
+  const keys=Object.keys(first);
+  return keys.length===Object.keys(second).length
+    &&keys.every(key=>Object.hasOwn(second,key)&&dataEqual(first[key],second[key]));
+}
 function newReplicaId(): string {
   if (typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') {
     throw new Error('Identificatore replica sicuro non disponibile');
@@ -56,7 +72,7 @@ function newReplicaId(): string {
 function fresh(ownerScope:string):LocalEnvelope {
   return {
     ownerScope,replicaId:newReplicaId(),envelopeVersion:LOCAL_ENVELOPE_VERSION,
-    dataSchemaVersion:LOCAL_DATA_SCHEMA_VERSION,revision:0,lastSequence:0,data:emptyGarden(),pending:[]
+    dataSchemaVersion:LOCAL_DATA_SCHEMA_VERSION,revision:0,lastSequence:0,data:emptyGarden(),pending:[],remoteReceipts:[]
   };
 }
 function parseStored(raw:unknown,ownerScope:string):LocalEnvelope {
@@ -91,15 +107,21 @@ export class LocalGardenRepository {
   async read():Promise<LocalEnvelope>{
     const db=await openDatabase(this.dbName);
     return new Promise((resolve,reject)=>{
-      const tx=db.transaction(STORE,'readonly');
+      const tx=db.transaction(STORE,'readwrite'); // initializes a stable replica ID atomically
       let result:LocalEnvelope|undefined;
       let failure:unknown;
       tx.oncomplete=()=>{db.close();if(result)resolve(result);else reject(failure??new Error('Lettura incompleta'));};
       tx.onabort=()=>{db.close();reject(failure??tx.error??new Error('Lettura IndexedDB interrotta'));};
       const request=tx.objectStore(STORE).get(this.ownerScope);
       request.onsuccess=()=>{
-        try{result=parseStored(request.result,this.ownerScope);}
-        catch(error){failure=error;tx.abort();}
+        try{
+          const stored=request.result as unknown;
+          result=parseStored(stored,this.ownerScope);
+          // A missing owner must receive one durable replica ID. Previously
+          // read() generated a different ephemeral UUID on every call, which
+          // broke CAS and could cause operation-ID identity corruption.
+          if(stored===undefined)tx.objectStore(STORE).put(result,this.ownerScope);
+        }catch(error){failure=error;tx.abort();}
       };
     });
   }
@@ -169,4 +191,30 @@ export class LocalGardenRepository {
       return {next,value:next};
     });
   }
+  /**
+   * CRITICAL: in-memory candidate and durable local snapshot must refer to the
+   * SAME envelope. A read-only server scan cannot overwrite a concurrent IDB edit.
+   * The projection is verified AGAIN inside the serialized IDB transaction.
+   */
+  persistRemoteSnapshot(
+    expected: LocalEnvelope,
+    rawRemote: readonly {id:string;data:unknown}[],
+    project: (current:LocalEnvelope) => GardenState,
+    isStillAuthorized: () => boolean
+  ): Promise<LocalEnvelope> {
+    return this.write(current=>{
+      if(!isStillAuthorized())throw new Error('Identity changed before hydration');
+      if(!dataEqual(current,expected))throw new Error('Concurrent local change before hydration');
+      const data=project(current);
+      const remoteReceipts=rawRemote.map(item=>({
+        id:item.id,
+        data:cloudJournalRecordSchema.parse(item.data)
+      }));
+      const next:LocalEnvelope={
+        ...current,data,remoteReceipts,revision:current.revision+1
+      };
+      return {next,value:next};
+    });
+  }
+
 }
