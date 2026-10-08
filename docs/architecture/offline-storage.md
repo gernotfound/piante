@@ -29,3 +29,6 @@
 Vitest verifica validazione date, schema e riferimenti, cicli genealogici, replay, ID duplicati, concorrenza tra istanze IDB, errore indotto durante `put`, preservazione del journal, ack selettivo, isolamenti per owner, database indisponibile e versioni incompatibili.
 
 Niente Firebase Emulator in M1: non ci sono Rules applicative nuove o query cloud da testare. Sarà obbligatorio nel momento in cui il sync/Firestore entrerà nel perimetro.
+
+## Interfaccia con M2b
+Il trasporto opzionale di laboratorio può serializzare le pending su Firestore, ma **non** rimuove il journal locale quando la scrittura è confermata. Non esiste ancora una baseline cloud autoritativa per ricostruire dati e modifiche concorrenti. Consultare [`cloud-journal.md`](cloud-journal.md).

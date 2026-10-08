@@ -66,3 +66,6 @@ Vedi [contratto di persistenza locale](docs/architecture/offline-storage.md) per
 La nuova web app può usare Google Auth con `piante.web.app` come `authDomain`, ma la modalità test è disabilitata per default. Non viene letta alcuna scheda privata e non viene effettuata alcuna scrittura live.
 Le Rules `firestore.m2-test.rules` vengono validate con Firebase Emulator tramite `npm run test:rules`, **mai distribuite sul progetto legacy**.
 Prima di abilitare il login è obbligatoria la configurazione OAuth esterna e la verifica del sito.
+
+## M2b: trasporto cloud di laboratorio
+È disponibile un adapter Firestore per append idempotente del journal privato, con test Firebase Emulator. **Non è ancora una sincronizzazione funzionante**, non è abilitato nella PWA e le Rules di laboratorio non vanno distribuite su `pianta-db`. Vedi [contratto cloud](docs/architecture/cloud-journal.md).
