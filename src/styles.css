@@ -62,3 +62,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; }
 }
+
+/* M2 test-only sign-in is hidden unless explicitly enabled at build time. */
+.auth-test-panel { margin: 30px 0; padding: 22px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); }
+.auth-test-panel h2 { margin: 0 0 8px; font-size: 20px; }
+.auth-test-panel p { font-size: 14px; margin: 8px 0 15px; }
+.auth-test-panel button { min-height: 48px; padding: 11px 16px; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+.auth-test-panel button:disabled { opacity: .5; cursor: not-allowed; }

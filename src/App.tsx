@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowRight, BookOpen, ExternalLink, Globe2, Leaf, LockKeyhole, ShieldCheck, Sprout } from 'lucide-react';
 import { parseRoute } from './lib/routes';
+import { AuthTestPanel } from './auth/AuthTestPanel';
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -67,6 +68,7 @@ export default function App() {
         <span className="page-kicker"><LockKeyhole size={17} /> Area privata</span>
         <h1>Il tuo spazio botanico.</h1>
         <p>La gestione privata arriverà nelle prossime milestone. Al momento questa pagina non permette accessi, modifiche o salvataggi.</p>
+        <AuthTestPanel />
         <a className="secondary-link" href="/">Torna alla home <ArrowRight size={16} /></a>
       </section>
     );

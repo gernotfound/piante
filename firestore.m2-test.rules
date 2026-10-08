@@ -1,0 +1,28 @@
+// M2 test-only rules. NEVER deploy to pianta-db: existing legacy users/{uid} need preservation.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function invitedOwner(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/piante_access/$(uid))
+        && get(/databases/$(database)/documents/piante_access/$(uid)).data.enabled == true;
+    }
+    // Admin-only provisioning. Clients may inspect their own grant, never create or edit it.
+    match /piante_access/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+    match /piante_users/{uid} {
+      allow get: if invitedOwner(uid);
+      allow list, create, update, delete: if false;
+      match /{path=**} {
+        allow get, list: if invitedOwner(uid);
+        allow create, update, delete: if false;
+      }
+    }
+    // No public catalog or legacy grants in these test-only rules.
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

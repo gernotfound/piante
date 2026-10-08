@@ -31,3 +31,13 @@ Nel progetto di test esistente questa pipeline resta disabilitata fino al cutove
 
 ## Vercel e Analytics
 Nessuna integrazione Vercel o Google Analytics viene introdotta nel repository. Disabilitare eventuali collegamenti Vercel legacy nella relativa dashboard dopo verifica, non mediante modifiche cieche ad altri repository.
+
+## M2a — OAuth Piante e configurazione esterna ancora da verificare
+Firebase Authentication usa il Project ID `pianta-db`, ma l'Auth helper e il dominio mostrato da Google devono puntare a `piante.web.app` tramite `VITE_FIREBASE_AUTH_DOMAIN=piante.web.app`.
+Provider Google:
+1. Verificare in Firebase Authentication > Settings > Authorized domains che sia incluso `piante.web.app` senza rimuovere `pianta-db.firebaseapp.com` o altri domini legacy.
+2. In Google Cloud > APIs & Services > Credentials, aggiungere al client OAuth utilizzato da Firebase Google: `https://piante.web.app/__/auth/handler`; non sostituire gli URI legacy.
+3. Confermare che `https://piante.web.app/__/auth/handler` venga servito realmente dal Firebase Hosting site `piante` prima di aprire il login.
+4. Registrare e verificare l'App ID della web app Piante e fornire la configurazione Firebase Web pubblica nel sistema di build prima del deploy.
+Queste operazioni sono esterne al repository: **non dichiararle completate senza verifica del provider**.
+La schermata test resta disabilitata per default. Nessuna migrazione Firebase, distribuzione Rules, abilitazione utenti o deploy Hosting è previsto nella PR M2a.
