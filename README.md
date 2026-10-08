@@ -46,6 +46,8 @@ Gli asset generati sono esclusi dal repository.
 - [Architettura](docs/architecture/overview.md).
 - [Confine pubblico/privato e dati](docs/architecture/data-privacy.md).
 - [Distribuzione Firebase](docs/operations/deployment.md).
+- [Registro dei servizi esterni](docs/operations/external-services-register.md) — iscrizioni, domini, configurazioni, costi, evidenze e modifiche.
+- [Regola sulle integrazioni esterne](.agents/rules/external-services.md).
 
 ## Sicurezza dello sviluppo
 

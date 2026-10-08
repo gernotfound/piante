@@ -41,3 +41,11 @@ Provider Google:
 4. Registrare e verificare l'App ID della web app Piante e fornire la configurazione Firebase Web pubblica nel sistema di build prima del deploy.
 Queste operazioni sono esterne al repository: **non dichiararle completate senza verifica del provider**.
 La schermata test resta disabilitata per default. Nessuna migrazione Firebase, distribuzione Rules, abilitazione utenti o deploy Hosting è previsto nella PR M2a.
+
+## Registro dei servizi esterni e verifiche ricevute
+
+Prima di modificare Firebase, Google Cloud o un altro provider consultare
+[`external-services-register.md`](external-services-register.md)
+e [la regola sulle integrazioni](../../.agents/rules/external-services.md).
+
+**Checkpoint 2026-10-08, screenshot del product owner:** `piante.web.app` è mostrato come dominio Firebase Auth autorizzato e `https://piante.web.app/__/auth/handler` è mostrato tra i redirect OAuth. L'origine JavaScript `https://piante.web.app` **non** è nella lista visibile e resta da aggiungere. Non rimuovere URI/referrer legacy. Il registro distingue tali screenshot da verifiche provider indipendenti.
