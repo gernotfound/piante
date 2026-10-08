@@ -37,3 +37,6 @@ Il trasporto opzionale di laboratorio può serializzare le pending su Firestore,
 ## M2d — stato remoto nello stesso envelope
 Il campo additivo facoltativo `remoteReceipts` (default `[]`) è persistito assieme allo stato `data`, al `pending` e alla `revision` nel **medesimo record IDB**. È compatibile con envelope M1 v1 precedentemente salvati (non vengono resettati). Dopo hydration valida, `data` è la proiezione delle operazioni remote verificate e delle pending, mentre `pending` resta intatto.
 La hydration ricontrolla il CAS dentro la transazione `readwrite`, rifiuta storia server perduta, owner diverso, edit concorrenti o corruzione dei receipt; errori storage annullano l'intero commit. Vedi [`cloud-journal.md`](cloud-journal.md). Nessuna Rules o Firebase live attivata.
+
+### Inizializzazione identità replica (regressione M2d)
+Una prima `read()` senza envelope ora crea e conferma **atomicamente** l'envelope iniziale in una transazione IDB `readwrite`, prima di restituire l'ID replica. Prima di questa regressione, una lettura a DB vuoto generava un `replicaId` effimero diverso ad ogni chiamata: questo rendeva impossibile il CAS di hydration e rischiava IDs incoerenti. Testare reload e letture concorrenti al primo accesso.

@@ -94,15 +94,21 @@ export class LocalGardenRepository {
   async read():Promise<LocalEnvelope>{
     const db=await openDatabase(this.dbName);
     return new Promise((resolve,reject)=>{
-      const tx=db.transaction(STORE,'readonly');
+      const tx=db.transaction(STORE,'readwrite'); // initializes a stable replica ID atomically
       let result:LocalEnvelope|undefined;
       let failure:unknown;
       tx.oncomplete=()=>{db.close();if(result)resolve(result);else reject(failure??new Error('Lettura incompleta'));};
       tx.onabort=()=>{db.close();reject(failure??tx.error??new Error('Lettura IndexedDB interrotta'));};
       const request=tx.objectStore(STORE).get(this.ownerScope);
       request.onsuccess=()=>{
-        try{result=parseStored(request.result,this.ownerScope);}
-        catch(error){failure=error;tx.abort();}
+        try{
+          const stored=request.result as unknown;
+          result=parseStored(stored,this.ownerScope);
+          // A missing owner must receive one durable replica ID. Previously
+          // read() generated a different ephemeral UUID on every call, which
+          // broke CAS and could cause operation-ID identity corruption.
+          if(stored===undefined)tx.objectStore(STORE).put(result,this.ownerScope);
+        }catch(error){failure=error;tx.abort();}
       };
     });
   }

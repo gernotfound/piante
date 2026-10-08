@@ -13,6 +13,20 @@ const instance=(name:string,owner='user:alice',now=100)=>
 
 afterEach(()=>vi.restoreAllMocks());
 describe('IndexedDB atomic state + operation journal (CRITICAL)',()=>{
+  it('creates a single durable replica identity even on a read-only first launch',async()=>{
+    const db=dbName();
+    const first=await instance(db).read();
+    const second=await instance(db).read();
+    expect(second.replicaId).toBe(first.replicaId);
+    expect(second).toEqual(first);
+    expect((await instance(db).commit(avocado('p1'))).replicaId).toBe(first.replicaId);
+  });
+  it('serializes two first-time readers without changing the replica identity',async()=>{
+    const db=dbName();
+    const [a,b]=await Promise.all([instance(db).read(),instance(db).read()]);
+    expect(a.replicaId).toBe(b.replicaId);
+    expect((await instance(db).read()).replicaId).toBe(a.replicaId);
+  });
   it('persists state, sequence, ID and operations across repository restarts',async()=>{
     const db=dbName();
     const first=await instance(db).commit(avocado('p1'));
