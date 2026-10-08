@@ -139,7 +139,7 @@ jobs:
         run: npm run test:rules
       - name: Upload failure logs
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: firestore-rules-failure-${{ github.run_id }}
           if-no-files-found: ignore
