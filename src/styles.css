@@ -69,3 +69,50 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .auth-test-panel p { font-size: 14px; margin: 8px 0 15px; }
 .auth-test-panel button { min-height: 48px; padding: 11px 16px; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
 .auth-test-panel button:disabled { opacity: .5; cursor: not-allowed; }
+
+
+/* M3a — invited test account only: local botanical archive, no cloud access. */
+.private-garden { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
+.private-garden__header { display: flex; gap: 20px; justify-content: space-between; align-items: start; }
+.private-garden__header h2 { font-size: clamp(25px, 4vw, 36px); letter-spacing: -.04em; margin: 12px 0 6px; }
+.private-garden__header p { margin: 0 0 15px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.garden-refresh { display: inline-flex; gap: 8px; align-items: center; justify-content: center; }
+.garden-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.garden-summary > div { display: flex; flex-direction: column; gap: 4px; padding: 15px; background: var(--subtle); border-radius: 14px; }
+.garden-summary strong { font-size: 25px; font-variant-numeric: tabular-nums; }
+.garden-summary span { color: var(--muted); font-size: 12px; }
+.garden-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 15px; }
+.garden-section { padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 17px; min-width: 0; }
+.garden-section h3 { display: flex; gap: 9px; align-items: center; margin: 0 0 18px; font-size: 18px; }
+.garden-empty { font-size: 14px !important; }
+.garden-plants, .garden-diary ul { list-style: none; padding: 0; margin: 0; }
+.garden-plant { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); }
+.garden-plant:first-child { border-top: 0; }
+.garden-plant__body { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.garden-plant__body strong { overflow-wrap: anywhere; }
+.garden-plant__body em { font-size: 13px; }
+.garden-plant__body span { color: var(--muted); font-size: 12px; }
+.garden-plant__actions { display: flex; flex-direction: column; gap: 4px; min-width: 112px; }
+.garden-plant__actions label { font-size: 12px; }
+.garden-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.auth-test-panel .garden-tabs button { background: var(--subtle); color: var(--text); min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 9px 12px; }
+.auth-test-panel .garden-tabs button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.garden-form { display: flex; flex-direction: column; gap: 8px; }
+.garden-form h3 { margin-bottom: 5px; }
+.garden-form label { font-size: 13px; font-weight: 700; margin-top: 5px; }
+.garden-form input, .garden-form select, .garden-form textarea, .garden-plant__actions select { width: 100%; min-height: 44px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font: inherit; font-size: 14px; }
+.garden-form textarea { resize: vertical; }
+.garden-form button[type="submit"] { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.garden-feedback { padding: 10px 13px; border-radius: 10px; background: var(--subtle); color: var(--text); }
+.garden-feedback--error { border: 1px solid #ca746e; }
+.garden-diary { margin-top: 15px; }
+.garden-diary li { display: flex; gap: 9px; flex-wrap: wrap; font-size: 13px; padding: 11px 0; border-top: 1px solid var(--border); }
+.garden-diary li span { color: var(--muted); overflow-wrap: anywhere; }
+.private-garden .garden-privacy { font-size: 12px; line-height: 1.6; margin: 12px 0 0; color: var(--muted); }
+.auth-test-panel:has(.private-garden) { margin-left: calc(-1 * max(0px, (min(100vw - 48px, 1160px) - 680px) / 2)); width: min(calc(100vw - 48px), 1100px); }
+@media (max-width: 760px) {
+ .auth-test-panel:has(.private-garden) { margin-left: 0; width: 100%; }
+ .private-garden__header { flex-wrap: wrap; }
+ .garden-summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+ .garden-layout { grid-template-columns: minmax(0,1fr); }
+}

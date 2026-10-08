@@ -103,3 +103,12 @@
 - Ogni errore, timeout, autorizzazione revocata o conferma cloud mancante deve produrre stato distinguibile (`retry-required`, `blocked` oppure eccezione fail-closed), senza riportare «sincronizzato» impropriamente.
 - Rileggere il cloud **prima** di caricare nuovi intenti; divergenze semantiche fra repliche bloccano l'upload e preservano journal locale.
 - **Non collegare all'UI, non abilitare Rules live e non distribuire su pianta-db.** Account lifecycle, protocollo causale e checkpoint restano obbligatori prima dell'uso.
+
+## M3a — archivio UI privato riservato (test-only)
+- `src/private/PrivateGarden.tsx` può leggere e scrivere **solo IndexedDB** dopo `AuthSessionController.status==='authorized'`, e **solo quando `VITE_AUTH_TEST_MODE=true`**. Di default la PWA rimane la shell.
+- Non consentire la gestione dati a sessioni initializing/checking/denied/signed-out/error. Ogni cambio UID deve smontare la vecchia istanza e crearne una per `user:<uid>`; vietati guest fallback e cache condivise.
+- Usare `LocalGardenRepository.commit()` per ogni modifica: visualizzare conferma soltanto dopo `tx.oncomplete`. Gli errori di schema/storage rimangono errori visibili; non simulare successo.
+- Conservare lo stato privato, i pending e le note nel solo record IDB, senza servizi terzi, analytics o cloud. Nessuna vetrina pubblica è alimentata da questo componente.
+- Mostrare avviso esplicito: dati locali **non sincronizzati e senza backup live**; si possono perdere cancellando dati browser. Non incoraggiare uso produttivo finché export/backup e recupero reali non sono disponibili.
+- Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live Security Rules legacy, account lifecycle e cancellazione.
+- Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
