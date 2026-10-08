@@ -1,6 +1,9 @@
 # Piante — contratto operativo per agenti
 
 ## Fonti di verità
+- **Servizi esterni:** leggere `.agents/rules/external-services.md` e `docs/operations/external-services-register.md` quando un task riguarda iscrizioni, domini, provider, autenticazione, credenziali, deploy, costi o configurazione esterna. Aggiornare il registro nello stesso task dopo ogni modifica materiale; distinguere screenshot, stato del repository e provider effettivamente verificato.
+
+
 - Verificare HEAD reale di `gernotfound/piante` prima di qualsiasi modifica.
 - Consultare `gernotfound/logbook` per principi, non copiare automaticamente implementazioni o versioni di protocolli.
 - Consultare `gernotfound/pianta` soltanto per inventario funzionale e migrazione dei dati legacy.
