@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   initializeTestEnvironment, type RulesTestEnvironment
