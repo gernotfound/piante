@@ -36,3 +36,13 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** se emerge conflitto fra repliche, **nessun** last-write-wins: notificare condizione non risolta, conservare dati locali, richiedere protocollo causale/versioni per il futuro.
 - **MUST:** una estensione v1 retrocompatibile non autorizza upgrade/downgrade distruttivi. Sconosciute versioni future continuano a bloccare l'accesso.
 - **MUST:** questa milestone resta **solo laboratorio Emulator**; no live Rules, Auth/Hosting deploy, cloud in runtime UI o account registration.
+
+
+## M2e — invio a blocchi con conferme verificabili
+- **MUST:** il cursore upload deriva solo dai receipt server già validati e salvati nella stessa busta IDB; mai da tentativi di rete, timestamp o ack informale.
+- **MUST:** evitare invii infiniti dei primi 20 pending: dopo una hydration, saltare solo le operazioni con receipt di payload identico. Un receipt omonimo divergente è errore critico.
+- **MUST:** leggere e verificare il cloud *prima* dell'upload per bloccare conflitti; dopo ogni batch rileggere e verificare in memoria/IDB il payload realmente presente sul server.
+- **MUST:** se una write ha successo ma la conferma dal server manca, restituire `retry-required` mantenendo tutte le pending. Se il server ha salvato la write prima del timeout, il successivo read server può recuperare senza duplicare.
+- **MUST:** mantenere il limite laboratorio max 200 operazioni e max 20 per batch; non tratteggiare questo meccanismo come checkpoint scalabile su Spark.
+- **MUST:** il risultato `verified-receipts-journal-retained` certifica i receipt in quel momento, non sincronizzazione causale globale, pubblicazione, né possibilità di cancellare il journal.
+- **MUST:** il ciclo non è collegato a Auth UI, non gira in background e non ha accesso al Firebase live. Non distribuire Rules test-only.

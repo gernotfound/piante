@@ -95,3 +95,11 @@
 - Testare runtime di due client reali con Emulator, recovery offline dopo riavvio, fallimenti IndexedDB, logout/revoca, collisioni e storie incomplete.
 - Lo stato è **una convergenza limitata di laboratorio**, non un protocollo completo con checkpoint, deletion/tombstone, GC, gestione conflitti semantici, account deletion o registrazioni libere.
 - **NON collegare alla UI né distribuire su pianta-db** finché Security Rules live legacy, IAM, recovery end-to-end e cancellazione account non sono sottoposti a audit e test.
+
+
+## M2e — ciclo sincrono batch del journal (laboratorio)
+- `runPrivateJournalCycle` compone hydration server-verificata → upload max 20 operazioni → nuova hydration e verifica receipt; max 200 receipt per device in laboratorio. Non è un worker in background né una sync multiutente attiva.
+- Le pending **non sono mai eliminate**: una conferma può soltanto diventare `remote-receipts-already-present` dopo che una scansione server autenticata è stata persistita nell'envelope.
+- Ogni errore, timeout, autorizzazione revocata o conferma cloud mancante deve produrre stato distinguibile (`retry-required`, `blocked` oppure eccezione fail-closed), senza riportare «sincronizzato» impropriamente.
+- Rileggere il cloud **prima** di caricare nuovi intenti; divergenze semantiche fra repliche bloccano l'upload e preservano journal locale.
+- **Non collegare all'UI, non abilitare Rules live e non distribuire su pianta-db.** Account lifecycle, protocollo causale e checkpoint restano obbligatori prima dell'uso.

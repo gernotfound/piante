@@ -26,6 +26,7 @@ export function prepareCloudRecord(ownerUid: string, envelope: LocalEnvelope, pe
 
 export type UploadOutcome =
   | { status: 'nothing-to-upload' }
+  | { status: 'remote-receipts-already-present'; count: number }
   | { status: 'uploaded-awaiting-reconciliation'; count: number }
   | { status: 'local-pending'; count: number }
   | { status: 'rejected'; count: number }
@@ -39,6 +40,27 @@ function isPermissionDenied(error: unknown): boolean {
 function identicalPending(a: PendingOperation, b: PendingOperation): boolean {
   // Both are Zod validated; parse normalizes key ordering and removes ambiguity.
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Only receipts restored from a complete authenticated SERVER scan may
+ * advance the upload cursor. Never drop the local journal or trust a timeout.
+ */
+export function missingRemoteReceipts(
+  ownerUid: string, envelope: LocalEnvelope
+): PendingOperation[] {
+  const uid=uidSchema.parse(ownerUid);
+  if(envelope.ownerScope!=='user:'+uid)throw new Error('Owner locale e Firebase UID divergenti');
+  const receipts=new Map(envelope.remoteReceipts.map(item=>[item.id,item.data]));
+  return envelope.pending.filter(pending=>{
+    const expected=prepareCloudRecord(ownerUid,envelope,pending);
+    const actual=receipts.get(pending.operationId);
+    if(!actual)return true;
+    if(JSON.stringify(actual)!==JSON.stringify(expected)){
+      throw new Error('Receipt cloud in conflitto con operazione locale');
+    }
+    return false;
+  });
 }
 
 /**
@@ -60,8 +82,11 @@ export async function uploadPendingJournal(
   if (envelope.ownerScope !== `user:${uidSchema.parse(ownerUid)}`) {
     return { status: 'failed', count: 0, reason: 'identity-changed' };
   }
-  const outgoing = envelope.pending.slice(0, maxEntries);
-  if (outgoing.length === 0) return { status: 'nothing-to-upload' };
+  if(envelope.pending.length===0)return {status:'nothing-to-upload'};
+  const outgoing=missingRemoteReceipts(ownerUid,envelope).slice(0,maxEntries);
+  if(outgoing.length===0){
+    return {status:'remote-receipts-already-present',count:envelope.pending.length};
+  }
   let uploaded = 0;
   for (const pending of outgoing) {
     if (!isStillAuthorized()) return { status: 'failed', count: uploaded, reason: 'identity-changed' };

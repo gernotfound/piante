@@ -86,3 +86,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - CAS e replay validante nel commit IDB; edit tra tab, revoca owner, receipt corrotti e conflitti portano a rifiuto senza perdere l'archivio precedente.
 - Suite Firestore Emulator con due device: upload idempotente e lettura convergente su un sottoinsieme compatibile di operazioni.
 - **Non attiva in UI/cloud live:** no checkpoint scalabile, tombstone, conflitti semantici, registrazione account, cancellazione sicura o Rules legacy riconciliate.
+
+
+## Stato M2e — batch e conferme server
+- Il ciclo di laboratorio combina lettura server, applicazione IDB atomica, upload max 20 intenti e riconferma server prima di avanzare.
+- I batch successivi saltano soltanto i receipt **già verificati**; i timeout ambigui sono recuperabili senza deduplicazione cieca.
+- I test Emulator coprono più di 20 operazioni reali; il codice **non** è attivo in UI, Hosting o Rules live. Mancano protocollo causale, scalabilità, account deletion e gestione conflitti utente.
