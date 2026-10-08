@@ -8,6 +8,7 @@ const plant={id:'avocado_1',commonName:'Avocado Bacon',origin:'graft',status:'ac
 describe('M1 botanical schemas',()=>{
   it('rejects malformed calendar dates while allowing leap days',()=>{
     expect(isCalendarDate('2024-02-29')).toBe(true);
+    expect(isCalendarDate('0099-02-28')).toBe(true);
     for(const value of ['2023-02-29','2024-13-01','2024-02-30','2024-1-1','2024-00-01','2024-01-00']) {
       expect(calendarDate.safeParse(value).success).toBe(false);
     }

@@ -8,7 +8,9 @@ export function isCalendarDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [y, m, d] = value.split('-').map(Number);
   if (y < 1 || m < 1 || m > 12 || d < 1 || d > 31) return false;
-  const x = new Date(Date.UTC(y, m - 1, d));
+  const x = new Date(0);
+  x.setUTCHours(0, 0, 0, 0);
+  x.setUTCFullYear(y, m - 1, d);
   return x.getUTCFullYear() === y && x.getUTCMonth() + 1 === m && x.getUTCDate() === d;
 }
 export const calendarDate = z.string().refine(isCalendarDate, 'Data calendario non valida');

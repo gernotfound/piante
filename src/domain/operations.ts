@@ -10,7 +10,7 @@ function rejectUndefined(value: unknown, path = new WeakSet<object>()): void {
   path.delete(value);
 }
 function applyPatch<T extends object>(base: T, patch: Record<string, unknown>): T {
-  const next: Record<string, unknown> = { ...base };
+  const next: Record<string, unknown> = { ...(base as Record<string, unknown>) };
   for (const [key, value] of Object.entries(patch)) {
     if (value === null) delete next[key];
     else next[key] = value;

@@ -45,7 +45,7 @@ describe('IndexedDB atomic state + operation journal (CRITICAL)',()=>{
     const repo=instance(db);
     const before=await repo.commit(avocado('p1'));
     const original=IDBObjectStore.prototype.put;
-    const spy=vi.spyOn(IDBObjectStore.prototype,'put').mockImplementationOnce(function(this:IDBObjectStore,...args:Parameters<IDBObjectStore['put']>){
+    const spy=vi.spyOn(IDBObjectStore.prototype,'put').mockImplementationOnce(function(this:IDBObjectStore){
       throw new Error('Injected write failure');
     });
     await expect(repo.commit(avocado('p2'))).rejects.toThrow('Injected write failure');

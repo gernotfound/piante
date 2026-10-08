@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyDomainOperation, replayOperations } from './operations';
-import { emptyGarden, type DomainOperation } from './schema';
+import { emptyGarden } from './schema';
 
 const avocado={id:'avocado_1',commonName:'Avocado Bacon',origin:'graft',status:'active'} as const;
 const plantCreate={type:'plant.create',plant:avocado} as const;
