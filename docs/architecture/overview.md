@@ -108,3 +108,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Contratto del runner server-only per **solo** dati Piante: tombstone amministrativo, lease, inventory di collezioni e asset, batch massimo 50, stato riprendibile e verifica finale.
 - Rules e regressioni Firestore Emulator negano tutti i path Piante (incluso grant) quando compare tombstone, senza esporre o mutare il job dal client.
 - L'account Firebase Auth **non** viene cancellato: è condiviso con Pianta legacy. Non esiste backend live né UI di cancellazione. Le Rules di prova non sono quelle distribuite. Non aprire signup né dichiarare lifecycle completo.
+
+
+## Stato M3d — hardening lease amministrativi
+- Verificato HEAD e CI precedenti su GitHub, poi rafforzata la barriera di cancellazione con token di fencing e regressioni sui race TOCTOU fra scan e delete.
+- Il contratto richiede validazione atomica del lease dentro i mutatori server, rilascio condizionale e nuova verifica degli artifact esterni prima del completamento.
+- **Non implementato:** adapter Firebase Admin reale, endpoint, cancellazione/Auth lifecycle, deploy Rules/Hosting o cleanup di dati condivisi. La validazione provider live è ancora aperta.

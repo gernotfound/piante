@@ -36,3 +36,7 @@ La completa cancellazione cross-collection/account e alcune garanzie sulla pubbl
 - Non pubblicare operazioni cancellabili attraverso SDK client; non toccare `users/{uid}` legacy, né Firebase Auth. Lo stato complete deve avere prova di assenza cloud, compresi grant e dipendenze pubbliche/media.
 - Il runner di laboratorio `src/account/deletionRunner.ts` è intenzionalmente inerte e NON costituisce una procedura di diritto alla cancellazione operativa. La UI non offre per ora la cancellazione account.
 - Vedi `.agents/rules/account-lifecycle.md` per sequenza, crash consistency, limiti e blocker esterni.
+
+
+## M3d — perdita del lease e scritture amministrative
+La cancellazione privata Piante di laboratorio ora richiede token di fencing emessi dal backend e verificati ad ogni mutazione amministrativa. Un worker scaduto non può proseguire, cancellare grant o liberare il lock di un worker più recente. Il token non è una credenziale per l'utente: nessun codice di cancellazione deve essere esportato alla UI o all'SDK Firebase client. Le implementazioni concrete devono attestare fencing atomico e inventario completo prima di poter eliminare dati reali.

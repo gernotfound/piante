@@ -32,3 +32,13 @@ Il runner NON è collegato a un backend trusted: Firebase Spark attuale non auto
 ## Verifiche
 
 Test pure Vitest: lease e concorrenza, paginazione max 50, crash/retry, timeout ambiguo, evidenze sconosciute, collezioni ignote, UID malevolo e complete senza prova. Test Firestore Emulator: barriera tombstone admin-only, anonimo, cross-user, grant ancora esistente e nessuna esposizione del job. La suite canonica di AGENTS resta obbligatoria sull'exact SHA.
+
+
+## M3d — fencing tokens obbligatori per runner concorrenti
+Il contratto di M3c aveva un lease dichiarato, ma le operazioni distruttive non ricevevano l'identità del lease: se la scadenza avveniva fra una query e una scrittura, un vecchio worker poteva continuare o rilasciare il lease del nuovo worker. È un rischio di concorrenza al boundary trusted, non un incidente osservato su Firebase.
+
+In M3d `begin(uid)` torna uno stato discriminato, con un `token` opaco non prevedibile quando il lease è acquisito. Un `assertLease(uid,token)` separato rileva cambi di proprietà dopo ogni attesa asincrona, ma **non basta**: tutte le azioni distruttive devono verificare lo stesso token e la non-scadenza del lease nella **stessa transazione/operazione atomica lato provider** della mutazione. Un retry deve ottenere un nuovo token, mai riutilizzarne uno scaduto.
+
+`release(uid,token)` è compare-and-release del proprio lease soltanto, e non cancella il tombstone. La verifica finale controlla nuovamente che non esistano asset Piante esterni prima di segnare `complete`; questa verifica non costituisce una garanzia transazionale su servizi esterni e rimane una limitazione pre-release.
+
+Test obbligatori: scadenza durante query, scadenza fra precheck e write, cambio proprietario prima della rimozione del grant, impossibilità per il vecchio worker di liberare il nuovo lease, nuova risorsa esterna scoperta prima del `complete`. Questo modello è **inerte**: senza un adapter amministrativo reale che applichi il fencing in modo atomico non si può dichiarare disponibile la cancellazione account.
