@@ -31,6 +31,9 @@ describe('M3e static release boundary (CRITICAL shared Firebase)',()=>{
    denied(x=>{x.firebaseConfig.hosting.target='piante';},'hosting-hooks-or-target-not-allowed');
    denied(x=>{x.firebaseConfig.hosting.predeploy=['firebase deploy'];},
      'hosting-hooks-or-target-not-allowed');
+   denied(x=>{x.firebaseConfig.hosting.source='.';},'unsupported-hosting-directive');
+   denied(x=>{x.firebaseConfig.hosting.frameworksBackend={region:'europe-west1'};},
+     'unsupported-hosting-directive');
  });
  it('blocks unreviewed deployment routing, path changes and dropped headers',()=>{
    denied(x=>{x.firebaseConfig.hosting.public='public';},'wrong-hosting-directory');
@@ -39,6 +42,15 @@ describe('M3e static release boundary (CRITICAL shared Firebase)',()=>{
    denied(x=>{x.firebaseConfig.hosting.redirects=[{source:'**',destination:'https://elsewhere'}];},
      'hosting-redirects-not-reviewed');
    denied(x=>{x.firebaseConfig.hosting.headers=[];},'hosting-security-headers-missing');
+   denied(x=>{const item=x.firebaseConfig.hosting.headers.find(row=>row.source==='/**');
+     item.headers.find(h=>h.key==='X-Frame-Options').value='SAMEORIGIN';
+   },'hosting-security-header-weakened:x-frame-options');
+   denied(x=>{const item=x.firebaseConfig.hosting.headers.find(row=>row.source==='/**');
+     item.headers.find(h=>h.key==='Content-Security-Policy').value="default-src *";
+   },'hosting-content-security-policy-weakened');
+   denied(x=>{x.firebaseConfig.hosting.headers.push({source:'/app',headers:[{
+     key:'Content-Security-Policy',value:'default-src *'
+   }]});},'overlapping-hosting-security-header');
  });
  it('rejects enabled or indeterminate Auth test builds regardless of env file precedence',()=>{
    for(const raw of ['true','TRUE','1','', '"true"',"'true'"]){

@@ -43,6 +43,9 @@ export function assertStaticReleaseBoundary({
     'firebase-config-must-be-hosting-only');
   const hosting=firebaseConfig.hosting;
   requireRelease(hosting&&typeof hosting==='object'&&!Array.isArray(hosting),'hosting-config-invalid');
+  const allowedHostingKeys=new Set(['site','public','ignore','cleanUrls','trailingSlash','headers','rewrites']);
+  requireRelease(Object.keys(hosting).every(key=>allowedHostingKeys.has(key)),
+    'unsupported-hosting-directive');
   requireRelease(hosting.site==='piante','wrong-hosting-site');
   requireRelease(hosting.public==='dist','wrong-hosting-directory');
   requireRelease(!Object.hasOwn(hosting,'target')&&!Object.hasOwn(hosting,'predeploy')&&!Object.hasOwn(hosting,'postdeploy'),
@@ -57,6 +60,29 @@ export function assertStaticReleaseBoundary({
       .flatMap(row=>row.headers.map(header=>String(header.key).toLowerCase()))
   );
   requireRelease([...csp].every(key=>securityHeaders.has(key)),'hosting-security-headers-missing');
+  const baseHeaders=hosting.headers.filter(row=>row.source==='/**');
+  requireRelease(baseHeaders.length===1,'hosting-security-headers-missing');
+  const requiredSecurityValues=new Map([
+    ['x-content-type-options','nosniff'],
+    ['x-frame-options','DENY'],
+    ['referrer-policy','strict-origin-when-cross-origin']
+  ]);
+  for(const [key,value] of requiredSecurityValues) {
+    const actual=baseHeaders[0].headers.filter(header=>String(header.key).toLowerCase()===key);
+    requireRelease(actual.length===1&&actual[0].value===value,'hosting-security-header-weakened:'+key);
+  }
+  const cspRows=baseHeaders[0].headers.filter(header=>String(header.key).toLowerCase()==='content-security-policy');
+  const policy=cspRows[0]?.value;
+  requireRelease(cspRows.length===1&&typeof policy==='string'&&
+    ["default-src 'self'","object-src 'none'","frame-ancestors 'none'","base-uri 'self'"]
+      .every(directive=>policy.split(';').some(part=>part.trim()===directive))&&
+    !/unsafe-eval|unsafe-inline|https?:\/\/\*|\bdata:.*script-src/.test(policy),
+    'hosting-content-security-policy-weakened');
+  // A path-specific security header may override the safe catch-all.
+  requireRelease(hosting.headers.filter(row=>row.source!=='/**').every(row=>
+    Array.isArray(row.headers)&&row.headers.every(h=>!csp.has(String(h.key).toLowerCase()))),
+    'overlapping-hosting-security-header');
+
   requireRelease(projectConfig.projects && typeof projectConfig.projects==='object' &&
     !Array.isArray(projectConfig.projects)&&
     Object.keys(projectConfig.projects).length===1&&projectConfig.projects.default==='pianta-db',
