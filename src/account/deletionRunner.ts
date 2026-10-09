@@ -11,7 +11,8 @@ export const MAX_DELETE_BATCH = 50;
 
 export type AcquiredDeletionLease =
   | {status:'acquired'; token:string}
-  | {status:'busy'|'complete'};
+  | {status:'busy'}
+  | {status:'complete'};
 
 export type DeletionStep =
   | {status:'busy'}
