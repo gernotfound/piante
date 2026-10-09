@@ -27,8 +27,12 @@ test('non pubblica contenuti per rotte non valide', async ({ page }) => {
 
 test('release boundary: public shell never starts test Auth or contacts Firebase', async ({ page }) => {
   const firebaseRequests: string[] = [];
+  const firebaseHosts = new Set([
+    'identitytoolkit.googleapis.com', 'securetoken.googleapis.com',
+    'firestore.googleapis.com', 'firebaseinstallations.googleapis.com'
+  ]);
   page.on('request', request => {
-    if (/identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com|firestore\.googleapis\.com|firebaseinstallations\.googleapis\.com/.test(request.url())) {
+    if (firebaseHosts.has(new URL(request.url()).hostname)) {
       firebaseRequests.push(request.url());
     }
   });
