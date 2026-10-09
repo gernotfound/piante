@@ -138,3 +138,11 @@
 - **MUST:** `release(uid,token)` non può mai rilasciare il lease di un worker più recente; tombstone persistente anche in errore/scadenza. Il runner non deve interpretare la perdita del lease come completamento.
 - Un job già `complete` verifica nuovamente inventario esterno, namespace Piante vuoto e grant rimosso. Anche il path iniziale verso `markComplete` riesamina gli artifact esterni.
 - Nessuna implementazione live del port è presente: questo è un contratto testabile in memoria. **NON** distribuire né collegare alla PWA prima di backend trusted, audit Firebase live e prova di atomicità end-to-end.
+
+
+## M3e — static release safety gate (STANDARD per CI, CRITICAL per confini Firebase)
+- Leggere `.agents/rules/release-boundary.md` prima di modificare `firebase.json`, `.firebaserc`, variabili `VITE_AUTH_TEST_MODE`, `vite.config.ts`, build, CI o deploy.
+- L'artefatto `npm run build` è **solo una shell statica**: `scripts/check-release-boundary.mjs` e Vite rifiutano build se `VITE_AUTH_TEST_MODE` non è disabilitato. Non riattivare login sperimentale in una release normale.
+- Il controllo vieta nuovi blocchi Firebase `firestore`, `functions`, `storage` e altri provider nel file Hosting, site/progetto inattesi, riscritture diverse dalla SPA e rimozione degli header di sicurezza.
+- `Verification / Static Release Boundary` esegue invarianti + preflight sullo **SHA esatto**, e `Canonical Verification` ne richiede il successo insieme agli altri gate.
+- Questi controlli provano **solo configurazione statica GitHub**, non Firebase live. La CI non dispone di credenziali e non distribuisce niente. La riconciliazione delle Rules legacy, IAM, OAuth/App Check e lifecycle account restano vincoli prima dell'attivazione.

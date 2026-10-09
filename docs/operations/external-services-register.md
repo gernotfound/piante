@@ -85,8 +85,11 @@ Non sono stati aperti/validati:
 
 ## Eventi / decisioni tracciate
 
+
+
 | Data | Provider | Evento | Evidenza | Stato / seguito |
 | --- | --- | --- | --- | --- |
+| 2026-10-09 | GitHub / Firebase Hosting | M3e: aggiunto un preflight statico di release, test negativi e un required gate aggregato che impedisce la produzione della build con `VITE_AUTH_TEST_MODE` attivo o configurazioni Firebase non-Hosting | `GITHUB-OBSERVED` (configurazione nel repository; CI da verificare) | **Nessun cambiamento provider** e nessun deploy; Firebase live, OAuth, IAM, Rules/Hosting restano `VERIFY-LIVE` |
 | 2026-10-08 | GitHub | M2a integrata su `main` (squash SHA `8dc84e52`): Auth test-only e suite Firestore Emulator; post-merge CI verde | `GITHUB-OBSERVED` | nessun deploy Firebase |
 | 2026-10-08 | Firebase Auth | Screenshot del product owner conferma `piante.web.app` tra gli Authorized domains insieme ai domini legacy | `USER-SCREENSHOT` | aggiunta visibile; verifica diretta provider ancora aperta |
 | 2026-10-08 | Google OAuth | Screenshot conferma il redirect `https://piante.web.app/__/auth/handler` tra quelli autorizzati | `USER-SCREENSHOT` | redirect visibile; OAuth runtime non collaudato |

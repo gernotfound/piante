@@ -114,3 +114,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Verificato HEAD e CI precedenti su GitHub, poi rafforzata la barriera di cancellazione con token di fencing e regressioni sui race TOCTOU fra scan e delete.
 - Il contratto richiede validazione atomica del lease dentro i mutatori server, rilascio condizionale e nuova verifica degli artifact esterni prima del completamento.
 - **Non implementato:** adapter Firebase Admin reale, endpoint, cancellazione/Auth lifecycle, deploy Rules/Hosting o cleanup di dati condivisi. La validazione provider live è ancora aperta.
+
+
+## Stato M3e — rilascio Hosting statico protetto da CI
+- Testa separatamente configurazioni di deploy pericolose, project/site target e flag `VITE_AUTH_TEST_MODE` prima di compilare `dist/`.
+- Il job `Verification / Static Release Boundary` è parte integrante di `Canonical Verification` e legge configurazioni senza secret; la configurazione Vite rifiuta anche build invocate senza npm prebuild se il flag test è attivo.
+- **Non configurato né verificato:** provider IAM/OAuth/App Check/Rules live, backend trusted/cancellazione, credenziali WIF, deploy Hosting e smoke test sul sito; quindi nessun cutover autorizzato.

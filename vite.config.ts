@@ -1,8 +1,18 @@
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+export default defineConfig(({command,mode}) => {
+  // Vite's production bundle must never enable the invitation-only test flow,
+  // even when somebody calls vite build directly without npm prebuild.
+  if (command === 'build') {
+    const flag = loadEnv(mode, process.cwd(), 'VITE_AUTH_TEST_MODE').VITE_AUTH_TEST_MODE;
+    if (flag !== undefined && flag !== 'false') {
+      throw new Error('Piante release blocked: VITE_AUTH_TEST_MODE must be false');
+    }
+  }
+  return {
   plugins: [
     react(),
     VitePWA({
@@ -38,4 +48,5 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx']
   }
+  };
 });
