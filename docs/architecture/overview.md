@@ -126,3 +126,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Il controller Auth di laboratorio usa `onIdTokenChanged` e il nuovo `watchServerGrant`; lo stato authorized richiede la conferma Firestore con `fromCache=false`.
 - Cache/assenza di prova, revoca grant/tombstone, identity switch, token refresh, logout, errore listener e segnali offline chiudono l'area privata; la riconnessione richiede un'altra conferma server.
 - Suite unit e Firestore Emulator verificano revoca live, stato deny, tombstone e gate di scrittura IndexedDB. **Nessun deploy** e flag test OFF in produzione; impatto letture Firestore da auditare prima dell'attivazione.
+
+
+## M4a — rehearsal Rules composite con Pianta legacy
+- Baseline `/users/{uid}` e sue sottocollezioni comunicata dal product owner e confrontata con `gernotfound/pianta`; fonte user-reported, senza read-back provider live.
+- Le regole legacy rimangono intatte e le funzioni/path `piante_users` e `piante_access` del fixture M2 vengono inserite in un composito **soltanto per Emulator**. La CI prova l'isolamento e la convivenza, più il fixture originale.
+- Restano bloccati Rules deploy, attivazione Auth/sync nel sito, indici e mutazioni di dati condivisi finché non si completa un audit provider e del comportamento client legacy.

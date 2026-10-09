@@ -158,3 +158,11 @@
 ### M3f — revoca del listener durante account deletion
 - **MUST:** un backend trusted che inizi cancellazione atomizza tombstone e `piante_access/{uid}.enabled=false` nel medesimo commit amministrativo e conserva il grant fino al termine del cleanup. Una modifica al tombstone da sola NON garantisce che un listener già aperto al grant venga notificato.
 - I test Emulator simulano questo boundary, ma non autorizzano esecuzione su provider Firebase live. Il runner deletion resta inerte.
+
+
+## M4a — compatibilità con Rules attuali riferite dal product owner
+- Il 2026-10-09 il product owner ha fornito il testo delle Rules attuali `pianta-db` (fonte `USER-REPORTED`), diverso dalle precedenti Rules TheLogBook. La struttura coincide con lo snapshot versionato `gernotfound/pianta/firestore.rules` e deve essere trattata come **legacy da preservare**, non come prova provider live.
+- Il file `tests/fixtures/pianta-legacy-user-reported.rules` preserva byte-for-byte lo snapshot legacy, con Git blob SHA pinned; `scripts/compose-compat-rules.mjs` valida anche il fixture Piante e costruisce solo in memoria/temp la composizione isolata per Emulator.
+- **MUST:** `npm run test:rules` e `npm run test:rules:compat` fanno entrambi parte del job canonico `Verification / Firestore Emulator`. Le prove comprendono owner, anonimo, cross-user, validazioni/permessi CRUD legacy e nuovi namespace Piante.
+- **MUST:** non distribuire `firestore.m2-test.rules`, snapshot legacy o Rules composte a `pianta-db`. Il fixture unito serve **solo** per l'Emulator. Una composizione staticamente valida non equivale ad audit del provider.
+- Prima di distribuzione reale: read-back delle Rules live versionate dal provider, audit delle query/client legacy, backup, verifica compatibilità e rollback autorizzato; Cloud/Hosting/Rules rimangono separati. Vedi `docs/operations/firestore-rules-compatibility.md`.

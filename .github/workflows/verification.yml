@@ -137,6 +137,8 @@ jobs:
         run: npm ci
       - name: Run Firestore Emulator rules tests
         run: npm run test:rules
+      - name: Rehearse legacy Pianta + Piante permissions (isolated Emulator)
+        run: npm run test:rules:compat
       - name: Upload failure logs
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

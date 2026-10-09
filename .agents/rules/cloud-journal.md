@@ -46,3 +46,9 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** mantenere il limite laboratorio max 200 operazioni e max 20 per batch; non tratteggiare questo meccanismo come checkpoint scalabile su Spark.
 - **MUST:** il risultato `verified-receipts-journal-retained` certifica i receipt in quel momento, non sincronizzazione causale globale, pubblicazione, né possibilità di cancellare il journal.
 - **MUST:** il ciclo non è collegato a Auth UI, non gira in background e non ha accesso al Firebase live. Non distribuire Rules test-only.
+
+
+## M4a — obbligo di conservare le autorizzazioni legacy
+- La baseline comunicata dal proprietario del prodotto corrisponde ai percorsi di `gernotfound/pianta/firestore.rules` (prove `USER-REPORTED` e `GITHUB-OBSERVED`, non `PROVIDER-OBSERVED`). Non usare Rules LogBook per ricostruire la baseline del progetto Firebase di Pianta.
+- Ogni modifica alle Rules richiede due suite Emulator: il fixture Piante originale ed il file composito **generato soltanto nel runner** da sorgenti pinned. Non cancellare un test per far diventare verdi i controlli.
+- Se le Rules live differiscono dallo snapshot, fermare il processo prima di qualunque distribuzione e rieseguire l'audit con la vera versione provider. Il file composito non deve essere aggiunto a `firebase.json`.
