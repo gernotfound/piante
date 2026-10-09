@@ -5,7 +5,8 @@ service cloud.firestore {
     function invitedOwner(uid) {
       return request.auth != null && request.auth.uid == uid
         && exists(/databases/$(database)/documents/piante_access/$(uid))
-        && get(/databases/$(database)/documents/piante_access/$(uid)).data.enabled == true;
+        && get(/databases/$(database)/documents/piante_access/$(uid)).data.enabled == true
+        && !exists(/databases/$(database)/documents/piante_account_deletions/$(uid));
     }
     function validPlantDraft(p) {
       return p is map
@@ -78,8 +79,15 @@ service cloud.firestore {
     }
     // Admin-only provisioning. Clients may inspect their own grant, never create or edit it.
     match /piante_access/{uid} {
-      allow get: if request.auth != null && request.auth.uid == uid;
+      allow get: if request.auth != null && request.auth.uid == uid
+        && !exists(/databases/$(database)/documents/piante_account_deletions/$(uid));
       allow list, create, update, delete: if false;
+    }
+    // LAB ONLY: server-admin tombstone blocks all invited Piante clients
+    // while the trusted deletion worker removes private data. Never publish
+    // this restrictive fixture to the shared legacy Firebase project.
+    match /piante_account_deletions/{uid} {
+      allow read, write: if false;
     }
     match /piante_users/{uid} {
       allow get: if invitedOwner(uid);

@@ -102,3 +102,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - L'utente di test autorizzato può esportare manualmente un file completo delle schede e del journal locale, con controllo di integrità SHA-256 (non autenticazione).
 - Una importazione è verificata in anteprima e accettata soltanto su un archivio dello stesso UID completamente vuoto; salvataggio IDB atomico e quarantena del cloud.
 - Nessuna cancellazione, merge automatico di altri dati, import legacy o distribuzione Firebase. I dati importati restano **local-only**.
+
+
+## M3c — percorso trusted di cancellazione preparato (non operativo)
+- Contratto del runner server-only per **solo** dati Piante: tombstone amministrativo, lease, inventory di collezioni e asset, batch massimo 50, stato riprendibile e verifica finale.
+- Rules e regressioni Firestore Emulator negano tutti i path Piante (incluso grant) quando compare tombstone, senza esporre o mutare il job dal client.
+- L'account Firebase Auth **non** viene cancellato: è condiviso con Pianta legacy. Non esiste backend live né UI di cancellazione. Le Rules di prova non sono quelle distribuite. Non aprire signup né dichiarare lifecycle completo.
