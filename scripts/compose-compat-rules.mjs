@@ -24,7 +24,7 @@ export function combineLegacyAndPiante(legacy, piante) {
   const from=piante.indexOf(pianteStart),to=piante.indexOf(pianteEnd);
   if(from<0||to<=from)throw Error('Unknown isolated Piante Rules structure');
   const addition=piante.slice(from,to);
-  if(addition.includes('match /users/') || addition.includes('match /{path=**}')) {
+  if(/^    match \/users\//m.test(addition) || /^    match \/\{path=\*\*\}\s*\{/m.test(addition)) {
     throw Error('Proposed Piante addition overlaps the protected legacy namespace');
   }
   const boundary=legacy.length-legacyEnd.length;
