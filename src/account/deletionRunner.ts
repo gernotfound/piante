@@ -68,7 +68,7 @@ export async function runPianteDeletionStep(
   if(acquired==='busy')return {status:'busy'};
   if(acquired==='complete'){
     // Never trust a bare job status when deleted data might have been recreated.
-    if(!await port.verifyPrivateEmpty(uid) || !await port.verifyGrantGone(uid)){
+    if(!await port.noExternalArtifacts(uid) || !await port.verifyPrivateEmpty(uid) || !await port.verifyGrantGone(uid)){
       throw new Error('Deletion completion proof contradicted by cloud state');
     }
     return {status:'piante-data-cleared',deleted:0};

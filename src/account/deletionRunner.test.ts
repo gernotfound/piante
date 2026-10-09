@@ -140,6 +140,14 @@ describe('M3c server-side Piante-only deletion LAB invariants (CRITICAL)',()=>{
     });
   });
 
+  it('re-verifies public and Storage inventory even after a prior completed job',async()=>{
+    const env=lab();
+    await runPianteDeletionStep(env.port,'alice');
+    env.external=true;
+    await expect(runPianteDeletionStep(env.port,'alice'))
+      .rejects.toThrow('proof contradicted');
+  });
+
   it('refuses a forged complete job when its underlying private state reappears',async()=>{
     const env=lab();
     await runPianteDeletionStep(env.port,'alice');

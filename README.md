@@ -92,4 +92,4 @@ La UI privata di prova offre l'export JSON completo del database locale (schede,
 
 
 ## M3c — sicurezza del ciclo di cancellazione (solo laboratorio)
-Il repository include un modello testato di cleanup amministrativo riprendibile con tombstone e blocco delle scritture concorrenti. **Non è collegato a un server**, non cancella account reali e non permette al client di cancellare dati Firestore. Firebase Auth è condiviso con Pianta legacy e non viene rimosso. Consulta \`.agents/rules/account-lifecycle.md\` per vincoli e prerequisiti prima dell'apertura a nuovi utenti.
+Il repository include un modello testato di cleanup amministrativo riprendibile con tombstone e blocco delle scritture concorrenti. **Non è collegato a un server**, non cancella account reali e non permette al client di cancellare dati Firestore. Firebase Auth è condiviso con Pianta legacy e non viene rimosso. Consulta `.agents/rules/account-lifecycle.md` per vincoli e prerequisiti prima dell'apertura a nuovi utenti.
