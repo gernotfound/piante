@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId);
+
+      match /plants/{plantId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['id', 'name', 'status', 'createdAt'])
+          && request.resource.data.id == plantId
+          && request.resource.data.id is string
+          && request.resource.data.name is string
+          && request.resource.data.status is string
+          && request.resource.data.createdAt is int;
+
+        match /logs/{logId} {
+          allow read, delete: if isOwner(userId);
+          allow create, update: if isOwner(userId)
+            && request.resource.data.keys().hasAll(['id', 'date', 'type', 'createdAt'])
+            && request.resource.data.keys().hasOnly([
+              'id', 'date', 'type', 'createdAt', 'note', 'photo', 'height', 'ph', 'harvest'
+            ])
+            && request.resource.data.id == logId
+            && request.resource.data.id is string
+            && request.resource.data.date is string
+            && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && request.resource.data.type is string
+            && request.resource.data.type.size() > 0
+            && request.resource.data.createdAt is int
+            && request.resource.data.createdAt >= 0
+            && (!('note' in request.resource.data) || request.resource.data.note is string)
+            && (!('photo' in request.resource.data)
+              || request.resource.data.photo == null
+              || (request.resource.data.photo is string && request.resource.data.photo.size() <= 240))
+            && (!('height' in request.resource.data)
+              || request.resource.data.height == null
+              || (request.resource.data.height is number && request.resource.data.height >= 0))
+            && (!('ph' in request.resource.data)
+              || request.resource.data.ph == null
+              || (request.resource.data.ph is number && request.resource.data.ph >= 0 && request.resource.data.ph <= 14))
+            && (!('harvest' in request.resource.data) || request.resource.data.harvest is string);
+        }
+      }
+
+      match /expenses/{expenseId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['id', 'date', 'category', 'desc', 'cost'])
+          && request.resource.data.id == expenseId
+          && request.resource.data.id is string
+          && request.resource.data.date is string
+          && request.resource.data.category is string
+          && request.resource.data.desc is string
+          && request.resource.data.cost is number
+          && request.resource.data.cost >= 0;
+      }
+
+      match /wishlist/{wishId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['id', 'name'])
+          && request.resource.data.id == wishId
+          && request.resource.data.id is string
+          && request.resource.data.name is string
+          && (!('price' in request.resource.data) || request.resource.data.price == null || request.resource.data.price is number)
+          && (!('notes' in request.resource.data) || request.resource.data.notes is string)
+          && (!('photo' in request.resource.data) || request.resource.data.photo == null || request.resource.data.photo is string);
+      }
+
+      match /images/{imageId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['data', 'updatedAt'])
+          && request.resource.data.data is string
+          && request.resource.data.data.matches('^data:image/.*')
+          && request.resource.data.data.size() <= 980000
+          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is int);
+      }
+    }
+  }
+}

@@ -21,7 +21,8 @@
     "verify": "npm run lint && npm run test && npm run build",
     "test:rules": "node scripts/run-firestore-rules-tests.mjs",
     "check:release-boundary": "node scripts/check-release-boundary.mjs",
-    "test:release-boundary": "node --test scripts/release-boundary.test.mjs"
+    "test:release-boundary": "node --test scripts/release-boundary.test.mjs",
+    "test:rules:compat": "node --test scripts/compose-compat-rules.test.mjs && node scripts/run-firestore-rules-tests.mjs --compat"
   },
   "dependencies": {
     "firebase": "^12.19.0",

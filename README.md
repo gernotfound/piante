@@ -101,3 +101,7 @@ Prima di produrre `dist/`, la build controlla che il progetto Firebase sia `pian
 
 ## M3f — invalidazione continua dell'accesso privato (solo account test)
 La prova del grant `piante_access/{uid}` deve ora essere **da server** e rimane osservata mentre la sessione di test è aperta. Revoca, cache/offline, errori e cambi di account chiudono immediatamente la UI al verificarsi del relativo evento; il controller impedisce che vecchi callback la riaprano. Non vengono cancellati né cifrati i dati locali. Questo non apre registrazioni, non distribuisce Rules e non abilita Auth in una build: il flag di login test rimane disattivato di default e bloccato dal guard di release M3e.
+
+
+## M4a — compatibilità Security Rules con Pianta
+Il progetto Firebase condiviso usa Rules legacy comunicate dal product owner. La CI testa su **Firestore Emulator** la convivenza dei permessi originali Pianta con le nuove allowlist Piante, senza generare Rules distribuibili o fare deploy. Gli script `npm run test:rules` e `npm run test:rules:compat` sono entrambi required nel gate canonico. I risultati non sostituiscono la verifica delle Rules effettivamente pubblicate sul provider.

@@ -45,3 +45,8 @@ In `.env.example` documentare soltanto il contratto delle variabili; i valori re
 6. Conservare l'evidenza nel provider o nelle conversazioni senza pubblicare screenshot sensibili nel repository.
 
 La documentazione stabile nel repository prevale su una richiesta di «ricordare» affidata alla sola cronologia della chat; lo stato provider live prevale su qualsiasi documento storico.
+
+
+## M4a — evidenza delle Rules comunicate direttamente
+- Una trascrizione di Rules fornita dal product owner resta `USER-REPORTED`: può indicare lo stato che l'utente vede, ma non è una lettura verificata dal provider. Conservare il testo tecnico riproducibile e il riferimento storico senza email, segreti o dati reali.
+- Non confondere lo snapshot legacy `gernotfound/pianta`, le Rules tecniche di TheLogBook e il fixture futuro Piante; la compatibilità Emulator è prerequisito **non sufficiente** per distribuire nuove Rules. Registrare l'obbligo di leggere il provider live.
