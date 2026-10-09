@@ -24,3 +24,16 @@ test('non pubblica contenuti per rotte non valide', async ({ page }) => {
   await page.goto('/admin/public');
   await expect(page.getByRole('heading', { name: 'Questa pagina non esiste.' })).toBeVisible();
 });
+
+test('release boundary: public shell never starts test Auth or contacts Firebase', async ({ page }) => {
+  const firebaseRequests: string[] = [];
+  page.on('request', request => {
+    if (/identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com|firestore\.googleapis\.com|firebaseinstallations\.googleapis\.com/.test(request.url())) {
+      firebaseRequests.push(request.url());
+    }
+  });
+  await page.goto('/app');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('region', { name: 'Accesso sperimentale' })).toHaveCount(0);
+  expect(firebaseRequests).toEqual([]);
+});

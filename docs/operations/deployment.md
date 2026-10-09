@@ -49,3 +49,13 @@ Prima di modificare Firebase, Google Cloud o un altro provider consultare
 e [la regola sulle integrazioni](../../.agents/rules/external-services.md).
 
 **Checkpoint 2026-10-08, screenshot del product owner:** `piante.web.app` è mostrato come dominio Firebase Auth autorizzato e `https://piante.web.app/__/auth/handler` è mostrato tra i redirect OAuth. L'origine JavaScript `https://piante.web.app` **non** è nella lista visibile e resta da aggiungere. Non rimuovere URI/referrer legacy. Il registro distingue tali screenshot da verifiche provider indipendenti.
+
+
+## M3e — preflight non distruttivo delle release statiche
+Da ora ogni build eseguita con `npm run build` applica `npm run check:release-boundary`; la configurazione Vite applica in aggiunta un controllo sul flag nel **mode effettivo**, anche con `vite build` diretto. Il flag `VITE_AUTH_TEST_MODE` assente o esplicitamente `false` è ammesso; un qualsiasi altro valore configurato blocca la build. Per la UI di laboratorio usare `npm run dev` con modalità test esplicita, non creare artefatti distributivi con login acceso.
+
+`scripts/release-boundary.mjs` permette solo una configurazione Firebase **Hosting statico** (`site=piante`, `public=dist`, rewrite SPA invariata), un unico progetto predefinito `pianta-db`, header di sicurezza e **nessuna sezione** `firestore`, `storage`, `functions`, `database`, `extensions`, `emulators`. Le configurazioni env locali `.env`, `.env.local`, `.env.production`, `.env.production.local` vengono lette **senza stamparne il contenuto** per impedire accidentalmente flag test attivi. Il mode scelto da Vite è verificato da un secondo guard indipendente. Il guard viene testato con `npm run test:release-boundary` (test negativi) e dal nuovo job CI `Verification / Static Release Boundary`; la verifica aggregata `Canonical Verification` ora include questo job.
+
+**Questo non è un comando deploy.** Non modifica Firebase e non prova le impostazioni provider attuali, né autorizza ad attivare OAuth, Auth o Rules. Niente segreti, ruoli, id-token, Service Account, upload di build o nuovo costo. Il prossimo deploy richiederà una decisione di release, la prova live dal provider, audit Rules di Pianta, WIF/least privilege e smoke test dello SHA effettivamente pubblicato. Non sostituire la verifica provider con un successo CI.
+
+**Nota cronologia OAuth:** la precedente sezione M2a riportava l'origine JavaScript `https://piante.web.app` come ancora da aggiungere sulla base dello screenshot iniziale. Il product owner ne ha poi **dichiarato l'aggiunta** (2026-10-08), come tracciato nel registro. Rimane **VERIFY-LIVE** per la verifica diretta provider e la prova runtime; non dedurre che OAuth sia funzionante dal codice.

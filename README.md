@@ -93,3 +93,7 @@ La UI privata di prova offre l'export JSON completo del database locale (schede,
 
 ## M3c — sicurezza del ciclo di cancellazione (solo laboratorio)
 Il repository include un modello testato di cleanup amministrativo riprendibile con tombstone e blocco delle scritture concorrenti. **Non è collegato a un server**, non cancella account reali e non permette al client di cancellare dati Firestore. Firebase Auth è condiviso con Pianta legacy e non viene rimosso. Consulta `.agents/rules/account-lifecycle.md` per vincoli e prerequisiti prima dell'apertura a nuovi utenti.
+
+
+## M3e — controllo di sicurezza delle build statiche
+Prima di produrre `dist/`, la build controlla che il progetto Firebase sia `pianta-db`, che sia configurato **solo Hosting statico sul sito `piante`**, che siano presenti gli header di sicurezza e che il login test non sia abilitato. Lo stesso confine è testato da `npm run test:release-boundary` e da un job Canonical Verification indipendente. Non viene pubblicato niente automaticamente; il risultato non sostituisce l'audit live di Firebase e della vecchia Pianta.

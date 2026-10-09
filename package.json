@@ -12,14 +12,16 @@
     "icons:generate": "node scripts/resize-icons.mjs",
     "predev": "npm run icons:generate",
     "dev": "vite",
-    "prebuild": "npm run icons:generate",
+    "prebuild": "npm run check:release-boundary && npm run icons:generate",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "oxlint src tests vite.config.ts playwright.config.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "verify": "npm run lint && npm run test && npm run build",
-    "test:rules": "node scripts/run-firestore-rules-tests.mjs"
+    "test:rules": "node scripts/run-firestore-rules-tests.mjs",
+    "check:release-boundary": "node scripts/check-release-boundary.mjs",
+    "test:release-boundary": "node --test scripts/release-boundary.test.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",
