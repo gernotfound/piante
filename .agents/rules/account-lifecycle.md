@@ -42,3 +42,8 @@ In M3d `begin(uid)` torna uno stato discriminato, con un `token` opaco non preve
 `release(uid,token)` è compare-and-release del proprio lease soltanto, e non cancella il tombstone. La verifica finale controlla nuovamente che non esistano asset Piante esterni prima di segnare `complete`; questa verifica non costituisce una garanzia transazionale su servizi esterni e rimane una limitazione pre-release.
 
 Test obbligatori: scadenza durante query, scadenza fra precheck e write, cambio proprietario prima della rimozione del grant, impossibilità per il vecchio worker di liberare il nuovo lease, nuova risorsa esterna scoperta prima del `complete`. Questo modello è **inerte**: senza un adapter amministrativo reale che applichi il fencing in modo atomico non si può dichiarare disponibile la cancellazione account.
+
+## M3f — tombstone da solo non invalida necessariamente un listener Firestore già aperto
+Il listener del client osserva `piante_access/{uid}`, non una query multipath. Firestore Security Rules possono negare nuove letture dopo un tombstone, ma una scrittura *solo* a `piante_account_deletions/{uid}` non garantisce l'invio di un nuovo evento al listener di un documento differente.
+
+**MUST:** quando un backend trusted futura implementazione eseguirà `begin(uid)`, effettuare in un'UNICA transazione amministrativa (1) creazione tombstone, (2) disabilitazione `piante_access/{uid}.enabled=false`, (3) acquisizione lease esclusivo. Non rimuovere il grant fino alla verifica finale. Se la transazione è ambigua, leggere lo stato remoto, non presumere che il client abbia ricevuto revoca. Non aprire signup o deploy Rules finché questa garanzia non è implementata e verificata end-to-end.

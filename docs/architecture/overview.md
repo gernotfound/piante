@@ -120,3 +120,9 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Testa separatamente configurazioni di deploy pericolose, project/site target e flag `VITE_AUTH_TEST_MODE` prima di compilare `dist/`.
 - Il job `Verification / Static Release Boundary` è parte integrante di `Canonical Verification` e legge configurazioni senza secret; la configurazione Vite rifiuta anche build invocate senza npm prebuild se il flag test è attivo.
 - **Non configurato né verificato:** provider IAM/OAuth/App Check/Rules live, backend trusted/cancellazione, credenziali WIF, deploy Hosting e smoke test sul sito; quindi nessun cutover autorizzato.
+
+
+## Stato M3f — listener di autorizzazione privata a prova di cache
+- Il controller Auth di laboratorio usa `onIdTokenChanged` e il nuovo `watchServerGrant`; lo stato authorized richiede la conferma Firestore con `fromCache=false`.
+- Cache/assenza di prova, revoca grant/tombstone, identity switch, token refresh, logout, errore listener e segnali offline chiudono l'area privata; la riconnessione richiede un'altra conferma server.
+- Suite unit e Firestore Emulator verificano revoca live, stato deny, tombstone e gate di scrittura IndexedDB. **Nessun deploy** e flag test OFF in produzione; impatto letture Firestore da auditare prima dell'attivazione.

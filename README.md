@@ -97,3 +97,7 @@ Il repository include un modello testato di cleanup amministrativo riprendibile 
 
 ## M3e — controllo di sicurezza delle build statiche
 Prima di produrre `dist/`, la build controlla che il progetto Firebase sia `pianta-db`, che sia configurato **solo Hosting statico sul sito `piante`**, che siano presenti gli header di sicurezza e che il login test non sia abilitato. Lo stesso confine è testato da `npm run test:release-boundary` e da un job Canonical Verification indipendente. Non viene pubblicato niente automaticamente; il risultato non sostituisce l'audit live di Firebase e della vecchia Pianta.
+
+
+## M3f — invalidazione continua dell'accesso privato (solo account test)
+La prova del grant `piante_access/{uid}` deve ora essere **da server** e rimane osservata mentre la sessione di test è aperta. Revoca, cache/offline, errori e cambi di account chiudono immediatamente la UI al verificarsi del relativo evento; il controller impedisce che vecchi callback la riaprano. Non vengono cancellati né cifrati i dati locali. Questo non apre registrazioni, non distribuisce Rules e non abilita Auth in una build: il flag di login test rimane disattivato di default e bloccato dal guard di release M3e.

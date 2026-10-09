@@ -40,3 +40,11 @@ La completa cancellazione cross-collection/account e alcune garanzie sulla pubbl
 
 ## M3d — perdita del lease e scritture amministrative
 La cancellazione privata Piante di laboratorio ora richiede token di fencing emessi dal backend e verificati ad ogni mutazione amministrativa. Un worker scaduto non può proseguire, cancellare grant o liberare il lock di un worker più recente. Il token non è una credenziale per l'utente: nessun codice di cancellazione deve essere esportato alla UI o all'SDK Firebase client. Le implementazioni concrete devono attestare fencing atomico e inventario completo prima di poter eliminare dati reali.
+
+
+## M3f — grant Auth osservato, non solo verificato all'ingresso
+L'area privata di test viene resa visibile esclusivamente se Firestore invia un grant `piante_access/{uid}.enabled=true` da **server** (`fromCache=false`). Una risposta dalla cache, la disconnessione rilevata, la revoca, un tombstone o un errore di permesso chiudono la vista. Un altro UID o un refresh token invalida il proof precedente e riavvia l'ascolto. I vecchi callback non possono riaprire l'owner.
+
+La chiusura della vista non cancella i dati IDB, né li cifra contro un utente dello stesso profilo browser. L'unico enforcement cloud effettivo viene dalle Rules del provider **live** (non verificate e non cambiate in questa milestone). Segnali `offline` e metadata snapshot aiutano a bloccare l'interfaccia quando manca la connessione, ma un collegamento morto senza eventi può richiedere altri controlli prima di una release reale. Nessuna iscrizione pubblica aperta.
+
+**Precisazione M3f:** un tombstone su un documento diverso **non** produce necessariamente un evento sulla subscription al grant. Prima della cancellazione il backend trusted dovrà atomizzare tombstone + `piante_access.enabled=false` + lease. In questo repository il backend è ancora inerte; il test Emulator usa una transazione batch amministrativa per esercitare il confine atteso. Questo non prova il comportamento di eventuali job esterni al contratto.
