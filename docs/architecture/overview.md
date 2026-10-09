@@ -97,3 +97,8 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Dopo grant Firebase Auth test-only valido (feature flag disabilitato di default), un modulo `PrivateGarden` monta il repository IndexedDB per lo specifico `user:uid`. La vista è rimossa subito quando decade l'autorizzazione.
 - Funzionalità locali iniziali: aggiunta pianta e luogo, evento di diario, aggiornamento stato. La UI riflette il risultato solo dopo transazione durevole e segnala gli errori. Dati e cronologia pendente sono **private-only**.
 - Non c'è bridge con CloudJournal e non esistono backup/export o vetrina; l'account-lifecycle e l'audit Rules live restano requisiti per apertura reale.
+
+## Stato M3b — export/restore JSON privati
+- L'utente di test autorizzato può esportare manualmente un file completo delle schede e del journal locale, con controllo di integrità SHA-256 (non autenticazione).
+- Una importazione è verificata in anteprima e accettata soltanto su un archivio dello stesso UID completamente vuoto; salvataggio IDB atomico e quarantena del cloud.
+- Nessuna cancellazione, merge automatico di altri dati, import legacy o distribuzione Firebase. I dati importati restano **local-only**.

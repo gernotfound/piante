@@ -116,3 +116,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
  .garden-summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
  .garden-layout { grid-template-columns: minmax(0,1fr); }
 }
+
+/* M3b — explicit, user-managed private JSON backups. */
+.garden-backup { margin-top: 16px; }
+.garden-backup > p { font-size: 13px; line-height: 1.6; color: var(--muted); }
+.garden-backup > label { display: block; font-size: 13px; font-weight: 700; padding: 10px 0 6px; }
+.garden-backup input[type="file"] { display: block; max-width: 100%; font: inherit; }
+.auth-test-panel .garden-backup__action { display: inline-flex; gap: 8px; align-items: center; justify-content: center; margin: 5px 0; }
+.garden-backup__preview { display: flex; flex-direction: column; gap: 7px; border: 1px solid var(--border); padding: 13px; border-radius: 10px; margin-top: 12px; font-size: 13px; }
+.garden-backup__preview span { color: var(--muted); }

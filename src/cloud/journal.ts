@@ -83,6 +83,7 @@ export async function uploadPendingJournal(
     return { status: 'failed', count: 0, reason: 'identity-changed' };
   }
   if(envelope.pending.length===0)return {status:'nothing-to-upload'};
+  if(envelope.backupQuarantined)return {status:'failed',count:0,reason:'local-invariant'};
   const outgoing=missingRemoteReceipts(ownerUid,envelope).slice(0,maxEntries);
   if(outgoing.length===0){
     return {status:'remote-receipts-already-present',count:envelope.pending.length};

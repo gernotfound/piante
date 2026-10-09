@@ -29,6 +29,7 @@ export async function hydratePrivateJournal(
   }
   const before:LocalEnvelope=await repository.read();
   if(before.ownerScope!=='user:'+ownerUid)throw new ReconciliationBlocked('identity-changed');
+  if(before.backupQuarantined)throw new ReconciliationBlocked('local-divergence');
   let remote:readonly {id:string;data:unknown}[];
   try{remote=await reader.readAll(ownerUid,max);}
   catch(error) {
