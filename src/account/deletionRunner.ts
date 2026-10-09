@@ -84,11 +84,16 @@ export async function runPianteDeletionStep(
     }
     let deleted=0;
     for(const collection of collections){
-      const ids=await port.listDocumentIds(uid,collection,maximum-deleted+1);
-      if(ids.length>maximum-deleted || new Set(ids).size!==ids.length ||
-        ids.some(id=>!id || id.includes('/'))){
+      const capacity=maximum-deleted;
+      // Read capacity+1 to detect that another page remains; delete at most
+      // capacity. A legitimate full collection MUST NOT be mistaken for
+      // an unbounded query merely because it contains the sentinel item.
+      const page=await port.listDocumentIds(uid,collection,capacity+1);
+      if(page.length>capacity+1 || new Set(page).size!==page.length ||
+        page.some(id=>!id || id.includes('/'))){
         throw new Error('Unbounded or invalid deletion page: deletion blocked');
       }
+      const ids=page.slice(0,capacity);
       if(ids.length){
         await port.deleteDocuments(uid,collection,ids);
         deleted+=ids.length;
