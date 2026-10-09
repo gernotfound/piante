@@ -21,8 +21,12 @@ export type DeletionStep =
 
 export interface TrustedDeletionPort {
   /**
-   * Must atomically create/retain a server-only deletion tombstone and acquire
-   * an exclusive expiring lease. If already complete, return 'complete'.
+   * MUST atomically create/retain a server-only deletion tombstone, set
+   * piante_access/{uid}.enabled=false and acquire the exclusive expiring
+   * lease. Revoking the watched grant is required: a listener on the grant
+   * may NOT be notified when only an unrelated tombstone is created.
+   * Keep the grant document until all private resources are removed.
+   * If already complete, return 'complete'.
    */
   begin(uid:string):Promise<AcquiredDeletionLease>;
   /**

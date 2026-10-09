@@ -5,7 +5,7 @@ function lab(initial:number=0){
   const privateDocs=new Map<string,Set<string>>([
     ['operations',new Set(Array.from({length:initial},(_,i)=>'op'+i))]
   ]);
-  let root=true,grant=true,completed=false,busy=false,tombstone=false,external=false;
+  let root=true,grant=true,grantEnabled=true,completed=false,busy=false,tombstone=false,external=false;
   let currentToken:string|null=null, generation=0;
   const assertCurrent=(token:string)=>{if(!busy||currentToken!==token)throw Error('Deletion lease lost');};
   const actions:string[]=[];
@@ -13,7 +13,7 @@ function lab(initial:number=0){
     async begin(){
       if(completed)return {status:'complete'};
       if(busy)return {status:'busy'};
-      tombstone=true;busy=true;currentToken='lease-token-'+(++generation);
+      tombstone=true;grantEnabled=false;busy=true;currentToken='lease-token-'+(++generation);
       actions.push('tombstone');return {status:'acquired',token:currentToken};
     },
     async assertLease(_uid,token){assertCurrent(token);},
@@ -41,7 +41,7 @@ function lab(initial:number=0){
     async deleteGrant(_uid,token){
       assertCurrent(token);
       if(root||[...privateDocs.values()].some(docs=>docs.size))throw Error('Cloud not empty');
-      grant=false;actions.push('grant');
+      grant=false;grantEnabled=false;actions.push('grant');
     },
     async verifyGrantGone(){return !grant;},
     async markComplete(_uid,token){
@@ -56,7 +56,7 @@ function lab(initial:number=0){
   };
   return {
     port,actions,privateDocs,
-    get root(){return root;},get grant(){return grant;},
+    get root(){return root;},get grant(){return grant;},get grantEnabled(){return grantEnabled;},
     get completed(){return completed;},get tombstone(){return tombstone;},
     set external(value:boolean){external=value;},
     set busy(value:boolean){busy=value;},
@@ -64,6 +64,15 @@ function lab(initial:number=0){
   };
 }
 describe('M3c server-side Piante-only deletion LAB invariants (CRITICAL)',()=>{
+  it('atomically disables the watched grant while retaining its document at deletion start',async()=>{
+    const env=lab(51);
+    expect(env.grantEnabled).toBe(true);
+    const step=await runPianteDeletionStep(env.port,'alice');
+    expect(step.status).toBe('incomplete');
+    expect(env.tombstone).toBe(true);
+    expect(env.grant).toBe(true);
+    expect(env.grantEnabled).toBe(false);
+  });
   it('retains tombstone while deleting in bounded recoverable batches and removes grant last',async()=>{
     const env=lab(121);
     let count=0;
@@ -125,6 +134,7 @@ describe('M3c server-side Piante-only deletion LAB invariants (CRITICAL)',()=>{
     env.port.deleteDocuments=vi.fn(async()=>{throw Error('Injected timeout');});
     await expect(runPianteDeletionStep(env.port,'alice')).rejects.toThrow('Injected timeout');
     expect(env.tombstone).toBe(true);
+    expect(env.grantEnabled).toBe(false);
     expect(env.completed).toBe(false);
     expect(env.grant).toBe(true);
     expect(env.privateDocs.get('operations')?.size).toBe(3);

@@ -154,3 +154,7 @@
 - Segnali browser `offline` e ritorno foreground/online provocano fail-closed e nuovo grant server; **non** interpretare assenza di evento come prova che la rete sia attiva. Le Rules effettive restano l'unico enforcement cloud.
 - Sessione revocata deve bloccare `LocalGardenRepository.commit()` anche tra richiesta e transazione; i dati già persistiti in IndexedDB **non** sono cifrati né eliminati. Un browser fisicamente condiviso necessita ulteriori controlli: la UI non protegge contro accesso al profilo browser/devtools.
 - Il listener aumenta letture Firestore per account test: il flag `VITE_AUTH_TEST_MODE=false` e il gate M3e restano obbligatori. **Non attivare registrazioni, grant o Rules live** finché il ciclo account non è completo.
+
+### M3f — revoca del listener durante account deletion
+- **MUST:** un backend trusted che inizi cancellazione atomizza tombstone e `piante_access/{uid}.enabled=false` nel medesimo commit amministrativo e conserva il grant fino al termine del cleanup. Una modifica al tombstone da sola NON garantisce che un listener già aperto al grant venga notificato.
+- I test Emulator simulano questo boundary, ma non autorizzano esecuzione su provider Firebase live. Il runner deletion resta inerte.

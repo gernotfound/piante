@@ -1,6 +1,6 @@
 import {afterAll,beforeAll,beforeEach,describe,expect,it} from 'vitest';
 import {initializeTestEnvironment,type RulesTestEnvironment} from '@firebase/rules-unit-testing';
-import {doc,setDoc,updateDoc} from 'firebase/firestore';
+import {doc,setDoc,updateDoc,writeBatch} from 'firebase/firestore';
 import {watchServerGrant} from '../../src/auth/grantWatch';
 
 let env:RulesTestEnvironment;
@@ -47,10 +47,16 @@ describe('M3f live grant watch, real Firestore security rules',()=>{
     try {
       await until(()=>events.includes(true));
       await env.withSecurityRulesDisabled(async ctx=>{
-        await setDoc(doc(ctx.firestore(),'piante_account_deletions/alice'),{phase:'deleting'});
+        // A cross-document Rules dependency does NOT reliably push an update
+        // to an already-established listener. The trusted begin() boundary
+        // MUST update the watched grant within the same atomic transaction.
+        const admin=ctx.firestore();
+        const batch=writeBatch(admin);
+        batch.set(doc(admin,'piante_account_deletions/alice'),{phase:'deleting'});
+        batch.update(doc(admin,'piante_access/alice'),{enabled:false});
+        await batch.commit();
       });
-      // Firestore listener can emit permission-denied or close on reauthorization;
-      // either callback is fail-closed, never a fresh positive grant.
+      // Either a false server snapshot or a permission error is fail-closed.
       await until(()=>events.at(-1)!==true);
       expect(events.at(-1)).not.toBe(true);
     }finally{release();}
