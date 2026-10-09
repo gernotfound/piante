@@ -6,43 +6,52 @@ function lab(initial:number=0){
     ['operations',new Set(Array.from({length:initial},(_,i)=>'op'+i))]
   ]);
   let root=true,grant=true,completed=false,busy=false,tombstone=false,external=false;
+  let currentToken:string|null=null, generation=0;
+  const assertCurrent=(token:string)=>{if(!busy||currentToken!==token)throw Error('Deletion lease lost');};
   const actions:string[]=[];
   const port:TrustedDeletionPort={
     async begin(){
-      if(completed)return 'complete';
-      if(busy)return 'busy';
-      tombstone=true;busy=true;actions.push('tombstone');return 'acquired';
+      if(completed)return {status:'complete'};
+      if(busy)return {status:'busy'};
+      tombstone=true;busy=true;currentToken='lease-token-'+(++generation);
+      actions.push('tombstone');return {status:'acquired',token:currentToken};
     },
+    async assertLease(_uid,token){assertCurrent(token);},
     async noExternalArtifacts(){return !external;},
     async listPrivateCollections(){return [...privateDocs].filter(([,docs])=>docs.size>0).map(([name])=>name);},
     async listDocumentIds(_uid,collection,max){
       return [...(privateDocs.get(collection)??[])].slice(0,max);
     },
-    async deleteDocuments(_uid,collection,ids){
+    async deleteDocuments(_uid,collection,ids,token){
+      assertCurrent(token);
       if(!tombstone)throw Error('No write barrier');
       const docs=privateDocs.get(collection);
       if(!docs)throw Error('Unknown collection');
       for(const id of ids)docs.delete(id);
       actions.push('delete:'+ids.length);
     },
-    async deletePrivateRoot(){
+    async deletePrivateRoot(_uid,token){
+      assertCurrent(token);
       if(!tombstone)throw Error('No write barrier');
       root=false;actions.push('root');
     },
     async verifyPrivateEmpty(){
       return !root&&[...privateDocs.values()].every(docs=>docs.size===0);
     },
-    async deleteGrant(){
+    async deleteGrant(_uid,token){
+      assertCurrent(token);
       if(root||[...privateDocs.values()].some(docs=>docs.size))throw Error('Cloud not empty');
       grant=false;actions.push('grant');
     },
     async verifyGrantGone(){return !grant;},
-    async markComplete(){
+    async markComplete(_uid,token){
+      assertCurrent(token);
       if(root||grant)throw Error('Premature complete');
       completed=true;actions.push('complete');
     },
-    async release(){
-      busy=false;actions.push('release');
+    async release(_uid,token){
+      if(currentToken!==token)return;
+      busy=false;currentToken=null;actions.push('release');
     }
   };
   return {
@@ -50,7 +59,8 @@ function lab(initial:number=0){
     get root(){return root;},get grant(){return grant;},
     get completed(){return completed;},get tombstone(){return tombstone;},
     set external(value:boolean){external=value;},
-    set busy(value:boolean){busy=value;}
+    set busy(value:boolean){busy=value;},
+    stealLease(){currentToken='lease-token-'+(++generation);busy=true;} 
   };
 }
 describe('M3c server-side Piante-only deletion LAB invariants (CRITICAL)',()=>{
@@ -146,6 +156,64 @@ describe('M3c server-side Piante-only deletion LAB invariants (CRITICAL)',()=>{
     env.external=true;
     await expect(runPianteDeletionStep(env.port,'alice'))
       .rejects.toThrow('proof contradicted');
+  });
+
+  it('fences a worker that loses its lease while reading a deletion page',async()=>{
+    const env=lab(3);
+    const old=env.port.listDocumentIds;
+    env.port.listDocumentIds=async (...args)=>{
+      const ids=await old(...args);
+      env.stealLease(); // another administrator atomically acquired a newer lease
+      return ids;
+    };
+    await expect(runPianteDeletionStep(env.port,'alice'))
+      .rejects.toThrow('Deletion lease lost');
+    expect(env.privateDocs.get('operations')?.size).toBe(3);
+    expect(env.grant).toBe(true);
+    expect(env.completed).toBe(false);
+    expect(env.actions).toEqual(['tombstone']); // stale finally cannot release newer lease
+    expect(await runPianteDeletionStep(env.port,'alice')).toEqual({status:'busy'});
+  });
+
+  it('requires atomic token fencing INSIDE each destructive adapter call',async()=>{
+    const env=lab(2);
+    const actual=env.port.deleteDocuments;
+    env.port.deleteDocuments=async (...args)=>{
+      env.stealLease(); // TOCTOU between assertLease and delete
+      return actual(...args);
+    };
+    await expect(runPianteDeletionStep(env.port,'alice'))
+      .rejects.toThrow('Deletion lease lost');
+    expect(env.privateDocs.get('operations')?.size).toBe(2);
+    expect(env.actions).toEqual(['tombstone']);
+    expect(env.grant).toBe(true);
+  });
+
+  it('cannot delete the Piante access grant if ownership expires after root cleanup',async()=>{
+    const env=lab();
+    const old=env.port.verifyPrivateEmpty;
+    env.port.verifyPrivateEmpty=async (...args)=>{
+      const empty=await old(...args);
+      env.stealLease();
+      return empty;
+    };
+    await expect(runPianteDeletionStep(env.port,'alice'))
+      .rejects.toThrow('Deletion lease lost');
+    expect(env.grant).toBe(true);
+    expect(env.completed).toBe(false);
+  });
+
+  it('does not claim completion if external assets appear in final verification',async()=>{
+    const env=lab();
+    const old=env.port.verifyGrantGone;
+    env.port.verifyGrantGone=async (...args)=>{
+      const gone=await old(...args);
+      env.external=true;
+      return gone;
+    };
+    await expect(runPianteDeletionStep(env.port,'alice'))
+      .rejects.toThrow('External Piante artifacts');
+    expect(env.completed).toBe(false);
   });
 
   it('refuses a forged complete job when its underlying private state reappears',async()=>{

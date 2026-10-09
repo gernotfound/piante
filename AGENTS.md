@@ -130,3 +130,11 @@
 - Le Rules di laboratorio bloccano il grant e ogni documento privato Piante dopo tombstone. Mai distribuire il fixture su Firebase condiviso senza audit legacy e backend autorizzato.
 - Nessun purge IndexedDB soltanto perché Auth non esiste o un client è offline; servono conferma server effettiva e recovery device sicuro.
 - Nessuna UI "Elimina account" o apertura delle registrazioni fino a lifecycle end-to-end funzionante e decisione sull'identità condivisa.
+
+
+## M3d — lease fencing della cancellazione (laboratorio)
+- `TrustedDeletionPort.begin()` restituisce un lease token server-issued non riutilizzato. Il runner chiama `assertLease(uid,token)` dopo le letture asincrone e prima di ogni azione distruttiva.
+- **MUST:** `deleteDocuments`, `deletePrivateRoot`, `deleteGrant` e `markComplete` controllano **atomicamente** la validità del token/lease dentro la stessa operazione server del side effect; il solo precheck non elimina il race TOCTOU.
+- **MUST:** `release(uid,token)` non può mai rilasciare il lease di un worker più recente; tombstone persistente anche in errore/scadenza. Il runner non deve interpretare la perdita del lease come completamento.
+- Un job già `complete` verifica nuovamente inventario esterno, namespace Piante vuoto e grant rimosso. Anche il path iniziale verso `markComplete` riesamina gli artifact esterni.
+- Nessuna implementazione live del port è presente: questo è un contratto testabile in memoria. **NON** distribuire né collegare alla PWA prima di backend trusted, audit Firebase live e prova di atomicità end-to-end.

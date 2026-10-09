@@ -9,6 +9,10 @@ const UID = /^[A-Za-z0-9_-]{1,96}$/;
 const ALLOWED_PRIVATE_COLLECTIONS = new Set(['operations']);
 export const MAX_DELETE_BATCH = 50;
 
+export type AcquiredDeletionLease =
+  | {status:'acquired'; token:string}
+  | {status:'busy'|'complete'};
+
 export type DeletionStep =
   | {status:'busy'}
   | {status:'incomplete'; deleted:number}
@@ -19,7 +23,13 @@ export interface TrustedDeletionPort {
    * Must atomically create/retain a server-only deletion tombstone and acquire
    * an exclusive expiring lease. If already complete, return 'complete'.
    */
-  begin(uid:string):Promise<'acquired'|'busy'|'complete'>;
+  begin(uid:string):Promise<AcquiredDeletionLease>;
+  /**
+   * Reject expired/superseded tokens. Every mutation below MUST perform an
+   * ATOMIC token/expiry check together with the data mutation itself:
+   * a check immediately before the write alone cannot prevent a TOCTOU race.
+   */
+  assertLease(uid:string,token:string):Promise<void>;
   /**
    * Must enumerate ALL cloud namespace dependencies, including public aliases,
    * published projections, Storage objects and future Piante-owned resources.
@@ -31,19 +41,19 @@ export interface TrustedDeletionPort {
   /** Bounded query from the BEGINNING, even after interrupted prior batches. */
   listDocumentIds(uid:string,collection:string,max:number):Promise<readonly string[]>;
   /** Trusted server-only deletion; must be idempotent after ambiguous timeouts. */
-  deleteDocuments(uid:string,collection:string,ids:readonly string[]):Promise<void>;
+  deleteDocuments(uid:string,collection:string,ids:readonly string[],token:string):Promise<void>;
   /** Delete only piante_users/{uid} root, never legacy users/{uid}. */
-  deletePrivateRoot(uid:string):Promise<void>;
+  deletePrivateRoot(uid:string,token:string):Promise<void>;
   /** Verify root absent, all known child collections empty, no unknown children. */
   verifyPrivateEmpty(uid:string):Promise<boolean>;
   /** Delete ONLY piante_access/{uid}, not the shared Firebase Auth identity. */
-  deleteGrant(uid:string):Promise<void>;
+  deleteGrant(uid:string,token:string):Promise<void>;
   /** Authoritative proof the Piante-only grant no longer exists. */
   verifyGrantGone(uid:string):Promise<boolean>;
   /** Durable completion marker; never remove the deletion barrier. */
-  markComplete(uid:string):Promise<void>;
+  markComplete(uid:string,token:string):Promise<void>;
   /** Release lease only. MUST preserve tombstone on every failure. */
-  release(uid:string):Promise<void>;
+  release(uid:string,token:string):Promise<void>;
 }
 
 function validateUid(uid:string):void {
@@ -65,18 +75,24 @@ export async function runPianteDeletionStep(
     throw new Error('Invalid deletion budget');
   }
   const acquired=await port.begin(uid);
-  if(acquired==='busy')return {status:'busy'};
-  if(acquired==='complete'){
+  if(acquired.status==='busy')return {status:'busy'};
+  if(acquired.status==='complete'){
     // Never trust a bare job status when deleted data might have been recreated.
     if(!await port.noExternalArtifacts(uid) || !await port.verifyPrivateEmpty(uid) || !await port.verifyGrantGone(uid)){
       throw new Error('Deletion completion proof contradicted by cloud state');
     }
     return {status:'piante-data-cleared',deleted:0};
   }
+  const token=acquired.token;
   try{
+    if(typeof token!=='string'||!/^[-A-Za-z0-9_]{8,256}$/.test(token)){
+      throw new Error('Invalid deletion lease token');
+    }
+    await port.assertLease(uid,token);
     if(!await port.noExternalArtifacts(uid)){
       throw new Error('Unknown public, Storage, or other account artifacts: deletion blocked');
     }
+    await port.assertLease(uid,token);
     const collections=await port.listPrivateCollections(uid);
     if(new Set(collections).size!==collections.length ||
       collections.some(name=>!ALLOWED_PRIVATE_COLLECTIONS.has(name))){
@@ -85,35 +101,40 @@ export async function runPianteDeletionStep(
     let deleted=0;
     for(const collection of collections){
       const capacity=maximum-deleted;
-      // Read capacity+1 to detect that another page remains; delete at most
-      // capacity. A legitimate full collection MUST NOT be mistaken for
-      // an unbounded query merely because it contains the sentinel item.
       const page=await port.listDocumentIds(uid,collection,capacity+1);
       if(page.length>capacity+1 || new Set(page).size!==page.length ||
         page.some(id=>!id || id.includes('/'))){
         throw new Error('Unbounded or invalid deletion page: deletion blocked');
       }
+      // The adapter must also fence the batch atomically: this assertion
+      // does not prevent a lease expiring between our check and the write.
+      await port.assertLease(uid,token);
       const ids=page.slice(0,capacity);
       if(ids.length){
-        await port.deleteDocuments(uid,collection,ids);
+        await port.deleteDocuments(uid,collection,ids,token);
         deleted+=ids.length;
-        // A bounded retry must never delete from a different collection after
-        // consuming its entire budget; keep the server tombstone live.
         return {status:'incomplete',deleted};
       }
     }
-    await port.deletePrivateRoot(uid);
+    await port.assertLease(uid,token);
+    await port.deletePrivateRoot(uid,token);
     if(!await port.verifyPrivateEmpty(uid)){
       throw new Error('Cloud private data still present after cleanup');
     }
-    await port.deleteGrant(uid);
+    await port.assertLease(uid,token);
+    await port.deleteGrant(uid,token);
     if(!await port.verifyGrantGone(uid) || !await port.verifyPrivateEmpty(uid)){
       throw new Error('Piante-only deletion not yet verified');
     }
-    await port.markComplete(uid);
+    if(!await port.noExternalArtifacts(uid)){
+      throw new Error('External Piante artifacts appeared during cleanup');
+    }
+    await port.assertLease(uid,token);
+    await port.markComplete(uid,token);
     return {status:'piante-data-cleared',deleted};
   }finally{
-    // Failure here must also surface; NEVER erase or reinterpret job state.
-    await port.release(uid);
+    // An old worker MUST NOT release a newer worker's lease. The adapter
+    // compares the token atomically before releasing; tombstone is permanent.
+    await port.release(uid,token);
   }
 }
