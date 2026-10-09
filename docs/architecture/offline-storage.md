@@ -40,3 +40,11 @@ La hydration ricontrolla il CAS dentro la transazione `readwrite`, rifiuta stori
 
 ### Inizializzazione identità replica (regressione M2d)
 Una prima `read()` senza envelope ora crea e conferma **atomicamente** l'envelope iniziale in una transazione IDB `readwrite`, prima di restituire l'ID replica. Prima di questa regressione, una lettura a DB vuoto generava un `replicaId` effimero diverso ad ogni chiamata: questo rendeva impossibile il CAS di hydration e rischiava IDs incoerenti. Testare reload e letture concorrenti al primo accesso.
+
+## M3b — esportazione e ripristino versionati, in quarantena
+- `src/backup/localBackup.ts` esporta l'**intero** envelope owner-scoped, comprensivo di piante, luoghi, eventi, journal pendente e ricevute Firestore già presenti. Contratto esterno indipendente: `kind=piante-private-backup`, `formatVersion=1`, `exportedAt` ISO, `envelope`, `sha256`.
+- Il checksum SHA-256 confronta il payload canonicalizzato dopo schema parse per identificare danni accidentali; **non** prova chi abbia prodotto il file. JSON non cifrato, nessun trasferimento online, massimo 32 MiB.
+- Validazione d'import: stesso ownerScope autenticato, versione stretta, checksum, replay completo. L'anteprima non muta lo storage.
+- Recovery atomico consentito solo su archive **vuoto**, con check della sessione dentro `readwrite`; ogni fallimento annulla l'intero record, senza perdita di dati preesistenti.
+- La copia conserva il `replicaId` e gli operationId originali per non alterare la prova del journal, ma marca `backupQuarantined=true` e blocca uploads/hydration cloud anche se il file proviene da un dispositivo precedentemente sincronizzato. Questa quarantena non ha sblocco automatico.
+- Il sistema non esegue merge import, import Pianta legacy né sync dopo restore. Per ripristino multi-device futuro occorrono rekey sicuro, protocolli causali, checkpoint e accounting dei receipt.

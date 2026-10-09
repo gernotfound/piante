@@ -9,3 +9,9 @@
 - La scheda, il diario e i luoghi sono private-only; non duplicare dati in HTML pubblico, SEO, analytics o account non autorizzati.
 - Mostrare un avviso reale sui dati **solo locali, senza backup**. Non nascondere l'avviso nelle modalità scure o mobili.
 - Test: isolamento tra due `user:uid` nel medesimo IDB, failure path salvataggio, reload, form di dominio, nessun salvataggio nel default deploy e accessibilità mobile.
+
+## M3b — controlli di backup locale
+- Montare BackupPanel solo dentro PrivateGarden di owner test autorizzato; import/export devono ricontrollare la stessa sessione durante I/O asincrono e prima del commit IDB.
+- Download manuale JSON in chiaro, avviso di rischio privacy; eventuali errori di generazione/browser non vanno mascherati da successo.
+- L'import mostra soltanto l'anteprima iniziale, quindi richiede una seconda azione. Non recuperare automaticamente dati da file o sovrascrivere un account già utilizzato.
+- Mostrare chiaramente lo stato `backupQuarantined` e l'assenza di sincronizzazione cloud reale.

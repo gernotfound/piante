@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { BookOpen, Leaf, MapPin, Plus, RefreshCw, Sprout } from 'lucide-react';
 import { LocalGardenRepository, type LocalEnvelope } from '../storage/localRepository';
+import { BackupPanel } from '../backup/BackupPanel';
 import type { DomainOperation, Plant, PlantEvent, Place } from '../domain/schema';
 
 type Props = {
   ownerScope: string;
   /** Injectable for offline/identity regression tests. Never a cloud adapter. */
   repository?: LocalGardenRepository;
+  isStillAuthorized: () => boolean;
 };
 
 type FormKind = 'plant' | 'place' | 'diary';
@@ -41,7 +43,7 @@ const message = (error: unknown) =>
  * Explicitly invited test accounts ONLY; parent must enforce authorized Auth
  * state and unmount on logout/account changes. All operations remain on IDB.
  */
-export function PrivateGarden({ownerScope, repository}: Props) {
+export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props) {
   const repo = useMemo(
     () => repository ?? new LocalGardenRepository(ownerScope),
     [ownerScope, repository]
@@ -68,9 +70,9 @@ export function PrivateGarden({ownerScope, repository}: Props) {
     let active = true;
     setSnapshot(null); setLoading(true); setError(''); setNotice('');
     void repo.read().then(value => {
-      if (active) { setSnapshot(value); setLoading(false); }
+      if (active && isStillAuthorized()) { setSnapshot(value); setLoading(false); }
     }).catch(err => {
-      if (active) { setError(message(err)); setLoading(false); }
+      if (active && isStillAuthorized()) { setError(message(err)); setLoading(false); }
     });
     return () => { active = false; };
   }, [repo]);
@@ -83,22 +85,25 @@ export function PrivateGarden({ownerScope, repository}: Props) {
     .sort((a,b) => b.date.localeCompare(a.date) || b.createdAt-a.createdAt);
 
   async function save(operation: DomainOperation | (()=>DomainOperation), success: string) {
-    if (busy) return;
+    if (busy || !isStillAuthorized()) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const next = await repo.commit(typeof operation === 'function' ? operation() : operation);
+      const next = await repo.commit(typeof operation === 'function' ? operation() : operation, isStillAuthorized);
+      if (!isStillAuthorized()) return;
       setSnapshot(next); // strictly AFTER the IDB transaction completes
       setNotice(success + ' · Solo su questo dispositivo, non sincronizzato.');
     } catch (cause) {
+      if (!isStillAuthorized()) return;
       setError(message(cause));
       // Re-read after a failure: another tab may have committed while our
       // operation failed. Never erase the old visible state on read failure.
-      try { setSnapshot(await repo.read()); }
-      catch (readError) { setError(message(readError)); }
+      try { const latest = await repo.read(); if (isStillAuthorized()) setSnapshot(latest); }
+      catch (readError) { if (isStillAuthorized()) setError(message(readError)); }
     } finally { setBusy(false); }
   }
   function addPlant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isStillAuthorized()) return;
     const name = plantName.trim();
     if (!name) { setError('Inserisci il nome della pianta.'); return; }
     void save(() => ({type:'plant.create',plant:{
@@ -109,11 +114,13 @@ export function PrivateGarden({ownerScope, repository}: Props) {
   }
   function addPlace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isStillAuthorized()) return;
     if (!placeName.trim()) { setError('Inserisci il nome del luogo.'); return; }
     void save(() => ({type:'place.create',place:{id:newId(),name:placeName.trim(),kind:placeKind}}),'Luogo salvato');
   }
   function addEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isStillAuthorized()) return;
     if (!diaryPlantId || !diaryDate) { setError('Seleziona una pianta e una data.'); return; }
     void save(() => ({type:'event.add',event:{
       id:newId(),plantId:diaryPlantId,date:diaryDate,type:diaryType,
@@ -130,7 +137,7 @@ export function PrivateGarden({ownerScope, repository}: Props) {
         <p>Questi dati restano in IndexedDB su questo dispositivo. Non sono su Firestore e non sono pubblici.</p>
       </div>
       <button className="garden-refresh" type="button" disabled={busy}
-        onClick={() => { setError('');void repo.read().then(setSnapshot).catch(e=>setError(message(e))); }}>
+        onClick={() => { if (!isStillAuthorized()) return; setError('');void repo.read().then(v=>{if(isStillAuthorized())setSnapshot(v);}).catch(e=>{if(isStillAuthorized())setError(message(e));}); }}>
         <RefreshCw size={18}/> Aggiorna
       </button>
     </div>
@@ -228,6 +235,11 @@ export function PrivateGarden({ownerScope, repository}: Props) {
         <span>{diaryTypes[event.type]}{event.note ? ` · ${event.note}` : ''}</span>
       </li>)}</ul>
     </section>}
-    <p className="garden-privacy">Area sperimentale: nessun dato viene pubblicato nella vetrina. Non cancellare i dati del browser: non esiste ancora un backup o un ripristino cloud di questa interfaccia.</p>
+    <BackupPanel ownerScope={ownerScope} repository={repo} isStillAuthorized={isStillAuthorized}
+      onRestored={value=>{if(isStillAuthorized()){setSnapshot(value);setNotice('Archivio ripristinato in modo durevole; sincronizzazione cloud bloccata.');}}}/>
+    {snapshot?.backupQuarantined && <p className="garden-feedback garden-feedback--error" role="status">
+      Backup ripristinato: la sincronizzazione cloud è bloccata per proteggere l'identità della replica.
+    </p>}
+    <p className="garden-privacy">Area sperimentale: nessun dato viene pubblicato. I backup JSON non sono cifrati e non esiste ancora un ripristino cloud automatico. Conserva una copia protetta in un luogo sicuro.</p>
   </section>;
 }

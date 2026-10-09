@@ -41,6 +41,7 @@ export function AuthTestPanel() {
    {error?<p role="alert">{error}</p>:null}
    {state.status==='signed-out'?<button type="button" disabled={busy||!controller} onClick={()=>void act('signIn')}>Accedi con Google (test)</button>
     :<button type="button" disabled={busy||!controller} onClick={()=>void act('signOut')}>Disconnetti</button>}
-   {state.status==='authorized' ? <PrivateGarden key={state.uid} ownerScope={state.ownerScope} /> : null}
+   {state.status==='authorized' ? <PrivateGarden key={state.uid} ownerScope={state.ownerScope}
+     isStillAuthorized={()=>controller?.state.status==='authorized' && controller.state.uid===state.uid} /> : null}
  </section>;
 }

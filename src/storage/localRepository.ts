@@ -33,7 +33,9 @@ export const localEnvelopeSchema = z.strictObject({
   data: gardenStateSchema,
   pending: z.array(pendingOperationSchema).max(MAX_PENDING),
   // Backward-compatible, optional extension; existing M1 envelopes migrate on next write.
-  remoteReceipts: z.array(z.strictObject({id:z.string().min(1),data:cloudJournalRecordSchema})).max(200).default([])
+  remoteReceipts: z.array(z.strictObject({id:z.string().min(1),data:cloudJournalRecordSchema})).max(200).default([]),
+  // Restored backups are NOT cloud credentials; cloned replica IDs must never sync.
+  backupQuarantined: z.boolean().default(false)
 }).superRefine((value,ctx)=>{
   let previous = value.pending.length ? value.pending[0].sequence - 1 : value.lastSequence;
   for(const entry of value.pending){
@@ -72,7 +74,7 @@ function newReplicaId(): string {
 function fresh(ownerScope:string):LocalEnvelope {
   return {
     ownerScope,replicaId:newReplicaId(),envelopeVersion:LOCAL_ENVELOPE_VERSION,
-    dataSchemaVersion:LOCAL_DATA_SCHEMA_VERSION,revision:0,lastSequence:0,data:emptyGarden(),pending:[],remoteReceipts:[]
+    dataSchemaVersion:LOCAL_DATA_SCHEMA_VERSION,revision:0,lastSequence:0,data:emptyGarden(),pending:[],remoteReceipts:[],backupQuarantined:false
   };
 }
 function parseStored(raw:unknown,ownerScope:string):LocalEnvelope {
@@ -158,9 +160,10 @@ export class LocalGardenRepository {
   }
 
   /** Durable transaction: operation and resulting domain state become visible together. */
-  commit(rawOperation:unknown):Promise<LocalEnvelope>{
+  commit(rawOperation:unknown, isStillAuthorized:()=>boolean=()=>true):Promise<LocalEnvelope>{
     const operation:DomainOperation=domainOperationSchema.parse(rawOperation);
     return this.write(current=>{
+      if(!isStillAuthorized())throw new Error('Sessione cambiata: scrittura bloccata');
       if(current.pending.length>=MAX_PENDING)throw new Error('Journal pieno: sincronizzazione necessaria');
       if(current.lastSequence>=Number.MAX_SAFE_INTEGER)throw new Error('Sequence esaurita');
       const now=(this.options.now??Date.now)();
@@ -204,6 +207,7 @@ export class LocalGardenRepository {
   ): Promise<LocalEnvelope> {
     return this.write(current=>{
       if(!isStillAuthorized())throw new Error('Identity changed before hydration');
+      if(current.backupQuarantined)throw new Error('Backup importato: sincronizzazione cloud vietata');
       if(!dataEqual(current,expected))throw new Error('Concurrent local change before hydration');
       const data=project(current);
       const remoteReceipts=rawRemote.map(item=>({
@@ -216,5 +220,33 @@ export class LocalGardenRepository {
       return {next,value:next};
     });
   }
+
+  /**
+   * Restores a fully validated backup ONLY into an empty owner scope.
+   * Quarantines original replica identity from all cloud upload/hydration APIs,
+   * preventing cloned devices from reusing IDs in the remote journal.
+   */
+  restoreEmptyFromBackup(
+    rawSource:unknown,
+    isStillAuthorized:()=>boolean
+  ):Promise<LocalEnvelope> {
+    const source=localEnvelopeSchema.parse(rawSource);
+    if(source.ownerScope!==this.ownerScope)throw new Error('Backup di un altro proprietario');
+    return this.write(current=>{
+      if(!isStillAuthorized())throw new Error('Sessione cambiata: ripristino bloccato');
+      if(current.lastSequence!==0 || current.pending.length!==0 ||
+        current.remoteReceipts.length!==0 || Object.keys(current.data.plants).length!==0 ||
+        Object.keys(current.data.places).length!==0 || Object.keys(current.data.events).length!==0 ||
+        current.backupQuarantined) {
+        throw new Error('Ripristino consentito soltanto in un archivio completamente vuoto');
+      }
+      if(source.revision>=Number.MAX_SAFE_INTEGER)throw new Error('Revisione del backup esaurita');
+      const next:LocalEnvelope={
+        ...source,revision:source.revision+1,backupQuarantined:true
+      };
+      return {next,value:next};
+    });
+  }
+
 
 }

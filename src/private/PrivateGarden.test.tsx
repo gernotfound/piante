@@ -33,7 +33,8 @@ describe('M3a gated private botanical archive (local-only)',()=>{
     expect(await screen.findByText(/Prima osservazione/)).toBeDefined();
     expect((await repo.read()).pending).toHaveLength(3);
     expect(Object.keys((await repo.read()).data.events)).toHaveLength(1);
-    expect(screen.getByText(/non esiste ancora un backup/)).toBeDefined();
+    expect(screen.getByRole('button',{name:'Esporta backup JSON'})).toBeDefined();
+    expect(screen.getByText(/backup JSON non sono cifrati/)).toBeDefined();
   });
 
   it('keeps owner-specific archives isolated even in the same browser database',async()=>{

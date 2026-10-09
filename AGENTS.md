@@ -112,3 +112,11 @@
 - Mostrare avviso esplicito: dati locali **non sincronizzati e senza backup live**; si possono perdere cancellando dati browser. Non incoraggiare uso produttivo finché export/backup e recupero reali non sono disponibili.
 - Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live Security Rules legacy, account lifecycle e cancellazione.
 - Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
+
+## M3b — backup JSON e recupero solo su archivio vuoto
+- Leggere `.agents/rules/backup-and-recovery.md` prima di export/import o modifiche a IDB/cloud che influiscono sui backup.
+- Il backup JSON include **tutto** l'envelope locale e il journal, non soltanto schede UI; il file contiene dati privati in chiaro, non è una firma o un backup online.
+- Valutare versione/schema, checksum SHA-256 e replay integrale prima di un'importazione; anteprima separata e conferma esplicita.
+- Ripristinare **esclusivamente su un archivio vuoto dello stesso UID**, in una transazione IDB, con controllo autorizzazione.
+- `backupQuarantined=true` blocca upload/hydration Firestore dopo import, perché i vecchi `replicaId` potrebbero esistere su altri device; una migrazione futura dovrà risolvere il rekey causale.
+- Vietate sovrascritture distruttive automatiche, import legacy Pianta non autorizzati e distribuzione Rules/Hosting in questa milestone.
