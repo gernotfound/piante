@@ -146,3 +146,11 @@
 - Il controllo vieta nuovi blocchi Firebase `firestore`, `functions`, `storage` e altri provider nel file Hosting, site/progetto inattesi, riscritture diverse dalla SPA e rimozione degli header di sicurezza.
 - `Verification / Static Release Boundary` esegue invarianti + preflight sullo **SHA esatto**, e `Canonical Verification` ne richiede il successo insieme agli altri gate.
 - Questi controlli provano **solo configurazione statica GitHub**, non Firebase live. La CI non dispone di credenziali e non distribuisce niente. La riconciliazione delle Rules legacy, IAM, OAuth/App Check e lifecycle account restano vincoli prima dell'attivazione.
+
+
+## M3f — invalidazione live del grant Auth per l'area privata di laboratorio
+- `AuthSessionController` ascolta `onIdTokenChanged` e **un listener Firestore server-verificato continuo** per `piante_access/{uid}`: `onSnapshot` con `includeMetadataChanges` e `snapshot.metadata.fromCache===false` è requisito per `authorized`.
+- Ogni callback cached/offline `null`, revoca `enabled=false`, token/UID cambiato, listener error, logout o sessione non verificabile **smonta subito** `PrivateGarden`; fino a successiva conferma server la UI privata non deve riapparire. Epoch/generation fence per callback obsoleti. Esplicito logout blocca l'Auth callback residuo fino a nuovo signIn.
+- Segnali browser `offline` e ritorno foreground/online provocano fail-closed e nuovo grant server; **non** interpretare assenza di evento come prova che la rete sia attiva. Le Rules effettive restano l'unico enforcement cloud.
+- Sessione revocata deve bloccare `LocalGardenRepository.commit()` anche tra richiesta e transazione; i dati già persistiti in IndexedDB **non** sono cifrati né eliminati. Un browser fisicamente condiviso necessita ulteriori controlli: la UI non protegge contro accesso al profilo browser/devtools.
+- Il listener aumenta letture Firestore per account test: il flag `VITE_AUTH_TEST_MODE=false` e il gate M3e restano obbligatori. **Non attivare registrazioni, grant o Rules live** finché il ciclo account non è completo.

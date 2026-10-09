@@ -15,3 +15,12 @@
 - Download manuale JSON in chiaro, avviso di rischio privacy; eventuali errori di generazione/browser non vanno mascherati da successo.
 - L'import mostra soltanto l'anteprima iniziale, quindi richiede una seconda azione. Non recuperare automaticamente dati da file o sovrascrivere un account già utilizzato.
 - Mostrare chiaramente lo stato `backupQuarantined` e l'assenza di sincronizzazione cloud reale.
+
+
+## M3f — verificabilità continua dell'autorizzazione
+- **MUST:** nessun accesso alla UI privata dopo una sola lettura del grant, un ID token cache, una risposta Firestore `fromCache`, un errore listener, una revoca grant/tombstone o un segnale `offline`.
+- **MUST:** ascoltare token/identità e grant server in stream attivo con metadata; revocare il precedente owner immediatamente su UID/token change, logout, offline e listener terminal failure. Dopo resume/online richiedere un nuovo server proof prima di rimontare.
+- **MUST:** ignorare callback async di subscription obsolete tramite generazioni monotone e smontare `PrivateGarden`; nessun riaccesso da un Auth callback vecchio dopo logout esplicito, se non a seguito di un nuovo `signIn`.
+- **MUST:** i callback `isStillAuthorized` di repository e backup sono derivati dallo stato corrente del controller, non da un booleano catturato al momento del click.
+- **TEST:** UID switch, token refresh, grant false, tombstone, cached snapshot, listener error, logout in volo, signout failure, late events, offline/online e persistenza locale intatta.
+- **LIMITI:** `navigator.onLine` non garantisce che Firestore sia raggiungibile; lo streaming può non segnalare istantaneamente una disconnessione silenziosa. La Security Rule live governa le letture/scritture remote; non dichiarare isolamento crittografico IndexedDB o revoca offline perfetta.
