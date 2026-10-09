@@ -28,3 +28,11 @@ Prezzi, venditori, note personali, foto di diario non selezionate, coordinate pu
 
 ## Punto aperto: backend trusted
 La completa cancellazione cross-collection/account e alcune garanzie sulla pubblicazione necessitano di un'architettura trusted se non garantibili tramite Rules e client. Non aprire la registrazione pubblica finché questa decisione non è risolta e testata.
+
+
+## M3c — distinzione tra dati Piante e account condiviso
+- Il Progetto Firebase `pianta-db` ospita l'identità Auth e le collection della vecchia Pianta. La cancellazione del solo spazio Piante è distinta dalla rimozione dell'account Auth condiviso.
+- Un job privato `piante_account_deletions/{uid}`, creato **solo da un backend amministrativo futuro**, funge da barriera: nella suite Rules Emulator impedisce l'accesso client al namespace `piante_users/{uid}` e al grant Piante.
+- Non pubblicare operazioni cancellabili attraverso SDK client; non toccare `users/{uid}` legacy, né Firebase Auth. Lo stato complete deve avere prova di assenza cloud, compresi grant e dipendenze pubbliche/media.
+- Il runner di laboratorio `src/account/deletionRunner.ts` è intenzionalmente inerte e NON costituisce una procedura di diritto alla cancellazione operativa. La UI non offre per ora la cancellazione account.
+- Vedi `.agents/rules/account-lifecycle.md` per sequenza, crash consistency, limiti e blocker esterni.

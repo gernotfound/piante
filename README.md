@@ -89,3 +89,7 @@ Solo con `VITE_AUTH_TEST_MODE=true`, configurazione Google Auth valida e rispost
 
 ## M3b — backup manuale e recovery offline per account test
 La UI privata di prova offre l'export JSON completo del database locale (schede, eventi, luoghi, journal e receipt) e import con verifica checksum, anteprima e conferma. **Attenzione:** il file è in chiaro e non viene protetto con password; conservalo al sicuro. Il ripristino è permesso solo sullo **stesso account** in un archivio vuoto. Un backup importato resta in **quarantena cloud**, anche se consente modifiche locali, fino a una futura migrazione sicura. Nessun backup automatico o ripristino cloud live è disponibile.
+
+
+## M3c — sicurezza del ciclo di cancellazione (solo laboratorio)
+Il repository include un modello testato di cleanup amministrativo riprendibile con tombstone e blocco delle scritture concorrenti. **Non è collegato a un server**, non cancella account reali e non permette al client di cancellare dati Firestore. Firebase Auth è condiviso con Pianta legacy e non viene rimosso. Consulta `.agents/rules/account-lifecycle.md` per vincoli e prerequisiti prima dell'apertura a nuovi utenti.

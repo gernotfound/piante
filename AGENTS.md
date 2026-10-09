@@ -120,3 +120,13 @@
 - Ripristinare **esclusivamente su un archivio vuoto dello stesso UID**, in una transazione IDB, con controllo autorizzazione.
 - `backupQuarantined=true` blocca upload/hydration Firestore dopo import, perché i vecchi `replicaId` potrebbero esistere su altri device; una migrazione futura dovrà risolvere il rekey causale.
 - Vietate sovrascritture distruttive automatiche, import legacy Pianta non autorizzati e distribuzione Rules/Hosting in questa milestone.
+
+
+## M3c — preflight e barriera di cancellazione, SOLO Emulator
+- Consultare `.agents/rules/account-lifecycle.md` e le regole cloud/esterni prima di toccare account, cleanup o Rules. Studiare i contratti correnti di LogBook come principi, **non** trasferirne i provider o protocolli.
+- Firebase Auth nel progetto `pianta-db` può essere condiviso con la vecchia Pianta: non eliminare mai utenti Auth o dati `users/{uid}` legacy.
+- `src/account/deletionRunner.ts` è codice di laboratorio indipendente dal client e **non collegato ad alcun backend live**. Richiede un futuro provider trusted e un tombstone `piante_account_deletions/{uid}` atomico e amministrativo con lease.
+- Prima di ogni cleanup controllare completezza di tutte le risorse associate, incluse proiezioni pubbliche e Storage; bloccare collezioni private sconosciute. Batch <= 50, retry idempotenti, verifica vuoto e grant Piante cancellato **prima** del complete; nessuna eliminazione Auth.
+- Le Rules di laboratorio bloccano il grant e ogni documento privato Piante dopo tombstone. Mai distribuire il fixture su Firebase condiviso senza audit legacy e backend autorizzato.
+- Nessun purge IndexedDB soltanto perché Auth non esiste o un client è offline; servono conferma server effettiva e recovery device sicuro.
+- Nessuna UI "Elimina account" o apertura delle registrazioni fino a lifecycle end-to-end funzionante e decisione sull'identità condivisa.

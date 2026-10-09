@@ -56,6 +56,30 @@ describe('Piante private namespace security',()=>{
   });
   await assertFails(getDoc(doc(db('alice'),path('alice','plants/p1'))));
  });
+ it('an admin deletion tombstone immediately fences owner reads and writes, even while grant remains enabled',async()=>{
+  const alice=db('alice');
+  await assertSucceeds(getDoc(doc(alice,path('alice','plants/p1'))));
+  await env.withSecurityRulesDisabled(async ctx=>{
+    await setDoc(doc(ctx.firestore(),'piante_account_deletions/alice'),{
+      phase:'deleting',lease:'emulator-test'
+    });
+  });
+  await assertFails(getDoc(doc(alice,path('alice','plants/p1'))));
+  await assertFails(getDoc(doc(alice,path('alice'))));
+  await assertFails(getDoc(doc(alice,'piante_access/alice')));
+  await assertFails(setDoc(doc(alice,path('alice','plants/new')),{commonName:'Forbidden'}));
+  await assertFails(getDoc(doc(db('bob'),'piante_account_deletions/alice')));
+  await assertFails(getDoc(doc(db(),'piante_account_deletions/alice')));
+  await assertFails(setDoc(doc(alice,'piante_account_deletions/alice'),{phase:'complete'}));
+  await assertFails(deleteDoc(doc(alice,'piante_account_deletions/alice')));
+ });
+ it('a tombstone for another account does not grant cross-user access or revoke this owner',async()=>{
+  await env.withSecurityRulesDisabled(async ctx=>{
+    await setDoc(doc(ctx.firestore(),'piante_account_deletions/bob'),{phase:'deleting'});
+  });
+  await assertSucceeds(getDoc(doc(db('alice'),path('alice','plants/p1'))));
+  await assertFails(getDoc(doc(db('bob'),path('alice','plants/p1'))));
+ });
  it('does not expose legacy or public collections in the isolated test rules',async()=>{
   await assertFails(getDoc(doc(db('alice'),'users/alice/plants/p1')));
   await assertFails(getDoc(doc(db(),'piante_profiles/alice/plants/p1')));
