@@ -43,9 +43,6 @@ export function assertStaticReleaseBoundary({
     'firebase-config-must-be-hosting-only');
   const hosting=firebaseConfig.hosting;
   requireRelease(hosting&&typeof hosting==='object'&&!Array.isArray(hosting),'hosting-config-invalid');
-  const allowedHostingKeys=new Set(['site','public','ignore','cleanUrls','trailingSlash','headers','rewrites']);
-  requireRelease(Object.keys(hosting).every(key=>allowedHostingKeys.has(key)),
-    'unsupported-hosting-directive');
   requireRelease(hosting.site==='piante','wrong-hosting-site');
   requireRelease(hosting.public==='dist','wrong-hosting-directory');
   requireRelease(!Object.hasOwn(hosting,'target')&&!Object.hasOwn(hosting,'predeploy')&&!Object.hasOwn(hosting,'postdeploy'),
@@ -54,6 +51,10 @@ export function assertStaticReleaseBoundary({
     hosting.rewrites[0]?.source==='**'&&hosting.rewrites[0]?.destination==='/index.html'&&
     Object.keys(hosting.rewrites[0]).length===2,'hosting-rewrites-changed');
   requireRelease(!Object.hasOwn(hosting,'redirects'),'hosting-redirects-not-reviewed');
+  const allowedHostingKeys=new Set(['site','public','ignore','cleanUrls','trailingSlash','headers','rewrites']);
+  requireRelease(Object.keys(hosting).every(key=>allowedHostingKeys.has(key)),
+    'unsupported-hosting-directive');
+
   requireRelease(Array.isArray(hosting.headers),'hosting-security-headers-missing');
   const securityHeaders=new Set(
     hosting.headers.filter(row=>row.source==='/**'&&Array.isArray(row.headers))
