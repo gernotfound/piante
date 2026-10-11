@@ -77,6 +77,18 @@ service cloud.firestore {
         && d.appliedAt is int && d.appliedAt >= 0
         && validIntent(d.operation);
     }
+    // Advisory observations never authorize causal compaction.
+    function validCheckpointObservation(uid, replicaId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['protocol','status','compactionAuthorized','ownerUid','replicaId','receiptCount','observedPrefixes','sha256'])
+        && d.keys().hasOnly(['protocol','status','compactionAuthorized','ownerUid','replicaId','receiptCount','observedPrefixes','sha256'])
+        && d.protocol == 1 && d.status == 'observation-only'
+        && d.compactionAuthorized == false && d.ownerUid == uid && d.replicaId == replicaId
+        && d.replicaId is string && d.replicaId.matches('^[0-9a-f-]{36}$')
+        && d.receiptCount is int && d.receiptCount >= 0 && d.receiptCount <= 200
+        && d.observedPrefixes is map && d.observedPrefixes.keys().size() <= 200
+        && d.sha256 is string && d.sha256.matches('^[0-9a-f]{64}$');
+    }
     // Admin-only provisioning. Clients may inspect their own grant, never create or edit it.
     match /piante_access/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid
@@ -97,6 +109,14 @@ service cloud.firestore {
         allow get, list: if invitedOwner(uid);
         allow create: if invitedOwner(uid) && validCloudJournal(uid, operationId);
         allow update, delete: if false;
+      }
+      match /checkpoint_observations/{replicaId} {
+        allow get, list: if invitedOwner(uid);
+        allow create: if invitedOwner(uid) && validCheckpointObservation(uid, replicaId);
+        allow update: if invitedOwner(uid) && validCheckpointObservation(uid, replicaId)
+          && resource.data.ownerUid == uid && resource.data.replicaId == replicaId
+          && request.resource.data.receiptCount > resource.data.receiptCount;
+        allow delete: if false;
       }
       match /{path=**} {
         allow get, list: if invitedOwner(uid);
