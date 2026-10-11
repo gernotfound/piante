@@ -18,6 +18,10 @@
 - Il journal conserva intento, timestamp applicativo, sequence monotona e ID `replicaId:sequence` per replay deterministico. Non tagliare mai la coda per recuperare spazio: superato il limite deve segnalare errore.
 - `acknowledgeThrough(seq)` è **disabilitato e fallisce chiuso**: non elimina più operazioni. Anche una ricevuta di upload remoto non costituisce una baseline/checkpoint causale sufficiente per recuperare dopo compattazione; nessun percorso di produzione è autorizzato a rimuovere il journal fino a protocollo verificato con watermark, recovery multi-replica e rollback.
 
+## M8a — patch private dell'esemplare con barriera di revisione
+
+Nella UI test-only il form di modifica conserva la `revision` al momento dell'apertura e chiama `commit(operation, isStillAuthorized, expectedRevision)`. Il controllo di revisione avviene **nella medesima transazione IndexedDB** della patch business e dell'append al journal. Una modifica concorrente nell'altra scheda respinge tutto senza perdere cronologia e mostra un errore; occorre riaprire la scheda per caricare i valori nuovi. Le patch di campi opzionali usano `null` per cancellazione esplicita; non modificano campi non mostrati. Nessuna sincronizzazione Firestore o backup cloud viene attivata.
+
 ## Recovery e dati incompatibili
 - Un envelope realmente assente è uno stato iniziale vuoto. Un envelope esistente ma incompatibile, corrotto, di schema futuro o con owner mismatch è un errore: non azzerarlo, non reimportarlo e non riscriverlo.
 - Un errore durante la transazione non può lasciare data e journal disallineati.

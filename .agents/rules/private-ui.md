@@ -10,6 +10,11 @@
 - Mostrare un avviso reale sui dati **solo locali, senza backup**. Non nascondere l'avviso nelle modalità scure o mobili.
 - Test: isolamento tra due `user:uid` nel medesimo IDB, failure path salvataggio, reload, form di dominio, nessun salvataggio nel default deploy e accessibilità mobile.
 
+## M8a — editor dettagli dell'esemplare (CRITICAL per dati)
+- **MUST:** l'editor è solo per l'owner già autorizzato, test-only, senza dati cloud o pubblicazione. Leggere dati solo dallo snapshot IndexedDB e salvare modifiche tramite `LocalGardenRepository.commit` tipizzato.
+- **MUST:** per l'editing usare `expectedRevision` acquisita all'apertura del form e verificata nella transazione IDB; un'altra modifica nello stesso owner durante l'editing impone il blocco e la rilettura. Non rimpiazzare il journal con lo snapshot del form. `null` elimina solo optional; campo omesso non deve essere resettato.
+- **MUST:** non creare un'operazione per salvataggi no-op; successo solo dopo `oncomplete`. Ripristino backup e revoca Auth mantengono i guard correnti. Test su reload, alterazioni concorrenti, invalidità e rinomina/luogo/vaso/note.
+
 ## M3b — controlli di backup locale
 - Montare BackupPanel solo dentro PrivateGarden di owner test autorizzato; import/export devono ricontrollare la stessa sessione durante I/O asincrono e prima del commit IDB.
 - Download manuale JSON in chiaro, avviso di rischio privacy; eventuali errori di generazione/browser non vanno mascherati da successo.
