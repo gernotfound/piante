@@ -164,6 +164,11 @@
 - `uploadPendingJournal` può classificare come `local-pending` solo i guasti di trasporto con codice potenzialmente ambiguo e dopo verifica durevole della pending e della sessione. Collisioni, errori di precondizione, quota e guasti sconosciuti sono `failed/cloud-error`, propagati dal ciclo come `blocked/cloud-error`.
 - Test su Firestore Emulator, timeout dopo commit remoto, failure path IndexedDB e gate canonico sono obbligatori. Nessuna connessione alla UI e nessun deploy di Rules sul Firebase condiviso.
 
+## M5b-1 — candidato di checkpoint verificabile, senza compattazione (CRITICAL)
+- `src/cloud/checkpointCandidate.ts` può produrre **solo** `candidate-only` con `compactionAuthorized=false`. Richiede scan server completo entro 200 receipt, validazione del replay, sequenze per replica contigue, conferma esatta delle pending locali, stessa identità e snapshot IDB invariato anche dopo SHA-256 asincrono.
+- Gli `observedPrefixes` sono massimi contigui **osservati** per replica; NON sono un vector clock, una stable frontier, un acknowledgement di tutti i device né una prova per eliminare il journal. SHA-256 non firma né autentica il server.
+- Il candidato è effimero e read-only: non viene persistito, non modifica `remoteReceipts`, non estende il limite di 200, non riattiva `acknowledgeThrough`, non abilita Rules, login, sync UI o deploy. Servono un checkpoint autorevole e durevole, metadata causali versionati, membership/fencing delle repliche e test end-to-end prima della GC.
+- Regressioni CRITICAL su interleaving fra device, storia corrotta/troncata, auth revocata, backup in quarantena, race IDB durante scan/hash, assenza di crypto ed Emulator reale.
 ## M4a — compatibilità con Rules attuali riferite dal product owner
 - Il 2026-10-09 il product owner ha fornito il testo delle Rules attuali `pianta-db` (fonte `USER-REPORTED`), diverso dalle precedenti Rules TheLogBook. La struttura coincide con lo snapshot versionato `gernotfound/pianta/firestore.rules` e deve essere trattata come **legacy da preservare**, non come prova provider live.
 - Il file `tests/fixtures/pianta-legacy-user-reported.rules` preserva byte-for-byte lo snapshot legacy, con Git blob SHA pinned; `scripts/compose-compat-rules.mjs` valida anche il fixture Piante e costruisce solo in memoria/temp la composizione isolata per Emulator.
