@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LocalGardenRepository } from '../storage/localRepository';
 import { prepareCloudRecord, uploadPendingJournal, type CloudJournalPort } from './journal';
 
@@ -85,15 +85,19 @@ describe('M2b durable append-only journal transport (CRITICAL)', () => {
     expect((await local.read()).pending).toHaveLength(1);
   });
 
-  it('never returns a safe pending outcome when the journal changed after ambiguous transport', async () => {
+  it('never claims retryable pending when IndexedDB cannot verify history after a timeout', async () => {
     const local = repo(); await local.commit(operation('a'));
-    const port: CloudJournalPort = { appendOnce: async () => {
-      await local.acknowledgeThrough(1);
-      throw new Error('timeout');
-    } };
+    const durableRead=local.read.bind(local);
+    let reads=0;
+    const read=vi.spyOn(local,'read').mockImplementation(() =>
+      ++reads===1?durableRead():Promise.reject(new Error('IndexedDB unavailable'))
+    );
+    const port: CloudJournalPort = { appendOnce: async () => { throw new Error('timeout'); } };
     expect(await uploadPendingJournal(local, port, 'alice', allowed)).toEqual({
       status: 'failed', count: 0, reason: 'local-invariant'
     });
+    read.mockRestore();
+    expect((await local.read()).pending).toHaveLength(1);
   });
 
   it('rejects unknown schema and invalid operation IDs', async () => {

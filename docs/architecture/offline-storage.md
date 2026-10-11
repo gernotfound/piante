@@ -16,7 +16,7 @@
 - `commit()` apre una transazione IndexedDB `readwrite`, legge e valida l'envelope, calcola stato e journal, quindi salva l'**intero envelope** come un'unica write; la promise si risolve solo su `tx.oncomplete`.
 - Le transazioni tra schede sullo stesso object store sono serializzate da IndexedDB: non usare un read-modify-write diviso in due transazioni.
 - Il journal conserva intento, timestamp applicativo, sequence monotona e ID `replicaId:sequence` per replay deterministico. Non tagliare mai la coda per recuperare spazio: superato il limite deve segnalare errore.
-- `acknowledgeThrough(seq)` elimina solo un prefisso delle operazioni, preservando business state e nuove modifiche. **M1 non chiama mai l'ack automaticamente**: M2 dovrà documentare la prova remota richiesta.
+- `acknowledgeThrough(seq)` è **disabilitato e fallisce chiuso**: non elimina più operazioni. Anche una ricevuta di upload remoto non costituisce una baseline/checkpoint causale sufficiente per recuperare dopo compattazione; nessun percorso di produzione è autorizzato a rimuovere il journal fino a protocollo verificato con watermark, recovery multi-replica e rollback.
 
 ## Recovery e dati incompatibili
 - Un envelope realmente assente è uno stato iniziale vuoto. Un envelope esistente ma incompatibile, corrotto, di schema futuro o con owner mismatch è un errore: non azzerarlo, non reimportarlo e non riscriverlo.
@@ -26,7 +26,7 @@
 - Una futura sincronizzazione dovrà verificare lost acknowledgement, retry remoto idempotente, conflitti tra dispositivi, sync epoch/logout e ripresa dopo aggiornamenti SW. **Queste funzionalità non sono implementate in M1**.
 
 ## Test eseguiti dal gate
-Vitest verifica validazione date, schema e riferimenti, cicli genealogici, replay, ID duplicati, concorrenza tra istanze IDB, errore indotto durante `put`, preservazione del journal, ack selettivo, isolamenti per owner, database indisponibile e versioni incompatibili.
+Vitest verifica validazione date, schema e riferimenti, cicli genealogici, replay, ID duplicati, concorrenza tra istanze IDB, errore indotto durante `put`, preservazione del journal, rifiuto degli ack senza checkpoint anche durante scritture concorrenti, isolamenti per owner, database indisponibile e versioni incompatibili.
 
 Niente Firebase Emulator in M1: non ci sono Rules applicative nuove o query cloud da testare. Sarà obbligatorio nel momento in cui il sync/Firestore entrerà nel perimetro.
 

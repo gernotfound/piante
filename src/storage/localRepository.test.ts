@@ -79,18 +79,23 @@ describe('IndexedDB atomic state + operation journal (CRITICAL)',()=>{
     expect(await repo.read()).toEqual(before);
     expect(original).toBeDefined();
   });
-  it('acknowledges only a verified prefix without overwriting newer local edits',async()=>{
+  it('rejects unverified acknowledgements without truncating history, even during concurrent edits',async()=>{
     const db=dbName();
     const repo=instance(db);
     await repo.commit(avocado('a'));
     await repo.commit(avocado('b'));
     const before=await repo.read();
-    const ack=await repo.acknowledgeThrough(1);
-    expect(ack.data).toEqual(before.data);
-    expect(ack.pending.map(p=>p.sequence)).toEqual([2]);
-    expect(ack.lastSequence).toBe(2);
-    expect((await repo.read()).pending).toEqual(ack.pending);
-    await expect(repo.acknowledgeThrough(3)).rejects.toThrow('oltre');
+    await expect(repo.acknowledgeThrough(0)).rejects.toThrow('checkpoint cloud');
+    await expect(repo.acknowledgeThrough(1)).rejects.toThrow('checkpoint cloud');
+    await expect(repo.acknowledgeThrough(3)).rejects.toThrow('checkpoint cloud');
+    await expect(repo.acknowledgeThrough(-1)).rejects.toThrow('Ack non valido');
+    expect(await repo.read()).toEqual(before);
+    const results=await Promise.allSettled([repo.acknowledgeThrough(2),repo.commit(avocado('c'))]);
+    expect(results.map(result=>result.status)).toEqual(['rejected','fulfilled']);
+    const recovered=await instance(db).read();
+    expect(recovered.pending.map(p=>p.sequence)).toEqual([1,2,3]);
+    expect(recovered.data.plants.c).toBeDefined();
+    expect(replayOperations(emptyGarden(),recovered.pending)).toEqual(recovered.data);
   });
   it('keeps owners isolated within the same browser database',async()=>{
     const db=dbName();

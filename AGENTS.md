@@ -58,7 +58,7 @@
 - `src/domain/operations.ts` applica intenti tipizzati e valida lo stato risultante. Patch: chiave assente = invariata, `null` = cancellazione di campo opzionale, `undefined` = errore.
 - `src/storage/localRepository.ts` è la sola sorgente durevole del nuovo modulo M1: un record IndexedDB per owner contiene stato, sequence e journal nella **stessa transazione readwrite**. La read-modify-write deve restare atomica anche tra schede.
 - Errori IndexedDB, schema/versione futura incompatibile, ID duplicati e riferimenti invalidi **falliscono chiusi**: non ricreare silenziosamente lo stato vuoto.
-- Acknowledge del journal permesso solo dopo conferma remota autorevole: M1 NON ha un adattatore cloud. L'ack di un prefisso non deve rimuovere operazioni più recenti o sovrascrivere lo stato business.
+- `acknowledgeThrough()` è fail-closed: **non** elimina alcuna pending in assenza di checkpoint cloud causale e watermark server verificato. Le singole ricevute Firestore, anche persistite, non sono autorizzazione alla compattazione; ogni futura riattivazione richiede protocollo di recovery multi-replica e nuove regressioni CRITICAL.
 - Owner scope valido: `user:<uid>` o `guest:<id>`. In M1 il modulo non viene chiamato dall'interfaccia: Auth, session lifecycle e isolamento effettivo utenti saranno implementati e testati prima di abilitarlo in UI.
 - Le versioni `LOCAL_ENVELOPE_VERSION=1` e `LOCAL_DATA_SCHEMA_VERSION=1` sono proprie di Piante, non versioni TheLogBook.
 - I dati Firebase legacy sono fuori perimetro; nessun nuovo listener, scrittura cloud o deploy Rules/Hosting in M1.
