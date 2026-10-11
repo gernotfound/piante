@@ -64,6 +64,15 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const [diaryType, setDiaryType] = useState<keyof typeof diaryTypes>('observation');
   const [diaryDate, setDiaryDate] = useState(localToday);
   const [diaryNote, setDiaryNote] = useState('');
+  const [editingPlantId,setEditingPlantId]=useState('');
+  const [editRevision,setEditRevision]=useState<number|null>(null);
+  const [editName,setEditName]=useState('');
+  const [editScientific,setEditScientific]=useState('');
+  const [editCultivar,setEditCultivar]=useState('');
+  const [editPlaceId,setEditPlaceId]=useState('');
+  const [editPot,setEditPot]=useState('');
+  const [editMinTemp,setEditMinTemp]=useState('');
+  const [editNotes,setEditNotes]=useState('');
 
 
   useEffect(() => {
@@ -84,14 +93,19 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const events: PlantEvent[] = Object.values(snapshot?.data.events ?? {})
     .sort((a,b) => b.date.localeCompare(a.date) || b.createdAt-a.createdAt);
 
-  async function save(operation: DomainOperation | (()=>DomainOperation), success: string) {
+  async function save(
+    operation: DomainOperation | (()=>DomainOperation), success: string,
+    expectedRevision?:number,onSaved?:()=>void
+  ) {
     if (busy || !isStillAuthorized()) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const next = await repo.commit(typeof operation === 'function' ? operation() : operation, isStillAuthorized);
+      const next = await repo.commit(typeof operation === 'function' ? operation() : operation,
+        isStillAuthorized,expectedRevision);
       if (!isStillAuthorized()) return;
       setSnapshot(next); // strictly AFTER the IDB transaction completes
       setNotice(success + ' · Solo su questo dispositivo, non sincronizzato.');
+      onSaved?.();
     } catch (cause) {
       if (!isStillAuthorized()) return;
       setError(message(cause));
@@ -126,6 +140,41 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
       id:newId(),plantId:diaryPlantId,date:diaryDate,type:diaryType,
       ...(diaryNote.trim() ? {note:diaryNote.trim()} : {})
     }}), 'Voce di diario salvata');
+  }
+  function openPlantEditor(plant:Plant){
+    if(busy||!isStillAuthorized()||!snapshot)return;
+    setEditingPlantId(plant.id);setEditRevision(snapshot.revision);
+    setEditName(plant.commonName);setEditScientific(plant.scientificName??'');
+    setEditCultivar(plant.cultivar??'');setEditPlaceId(plant.placeId??'');
+    setEditPot(plant.potLiters===undefined?'':String(plant.potLiters));
+    setEditMinTemp(plant.minimumTemperatureC===undefined?'':String(plant.minimumTemperatureC));
+    setEditNotes(plant.notes??'');setError('');setNotice('');
+  }
+  function editPlant(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!snapshot||editRevision===null||!isStillAuthorized()||busy)return;
+    const previous=snapshot.data.plants[editingPlantId];
+    if(!previous){setError('Esemplare non disponibile: aggiorna l’archivio.');return;}
+    const name=editName.trim(),scientific=editScientific.trim()||null;
+    const cultivar=editCultivar.trim()||null,place=editPlaceId||null;
+    const notes=editNotes.trim()||null;
+    const pot=editPot.trim()?Number(editPot):null;
+    const temperature=editMinTemp.trim()?Number(editMinTemp):null;
+    if(!name){setError('Inserisci il nome della pianta.');return;}
+    if(previous.commonName===name&&(previous.scientificName??null)===scientific&&
+      (previous.cultivar??null)===cultivar&&(previous.placeId??null)===place&&
+      (previous.potLiters??null)===pot&&
+      (previous.minimumTemperatureC??null)===temperature&&
+      (previous.notes??null)===notes){
+      setEditingPlantId('');setEditRevision(null);setNotice('Nessuna modifica da salvare.');
+      return;
+    }
+    void save({type:'plant.patch',id:previous.id,patch:{
+      commonName:name,scientificName:scientific,cultivar,placeId:place,
+      potLiters:pot,minimumTemperatureC:temperature,notes
+    }},'Dettagli pianta aggiornati',editRevision,()=>{
+      setEditingPlantId('');setEditRevision(null);
+    });
   }
   const pending = snapshot?.pending.length ?? 0;
   if (loading) return <p role="status">Apertura archivio locale…</p>;
@@ -166,14 +215,49 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
                 disabled={busy}
                 onChange={e=>{
                   const status=e.target.value as Plant['status'];
-                  void save({type:'plant.patch',id:plant.id,patch:{status}},'Stato aggiornato');
+                  void save({type:'plant.patch',id:plant.id,patch:{status}},
+                    'Stato aggiornato',snapshot?.revision);
                 }}>
                 <option value="active">Attiva</option>
                 <option value="archived">Archiviata</option>
                 <option value="dead">Deceduta</option>
               </select>
+              <button type="button" disabled={busy} onClick={()=>openPlantEditor(plant)}>
+                Modifica {plant.commonName}
+              </button>
             </div>
           </li>)}</ul>}
+        {editingPlantId && <form onSubmit={editPlant} className="garden-form garden-plant-editor"
+          aria-label="Modifica dettagli pianta">
+          <h3>Modifica esemplare</h3>
+          <label htmlFor="garden-edit-name">Nome dell’esemplare *</label>
+          <input id="garden-edit-name" required maxLength={120} value={editName}
+            onChange={e=>setEditName(e.target.value)}/>
+          <label htmlFor="garden-edit-scientific">Nome scientifico dell’esemplare</label>
+          <input id="garden-edit-scientific" maxLength={160} value={editScientific}
+            onChange={e=>setEditScientific(e.target.value)}/>
+          <label htmlFor="garden-edit-cultivar">Cultivar</label>
+          <input id="garden-edit-cultivar" maxLength={120} value={editCultivar}
+            onChange={e=>setEditCultivar(e.target.value)}/>
+          <label htmlFor="garden-edit-place">Posizione</label>
+          <select id="garden-edit-place" value={editPlaceId} onChange={e=>setEditPlaceId(e.target.value)}>
+            <option value="">Non assegnata</option>
+            {locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}
+          </select>
+          <label htmlFor="garden-edit-pot">Capacità vaso (litri)</label>
+          <input id="garden-edit-pot" type="number" min="0.01" max="100000" step="any"
+            value={editPot} onChange={e=>setEditPot(e.target.value)}/>
+          <label htmlFor="garden-edit-temperature">Temperatura minima (°C)</label>
+          <input id="garden-edit-temperature" type="number" min="-100" max="100" step="any"
+            value={editMinTemp} onChange={e=>setEditMinTemp(e.target.value)}/>
+          <label htmlFor="garden-edit-notes">Note private</label>
+          <textarea id="garden-edit-notes" rows={3} maxLength={20000}
+            value={editNotes} onChange={e=>setEditNotes(e.target.value)}/>
+          <button type="submit" disabled={busy}>{busy?'Salvataggio…':'Salva dettagli'}</button>
+          <button type="button" disabled={busy} onClick={()=>{setEditingPlantId('');setEditRevision(null);}}>
+            Annulla modifica
+          </button>
+        </form>}
       </section>
       <section className="garden-section" aria-label="Nuova registrazione">
         <div className="garden-tabs" role="group" aria-label="Cosa aggiungere">

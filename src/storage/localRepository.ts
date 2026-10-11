@@ -160,10 +160,22 @@ export class LocalGardenRepository {
   }
 
   /** Durable transaction: operation and resulting domain state become visible together. */
-  commit(rawOperation:unknown, isStillAuthorized:()=>boolean=()=>true):Promise<LocalEnvelope>{
+  commit(
+    rawOperation:unknown,
+    isStillAuthorized:()=>boolean=()=>true,
+    expectedRevision?:number
+  ):Promise<LocalEnvelope>{
     const operation:DomainOperation=domainOperationSchema.parse(rawOperation);
+    if(expectedRevision!==undefined&&(!Number.isSafeInteger(expectedRevision)||expectedRevision<0)){
+      return Promise.reject(new Error('Revisione attesa non valida'));
+    }
     return this.write(current=>{
       if(!isStillAuthorized())throw new Error('Sessione cambiata: scrittura bloccata');
+      // Long-lived editing forms must not overwrite a newer cross-tab edit.
+      // CAS is checked INSIDE the serialized IndexedDB readwrite transaction.
+      if(expectedRevision!==undefined&&current.revision!==expectedRevision){
+        throw new Error('Archivio modificato altrove: aggiorna i dati prima di salvare');
+      }
       if(current.pending.length>=MAX_PENDING)throw new Error('Journal pieno: sincronizzazione necessaria');
       if(current.lastSequence>=Number.MAX_SAFE_INTEGER)throw new Error('Sequence esaurita');
       const now=(this.options.now??Date.now)();

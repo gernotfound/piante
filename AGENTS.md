@@ -113,6 +113,11 @@
 - Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live Security Rules legacy, account lifecycle e cancellazione.
 - Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
 
+## M8a — modifica dettagli privati con CAS di revisione (CRITICAL)
+- `PrivateGarden` sperimentale permette aggiornare nome, nome scientifico, cultivar, vaso, posizione, temperatura minima e note di un esemplare **solo** in IndexedDB. Le modifiche sono patch tipizzate e `null` rimuove un campo opzionale; nessuna pubblicazione o trasporto cloud.
+- `LocalGardenRepository.commit(operation,auth,expectedRevision?)` controlla la revisione attesa **dentro** la transazione `readwrite` serializzata: se una seconda scheda ha salvato, fallisce senza alterare snapshot o journal. La UI ricarica lo stato, segnala conflitto e richiede di riaprire il form; no overwrites silenziosi.
+- Nessun messaggio di successo prima del commit IDB. I test coprono persistenza dopo reload, eliminazioni opzionali, aggiornamenti concorrenti, no-op senza journal, errori e isolamento Auth. La build normale resta disabilitata con `VITE_AUTH_TEST_MODE=false`.
+
 ## M3b — backup JSON e recupero solo su archivio vuoto
 - Leggere `.agents/rules/backup-and-recovery.md` prima di export/import o modifiche a IDB/cloud che influiscono sui backup.
 - Il backup JSON include **tutto** l'envelope locale e il journal, non soltanto schede UI; il file contiene dati privati in chiaro, non è una firma o un backup online.
