@@ -47,7 +47,7 @@ describe('M2b durable append-only journal transport (CRITICAL)', () => {
     let remoteApplied = false;
     const port: CloudJournalPort = { appendOnce: async () => {
       remoteApplied = true;
-      throw new Error('unconfirmed network timeout');
+      throw {code:'firestore/deadline-exceeded'};
     } };
     expect(await uploadPendingJournal(local, port, 'alice', allowed)).toEqual({
       status: 'local-pending', count: 0
@@ -63,6 +63,32 @@ describe('M2b durable append-only journal transport (CRITICAL)', () => {
       status: 'rejected', count: 0
     });
     expect((await local.read()).pending).toHaveLength(1);
+  });
+
+  it('blocks deterministic failures without misclassifying them as timeouts',async()=>{
+    for(const error of [
+      new Error('Collisione tra operazioni con identità identica'),
+      {code:'already-exists'}, {code:'firestore/failed-precondition'},
+      {code:'resource-exhausted'}, new Error('Unknown application error')
+    ]){
+      const local=repo();await local.commit(operation('kept'));
+      const before=await local.read();
+      const port:CloudJournalPort={appendOnce:async()=>{throw error;}};
+      expect(await uploadPendingJournal(local,port,'alice',allowed))
+        .toEqual({status:'failed',count:0,reason:'cloud-error'});
+      expect(await local.read()).toEqual(before);
+    }
+  });
+
+  it('retries only recognized ambiguous transport codes with durable pending',async()=>{
+    for(const code of ['unavailable','firestore/deadline-exceeded','cancelled','unknown']){
+      const local=repo();await local.commit(operation('retry'));
+      const before=await local.read();
+      const port:CloudJournalPort={appendOnce:async()=>{throw {code};}};
+      expect(await uploadPendingJournal(local,port,'alice',allowed))
+        .toEqual({status:'local-pending',count:0});
+      expect(await local.read()).toEqual(before);
+    }
   });
 
   it('invalidates an auth session change before the next entry', async () => {
@@ -92,7 +118,7 @@ describe('M2b durable append-only journal transport (CRITICAL)', () => {
     const read=vi.spyOn(local,'read').mockImplementation(() =>
       ++reads===1?durableRead():Promise.reject(new Error('IndexedDB unavailable'))
     );
-    const port: CloudJournalPort = { appendOnce: async () => { throw new Error('timeout'); } };
+    const port: CloudJournalPort = { appendOnce: async () => { throw {code:'unavailable'}; } };
     expect(await uploadPendingJournal(local, port, 'alice', allowed)).toEqual({
       status: 'failed', count: 0, reason: 'local-invariant'
     });
