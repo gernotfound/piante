@@ -58,6 +58,12 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** controllare epoch di autorizzazione e intero snapshot IndexedDB prima e dopo lettura server e SHA-256. Un backup in quarantena non può neppure avviare la scansione; errori di crypto e I/O non producono un candidato.
 - **MUST:** digest e prefissi osservati non sono checkpoint persistiti né certificazioni causali/globali. Non ridurre i receipt, non aggiornare il journal, non sbloccare `acknowledgeThrough` e non alzare il limite 200 su questa base.
 - **MUST:** testare assenza di conferma server, scanner Emulator, corruzione/duplicazione, auth, race, riavvio IDB e SHA. Per GC servono provider checkpoint autorevole, stable frontier/membership/fencing e recovery versionato.
+## M5b-2 — registro delle osservazioni non autoritative
+- **MUST:** nessun percorso cloud observation può chiamare `acknowledgeThrough`, rimuovere pending/receipts, sbloccare cloud UI o affermare convergenza causale. Le osservazioni sono attestazioni client; Firestore conferma la loro *persistenza*, NON la verità del digest o la stable frontier.
+- **MUST:** `checkpointObservationSchema` impedisce `compactionAuthorized=true` e versioni ignote, verifica prefissi contigui coerenti con count massimo 200. Adapter CAS idempotente; avanzamenti con vecchi prefissi mancanti, conteggio regressivo, stesso count ma digest differente, input server invalido e readback divergente falliscono chiusi.
+- **MUST:** epoch Auth/owner e snapshot IndexedDB immutati attorno a scansione, hash, scrittura, verifica server. Il commit remoto in caso di errore locale non autorizza a marcare successo.
+- **MUST:** il fixture Emulator mantiene ownership/grant/tombstone e nega anonimi, cross-user, delete, schema invalido e regressione. La composizione per compatibilità conserva byte-per-byte il legacy di Pianta.
+
 ## M4a — obbligo di conservare le autorizzazioni legacy
 - La baseline comunicata dal proprietario del prodotto corrisponde ai percorsi di `gernotfound/pianta/firestore.rules` (prove `USER-REPORTED` e `GITHUB-OBSERVED`, non `PROVIDER-OBSERVED`). Non usare Rules LogBook per ricostruire la baseline del progetto Firebase di Pianta.
 - Ogni modifica alle Rules richiede due suite Emulator: il fixture Piante originale ed il file composito **generato soltanto nel runner** da sorgenti pinned. Non cancellare un test per far diventare verdi i controlli.

@@ -83,6 +83,13 @@ Non sono stati aperti/validati:
 
 **Nessuna chiave, segreto o email del service account è trascritta.** Le restrizioni reali vanno verificate sul provider prima di qualsiasi modifica.
 
+## M5b-2 — Firestore laboratorio (2026-10-11)
+
+- **Provider:** Firebase Firestore; nessun nuovo fornitore né costo autorizzato. Nuovo namespace soltanto nelle Rules di laboratorio `piante_users/{uid}/checkpoint_observations/{replicaId}`.
+- **Stato:** `CONFIGURED-NOT-ACTIVE / VERIFY-LIVE` per Piante reale. L'adapter è test-only, non connesso all'app, né distribuito. Il fixture composito Emulator conserva il file legacy pinned di Pianta. L'osservazione cloud non è autorità causale.
+- **Privacy:** attestazione privata con digest SHA-256, contatori e identificativo replica, senza dati botanici in chiaro; resta comunque un metadata privato. Ownership e grant in Rules Emulator; quota letture/scritture Spark da valutare prima dell'attivazione.
+- **Evidenza:** `GITHUB-OBSERVED` per codice/Rules, `NOT-VERIFIED` per Firestore live, IAM, costi effettivi e runtime. **Nessuna modifica esterna e nessun deploy.** Rollback: rimozione del codice/fixture tramite PR, nessuna migrazione live necessaria.
+
 ## Eventi / decisioni tracciate
 
 

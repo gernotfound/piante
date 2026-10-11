@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
  * The output is used EXCLUSIVELY for Firestore Emulator tests.
  */
 export const LEGACY_GIT_BLOB = '4953d4ca66305e4db39b38acbc8d738650b536e9';
-export const PIANTE_TEST_GIT_BLOB = '5ef2cb7385d65fbb58bbcf54973ba26bfc207be9';
+export const PIANTE_TEST_GIT_BLOB = 'f35892841b11bf9005b5cfcc7c414b1a9707ba19';
 const legacyEnd = '\n  }\n}\n';
 const pianteStart = '    function invitedOwner(uid) {';
 const pianteEnd = '    // No public catalog or legacy grants in these test-only rules.';
