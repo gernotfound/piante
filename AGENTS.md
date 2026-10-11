@@ -160,6 +160,10 @@
 - I test Emulator simulano questo boundary, ma non autorizzano esecuzione su provider Firebase live. Il runner deletion resta inerte.
 
 
+## M5a — semantica dei fallimenti del journal cloud (CRITICAL)
+- `uploadPendingJournal` può classificare come `local-pending` solo i guasti di trasporto con codice potenzialmente ambiguo e dopo verifica durevole della pending e della sessione. Collisioni, errori di precondizione, quota e guasti sconosciuti sono `failed/cloud-error`, propagati dal ciclo come `blocked/cloud-error`.
+- Test su Firestore Emulator, timeout dopo commit remoto, failure path IndexedDB e gate canonico sono obbligatori. Nessuna connessione alla UI e nessun deploy di Rules sul Firebase condiviso.
+
 ## M4a — compatibilità con Rules attuali riferite dal product owner
 - Il 2026-10-09 il product owner ha fornito il testo delle Rules attuali `pianta-db` (fonte `USER-REPORTED`), diverso dalle precedenti Rules TheLogBook. La struttura coincide con lo snapshot versionato `gernotfound/pianta/firestore.rules` e deve essere trattata come **legacy da preservare**, non come prova provider live.
 - Il file `tests/fixtures/pianta-legacy-user-reported.rules` preserva byte-for-byte lo snapshot legacy, con Git blob SHA pinned; `scripts/compose-compat-rules.mjs` valida anche il fixture Piante e costruisce solo in memoria/temp la composizione isolata per Emulator.

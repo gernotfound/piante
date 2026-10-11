@@ -48,6 +48,11 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** il ciclo non è collegato a Auth UI, non gira in background e non ha accesso al Firebase live. Non distribuire Rules test-only.
 
 
+## M5a — classificazione sicura dei fallimenti cloud
+- **MUST:** soltanto i codici Firestore di trasporto riconosciuti come potenzialmente ambigui (`unavailable`, `deadline-exceeded`, `cancelled`, `unknown`) possono produrre `local-pending`, dopo rilettura durevole della pending identica e riconferma della sessione.
+- **MUST:** collisioni append-only, errori di precondizione, quota ed eccezioni sconosciute sono `failed/cloud-error`, non timeout ritentabili. Il ciclo espone `blocked/cloud-error`; le pending non vengono rimosse e nessuna write è presentata come riconciliata senza lettura server.
+- **MUST:** testare collisione reale nella transazione Firestore Emulator, timeout dopo commit remoto, guasti deterministici e IndexedDB illeggibile dopo un timeout. Nessuna modifica autorizzata a Rules live, UI o compattazione.
+
 ## M4a — obbligo di conservare le autorizzazioni legacy
 - La baseline comunicata dal proprietario del prodotto corrisponde ai percorsi di `gernotfound/pianta/firestore.rules` (prove `USER-REPORTED` e `GITHUB-OBSERVED`, non `PROVIDER-OBSERVED`). Non usare Rules LogBook per ricostruire la baseline del progetto Firebase di Pianta.
 - Ogni modifica alle Rules richiede due suite Emulator: il fixture Piante originale ed il file composito **generato soltanto nel runner** da sorgenti pinned. Non cancellare un test per far diventare verdi i controlli.

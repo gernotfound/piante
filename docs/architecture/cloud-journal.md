@@ -44,6 +44,14 @@ Questi sono stati di **trasporto**, non stati business di sincronizzazione compl
 Per rendere operativo il cloud serviranno validazione completa delle Rules reali, algoritmo di riconciliazione idempotente e test end-to-end su Emulator, oltre al piano di cancellazione account. Non dichiarare il cloud «sincronizzato» perché esistono operation receipts.
 
 
+## M5a — distinzione fra conflitto cloud e timeout ambiguo
+
+Un errore deterministico della transazione Firestore, come una collisione append-only (stesso operationId, payload differente), una precondizione o un errore di quota, ritorna `failed/cloud-error` e `blocked/cloud-error` nell'orchestratore. Le eccezioni applicative generiche non vengono presentate come timeout automaticamente ritentabili.
+
+Soltanto i codici di trasporto `unavailable`, `deadline-exceeded`, `cancelled` e `unknown` (con o senza prefisso `firestore/`) consentono il risultato `local-pending`, e soltanto dopo rilettura del journal durevole con operationId/payload invariati e sessione valida. Un timeout può seguire un commit server: le conferme arrivano **solo** da una nuova scansione server, mai dal fallimento del writer. Il journal resta intatto in tutti i casi.
+
+Test unitari e una collisione vera su Firestore Emulator confermano la classificazione. Questo perfeziona il trasporto di laboratorio, non introduce checkpoint, protocollo causale completo o scalabilità oltre 200 operazioni; le Rules live e l'interfaccia rimangono disabilitate.
+
 ## M2c — anteprima di convergenza (NON hydration)
 Lettura read-only del journal privato remoto, forzata al server con `getDocsFromServer`. Il reader esegue **una singola query** limitata a `max+1`: se il risultato supera il tetto (massimo 200 operazioni in laboratorio) rifiuta il risultato; **non** assume che la prima pagina rappresenti tutto il cloud.
 
