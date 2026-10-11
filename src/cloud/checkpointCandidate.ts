@@ -59,6 +59,8 @@ export async function buildCheckpointCandidate(
   if(!Number.isSafeInteger(max)||max<1||max>MAX_PREVIEW_OPERATIONS){
     throw new ReconciliationBlocked('limit-exceeded');
   }
+  // Reject oversized scans before parsing untrusted rows or replaying history.
+  if(rawRemote.length>max)throw new ReconciliationBlocked('limit-exceeded');
   const parsed=localEnvelopeSchema.safeParse(rawEnvelope);
   if(!parsed.success)throw new ReconciliationBlocked('local-divergence');
   const envelope=parsed.data;
@@ -90,8 +92,8 @@ export async function buildCheckpointCandidate(
   for(const record of remote.values()){
     prefixes.set(record.replicaId,Math.max(prefixes.get(record.replicaId)??0,record.sequence));
   }
-  const observedPrefixes=Object.fromEntries([...prefixes].sort(([a],[b])=>a.localeCompare(b)));
-  const rows=[...remote.values()].sort((a,b)=>a.operationId.localeCompare(b.operationId));
+  const observedPrefixes=Object.fromEntries([...prefixes].sort(([a],[b])=>a<b?-1:a>b?1:0));
+  const rows=[...remote.values()].sort((a,b)=>a.operationId<b.operationId?-1:a.operationId>b.operationId?1:0);
   const digest=await sha256({
     candidateVersion:1, ownerUid, receiptCount:rows.length,
     observedPrefixes, data:preview.data, receipts:rows
