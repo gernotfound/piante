@@ -182,17 +182,17 @@ export class LocalGardenRepository {
   }
 
   /**
-   * Future cloud adapter only: acknowledge prefix after authoritative remote confirmation.
-   * Never rewrites business data, so a concurrent local edit cannot be lost.
+   * No durable causal checkpoint or server watermark exists yet. A remote
+   * receipt alone does not justify deleting the only replayable local history:
+   * even an apparently successful upload may be followed by a device restore.
+   * Keep this compatibility API fail-closed until compaction has a tested,
+   * authenticated checkpoint protocol (including multi-replica recovery).
    */
   acknowledgeThrough(through:number):Promise<LocalEnvelope>{
-    if(!Number.isSafeInteger(through)||through<0)throw new Error('Ack non valido');
-    return this.write(current=>{
-      if(through>current.lastSequence)throw new Error('Ack oltre la sequence locale');
-      const pending=current.pending.filter(p=>p.sequence>through);
-      const next={...current,pending,revision:current.revision+1};
-      return {next,value:next};
-    });
+    if(!Number.isSafeInteger(through)||through<0) {
+      return Promise.reject(new Error('Ack non valido'));
+    }
+    return Promise.reject(new Error('Compattazione journal vietata senza checkpoint cloud autorevole'));
   }
   /**
    * CRITICAL: in-memory candidate and durable local snapshot must refer to the
