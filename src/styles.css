@@ -94,6 +94,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .garden-plant__body span { color: var(--muted); font-size: 12px; }
 .garden-plant__actions { display: flex; flex-direction: column; gap: 4px; min-width: 112px; }
 .garden-plant__actions label { font-size: 12px; }
+.auth-test-panel .garden-plant__actions button { min-height: 44px; padding: 9px 11px; background: var(--subtle); color: var(--text); font-size: 13px; }
+.garden-plant-editor { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+.auth-test-panel .garden-plant-editor button[type="button"] { min-height: 44px; background: var(--subtle); color: var(--text); }
 .garden-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
 .auth-test-panel .garden-tabs button { background: var(--subtle); color: var(--text); min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 9px 12px; }
 .auth-test-panel .garden-tabs button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }

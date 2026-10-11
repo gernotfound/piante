@@ -227,7 +227,7 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
               </button>
             </div>
           </li>)}</ul>}
-        {editingPlantId && <form onSubmit={editPlant} className="garden-form"
+        {editingPlantId && <form onSubmit={editPlant} className="garden-form garden-plant-editor"
           aria-label="Modifica dettagli pianta">
           <h3>Modifica esemplare</h3>
           <label htmlFor="garden-edit-name">Nome dell’esemplare *</label>
