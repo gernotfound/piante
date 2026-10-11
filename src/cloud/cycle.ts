@@ -14,7 +14,7 @@ import {
 export type JournalCycleResult =
  | {status:'verified-receipts-journal-retained';uploadedInCycle:number;remoteCount:number;localPendingCount:number}
  | {status:'retry-required';uploadedInCycle:number;reason:'cloud-not-confirmed'|'network-ambiguous'}
- | {status:'blocked';uploadedInCycle:number;reason:'permission-denied'|'identity-changed'|'local-invariant'};
+ | {status:'blocked';uploadedInCycle:number;reason:'permission-denied'|'identity-changed'|'local-invariant'|'cloud-error'};
 
 export async function runPrivateJournalCycle(
   repository:LocalGardenRepository,
@@ -43,7 +43,7 @@ export async function runPrivateJournalCycle(
     const batchSize=Math.min(capacity,20,outstanding.length);
     const upload=await uploadPendingJournal(repository,writer,ownerUid,isStillAuthorized,batchSize);
     if(upload.status==='failed')return {status:'blocked',uploadedInCycle:uploadedInCycle+upload.count,
-      reason:upload.reason==='identity-changed'?'identity-changed':'local-invariant'};
+      reason:upload.reason};
     if(upload.status==='rejected')return {status:'blocked',uploadedInCycle:uploadedInCycle+upload.count,
       reason:'permission-denied'};
     const justUploaded=upload.status==='uploaded-awaiting-reconciliation'||upload.status==='local-pending'

@@ -32,9 +32,17 @@ export type UploadOutcome =
   | { status: 'rejected'; count: number }
   | { status: 'failed'; count: number; reason: 'local-invariant' | 'cloud-error' | 'identity-changed' };
 
-function isPermissionDenied(error: unknown): boolean {
-  return typeof error === 'object' && error !== null &&
-    'code' in error && (error.code === 'permission-denied' || error.code === 'firestore/permission-denied');
+function firestoreErrorCode(error:unknown):string|null{
+  if(typeof error!=='object'||error===null||!('code' in error)||typeof error.code!=='string')return null;
+  return error.code.startsWith('firestore/')?error.code.slice('firestore/'.length):error.code;
+}
+function isPermissionDenied(error:unknown):boolean{
+  return firestoreErrorCode(error)==='permission-denied';
+}
+function isAmbiguousTransportFailure(error:unknown):boolean{
+  // These codes may hide a server commit. Application collisions, quotas and
+  // precondition failures are not network ambiguity and must remain blocked.
+  return ['unavailable','deadline-exceeded','cancelled','unknown'].includes(firestoreErrorCode(error)??'');
 }
 
 function identicalPending(a: PendingOperation, b: PendingOperation): boolean {
@@ -97,15 +105,20 @@ export async function uploadPendingJournal(
       uploaded++;
       if (!isStillAuthorized()) return { status: 'failed', count: uploaded, reason: 'identity-changed' };
     } catch (error) {
+      if(!isStillAuthorized())return {status:'failed',count:uploaded,reason:'identity-changed'};
       if (isPermissionDenied(error)) return { status: 'rejected', count: uploaded };
-      // A timeout could occur after remote commit. Only durable matching journal
-      // entries justify describing the remaining work as safely retryable.
+      if (!isAmbiguousTransportFailure(error)) {
+        return {status:'failed',count:uploaded,reason:'cloud-error'};
+      }
+      // A recognized ambiguous transport failure may follow a remote commit.
+      // Only durable matching journal entries justify a safe retry.
       let current: LocalEnvelope;
       try { current = await repository.read(); }
       catch { return { status: 'failed', count: uploaded, reason: 'local-invariant' }; }
       if (!isStillAuthorized() || current.ownerScope !== envelope.ownerScope) {
         return { status: 'failed', count: uploaded, reason: 'identity-changed' };
       }
+      if(current.backupQuarantined)return {status:'failed',count:uploaded,reason:'local-invariant'};
       const stillPending = current.pending.find(item => item.operationId === pending.operationId);
       if (!stillPending || !identicalPending(stillPending, pending)) {
         return { status: 'failed', count: uploaded, reason: 'local-invariant' };
