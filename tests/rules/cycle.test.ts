@@ -6,6 +6,7 @@ import { LocalGardenRepository } from '../../src/storage/localRepository';
 import { firestoreJournalPort } from '../../src/cloud/firestoreJournal';
 import { firestoreJournalReader } from '../../src/cloud/firestoreReader';
 import { runPrivateJournalCycle } from '../../src/cloud/cycle';
+import { inspectCheckpointCandidate } from '../../src/cloud/checkpointCandidate';
 
 let env:RulesTestEnvironment;
 let index=0;
@@ -46,5 +47,31 @@ describe('M2e real Firestore Emulator batching (CRITICAL)',()=>{
     expect(await runPrivateJournalCycle(local,reader,writer,'alice',()=>true))
       .toMatchObject({status:'verified-receipts-journal-retained',uploadedInCycle:0});
     expect((await local.read()).pending).toHaveLength(23);
+  });
+
+  it('preflights the real server receipts without creating a checkpoint or deleting history',async()=>{
+    const local=new LocalGardenRepository('user:alice',{
+      dbName:'m5b-emulator-'+(++index),now:()=>1000
+    });
+    await local.commit({type:'plant.create',plant:{
+      id:'feijoa',commonName:'Feijoa',origin:'seed',status:'active'
+    }});
+    const db=env.authenticatedContext('alice').firestore();
+    const remoteReader=firestoreJournalReader(db);
+    const beforeUpload=await local.read();
+    await expect(inspectCheckpointCandidate(local,remoteReader,'alice',()=>true))
+      .rejects.toMatchObject({reason:'pending-not-confirmed'});
+    expect(await local.read()).toEqual(beforeUpload);
+
+    await runPrivateJournalCycle(local,remoteReader,firestoreJournalPort(db),'alice',()=>true);
+    const afterUpload=await local.read();
+    const candidate=await inspectCheckpointCandidate(local,remoteReader,'alice',()=>true);
+    expect(candidate).toMatchObject({
+      status:'candidate-only',receiptCount:1,ownerUid:'alice',
+      observedPrefixes:{[afterUpload.replicaId]:1},compactionAuthorized:false
+    });
+    expect(candidate.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(await local.read()).toEqual(afterUpload);
+    expect((await remoteReader.readAll('alice',200))).toHaveLength(1);
   });
 });
