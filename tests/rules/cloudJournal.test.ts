@@ -2,7 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { initializeTestEnvironment, assertFails, assertSucceeds, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection } from 'firebase/firestore';
 import { firestoreJournalPort } from '../../src/cloud/firestoreJournal';
-import { cloudJournalRecordSchema } from '../../src/cloud/journal';
+import 'fake-indexeddb/auto';
+import { cloudJournalRecordSchema, uploadPendingJournal, prepareCloudRecord } from '../../src/cloud/journal';
+import { LocalGardenRepository } from '../../src/storage/localRepository';
 
 let env: RulesTestEnvironment;
 const replicaId = '123e4567-e89b-42d3-a456-426614174000';
@@ -40,6 +42,21 @@ describe('M2b Firestore journal Rules and idempotent transport (Emulator)', () =
     await port.appendOnce(record());
     await expect(port.appendOnce({ ...record(), appliedAt: 101 })).rejects.toThrow('Collisione');
   });
+  it('does not retry real Firestore transaction collisions as network timeouts',async()=>{
+    const local=new LocalGardenRepository('user:alice',{dbName:'m5a-collision-'+opId,now:()=>100});
+    await local.commit(operation);
+    const before=await local.read();
+    const expected=prepareCloudRecord('alice',before,before.pending[0]);
+    await assertSucceeds(setDoc(doc(db('alice'),path('alice',expected.operationId)),{
+      ...expected,appliedAt:101
+    }));
+    expect(await uploadPendingJournal(local,firestoreJournalPort(db('alice')),'alice',()=>true))
+      .toEqual({status:'failed',count:0,reason:'cloud-error'});
+    expect(await local.read()).toEqual(before);
+    const stored=await getDoc(doc(db('alice'),path('alice',expected.operationId)));
+    expect(stored.data()?.appliedAt).toBe(101);
+  });
+
   it('denies anonymous, disabled and cross-owner reads and writes', async () => {
     await assertSucceeds(setDoc(doc(db('alice'), path('alice')), record()));
     await assertFails(getDoc(doc(db(), path('alice'))));
