@@ -55,13 +55,27 @@ describe('M2e bounded upload + server confirmation orchestrator (CRITICAL)',()=>
     let first=true;
     const writer:CloudJournalPort={appendOnce:async row=>{
       const result=await remote.writer.appendOnce(row);
-      if(first){first=false;throw new Error('network lost after server commit');}
+      if(first){first=false;throw {code:'unavailable'};}
       return result;
     }};
     expect(await runPrivateJournalCycle(local,remote.reader,writer,'alice',()=>true))
       .toMatchObject({status:'verified-receipts-journal-retained',remoteCount:1,localPendingCount:1});
     expect((await local.read()).pending).toHaveLength(1);
     expect(remote.calls).toBe(1);
+  });
+
+  it('blocks a deterministic writer collision while preserving local history',async()=>{
+    const local=repo(),remote=store();
+    await local.commit(plant('dragon'));
+    const before=await local.read();
+    const writer:CloudJournalPort={appendOnce:async()=>{throw new Error('Collisione');}};
+    expect(await runPrivateJournalCycle(local,remote.reader,writer,'alice',()=>true))
+      .toEqual({status:'blocked',uploadedInCycle:0,reason:'cloud-error'});
+    const after=await local.read();
+    expect(after.pending).toEqual(before.pending);
+    expect(after.data).toEqual(before.data);
+    expect(after.remoteReceipts).toEqual([]);
+    expect(remote.calls).toBe(0);
   });
 
   it('never claims remote confirmation if a server read omits the newly uploaded receipt',async()=>{
