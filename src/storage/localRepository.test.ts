@@ -97,6 +97,39 @@ describe('IndexedDB atomic state + operation journal (CRITICAL)',()=>{
     expect(recovered.data.plants.c).toBeDefined();
     expect(replayOperations(emptyGarden(),recovered.pending)).toEqual(recovered.data);
   });
+  it('atomically fences stale editor revisions across tabs and preserves journal replay',async()=>{
+    const db=dbName(),a=instance(db),b=instance(db);
+    const initial=await a.commit(avocado('plant'));
+    const stale=initial.revision;
+    const newer=await b.commit({type:'plant.patch',id:'plant',patch:{notes:'Cambio da un’altra scheda'}});
+    const before=await a.read();
+    await expect(a.commit({type:'plant.patch',id:'plant',patch:{commonName:'Perduto'}},()=>true,stale))
+      .rejects.toThrow('Archivio modificato altrove');
+    expect(await b.read()).toEqual(before);
+    expect((await b.read()).data.plants.plant.commonName).toBe('Avocado');
+    const saved=await a.commit({type:'plant.patch',id:'plant',patch:{cultivar:'Bacon'}},
+      ()=>true,newer.revision);
+    expect(saved.data.plants.plant.cultivar).toBe('Bacon');
+    expect(saved.pending).toHaveLength(3);
+    expect(replayOperations(emptyGarden(),saved.pending)).toEqual(saved.data);
+    await expect(a.commit({type:'plant.patch',id:'plant',patch:{notes:'x'}},()=>true,-1))
+      .rejects.toThrow('Revisione attesa non valida');
+  });
+
+  it('allows only one of two simultaneous editors at the same revision',async()=>{
+    const db=dbName(),a=instance(db),b=instance(db);
+    const start=await a.commit(avocado('plant'));
+    const [first,second]=await Promise.allSettled([
+      a.commit({type:'plant.patch',id:'plant',patch:{notes:'Primo'}},()=>true,start.revision),
+      b.commit({type:'plant.patch',id:'plant',patch:{notes:'Secondo'}},()=>true,start.revision)
+    ]);
+    expect([first.status,second.status].sort()).toEqual(['fulfilled','rejected']);
+    const saved=await instance(db).read();
+    expect(saved.pending).toHaveLength(2);
+    expect(['Primo','Secondo']).toContain(saved.data.plants.plant.notes);
+    expect(replayOperations(emptyGarden(),saved.pending)).toEqual(saved.data);
+  });
+
   it('keeps owners isolated within the same browser database',async()=>{
     const db=dbName();
     await instance(db,'user:alice').commit(avocado('alice1'));
