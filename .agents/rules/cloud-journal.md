@@ -53,6 +53,11 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** collisioni append-only, errori di precondizione, quota ed eccezioni sconosciute sono `failed/cloud-error`, non timeout ritentabili. Il ciclo espone `blocked/cloud-error`; le pending non vengono rimosse e nessuna write è presentata come riconciliata senza lettura server.
 - **MUST:** testare collisione reale nella transazione Firestore Emulator, timeout dopo commit remoto, guasti deterministici e IndexedDB illeggibile dopo un timeout. Nessuna modifica autorizzata a Rules live, UI o compattazione.
 
+## M5b-1 — preflight del checkpoint senza garbage collection
+- **MUST:** il candidato `candidate-only` è derivato dalla scansione completa server-backed e dal replay dello stesso account (max 200). Tutte le pending devono essere ritrovate su server con payload identico; assenze, conflitti, history gap, versioni ignote e duplicati bloccano.
+- **MUST:** controllare epoch di autorizzazione e intero snapshot IndexedDB prima e dopo lettura server e SHA-256. Un backup in quarantena non può neppure avviare la scansione; errori di crypto e I/O non producono un candidato.
+- **MUST:** digest e prefissi osservati non sono checkpoint persistiti né certificazioni causali/globali. Non ridurre i receipt, non aggiornare il journal, non sbloccare `acknowledgeThrough` e non alzare il limite 200 su questa base.
+- **MUST:** testare assenza di conferma server, scanner Emulator, corruzione/duplicazione, auth, race, riavvio IDB e SHA. Per GC servono provider checkpoint autorevole, stable frontier/membership/fencing e recovery versionato.
 ## M4a — obbligo di conservare le autorizzazioni legacy
 - La baseline comunicata dal proprietario del prodotto corrisponde ai percorsi di `gernotfound/pianta/firestore.rules` (prove `USER-REPORTED` e `GITHUB-OBSERVED`, non `PROVIDER-OBSERVED`). Non usare Rules LogBook per ricostruire la baseline del progetto Firebase di Pianta.
 - Ogni modifica alle Rules richiede due suite Emulator: il fixture Piante originale ed il file composito **generato soltanto nel runner** da sorgenti pinned. Non cancellare un test per far diventare verdi i controlli.

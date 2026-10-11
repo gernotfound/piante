@@ -52,6 +52,13 @@ Soltanto i codici di trasporto `unavailable`, `deadline-exceeded`, `cancelled` e
 
 Test unitari e una collisione vera su Firestore Emulator confermano la classificazione. Questo perfeziona il trasporto di laboratorio, non introduce checkpoint, protocollo causale completo o scalabilità oltre 200 operazioni; le Rules live e l'interfaccia rimangono disabilitate.
 
+## M5b-1 — candidato di checkpoint read-only
+
+`buildCheckpointCandidate()` valida la scansione completa del journal remoto, il replay, le sequenze senza lacune per replica, la corrispondenza owner e il fatto che **ogni pending locale abbia una ricevuta server identica**. `inspectCheckpointCandidate()` verifica il medesimo owner/epoch e lo snapshot IDB prima e dopo la lettura remota **e dopo** il digest asincrono, bloccando risultati obsoleti. SHA-256 è calcolato su una serializzazione JSON a chiavi ordinate che incorpora payload remoti, stato proiettato e massimi per replica; verifica soltanto l'identità dei contenuti confrontati, non autentica il provider.
+
+L'API restituisce esclusivamente `candidate-only`, `compactionAuthorized:false`, conteggio ricevute, SHA-256 e `observedPrefixes`. Questi prefissi sono sequenze contigue osservate su server, **non** vector clock cross-replica, stable frontier o prove di ack da dispositivi inattivi. Non esistono checkpoint persistiti, membership/retirement/fencing di replica, snapshot cloud atomici né prova che le altre repliche abbiano visto una certa modifica.
+
+**Nessun dato viene scritto, confermato, compattato o pubblicato.** Il limite delle 200 operazioni permane e `acknowledgeThrough()` resta vietato. Questo è il primo incremento verificabile di M5b, non il completamento del protocollo causale. Il prossimo incremento dovrà progettare un provider checkpoint e un formato/versionamento causale con recovery, migrazioni, compatibilità col legacy e costo Spark prima di qualunque raccolta della cronologia o rilascio. La suite include unit test su race, history-gap, crypto, quarantena e test con Firestore Emulator.
 ## M2c — anteprima di convergenza (NON hydration)
 Lettura read-only del journal privato remoto, forzata al server con `getDocsFromServer`. Il reader esegue **una singola query** limitata a `max+1`: se il risultato supera il tetto (massimo 200 operazioni in laboratorio) rifiuta il risultato; **non** assume che la prima pagina rappresenti tutto il cloud.
 
