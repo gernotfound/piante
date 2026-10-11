@@ -230,10 +230,10 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
         {editingPlantId && <form onSubmit={editPlant} className="garden-form"
           aria-label="Modifica dettagli pianta">
           <h3>Modifica esemplare</h3>
-          <label htmlFor="garden-edit-name">Nome comune *</label>
+          <label htmlFor="garden-edit-name">Nome dell’esemplare *</label>
           <input id="garden-edit-name" required maxLength={120} value={editName}
             onChange={e=>setEditName(e.target.value)}/>
-          <label htmlFor="garden-edit-scientific">Nome scientifico</label>
+          <label htmlFor="garden-edit-scientific">Nome scientifico dell’esemplare</label>
           <input id="garden-edit-scientific" maxLength={160} value={editScientific}
             onChange={e=>setEditScientific(e.target.value)}/>
           <label htmlFor="garden-edit-cultivar">Cultivar</label>
