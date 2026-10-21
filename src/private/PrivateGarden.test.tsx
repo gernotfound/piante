@@ -132,6 +132,80 @@ describe('M3a gated private botanical archive (local-only)',()=>{
     expect(Object.keys(after.data.events)).toHaveLength(0);
   });
 
+  it('opens every diary entry across pages and filters without changing the local journal',async()=>{
+    const repo=local();
+    for(const [id,name] of [['papaya','Papaya'],['guava','Guava'],['empty','Senza eventi']]){
+      await repo.commit({type:'plant.create',plant:{
+        id,commonName:name,origin:'seed',status:'active'
+      }});
+    }
+    for(let i=1;i<=24;i++){
+      await repo.commit({type:'event.add',event:{
+        id:'history-'+i,plantId:i%2===0?'guava':'papaya',
+        date:'2026-09-'+String(i).padStart(2,'0'),
+        type:i%3===0?'harvest':i%3===1?'measurement':'observation',
+        note:'Evento '+i,
+        ...(i===24?{harvestGrams:250}:{})
+      }});
+    }
+    const before=await repo.read();
+    const {unmount}=render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText(/Eventi 1–10 di 24 · Pagina 1 di 3/)).toBeDefined();
+    expect(screen.getByText(/Evento 24/)).toBeDefined();
+    expect(screen.queryByText(/Evento 14$/)).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Successivi'}));
+    expect(screen.getByText(/Eventi 11–20 di 24 · Pagina 2 di 3/)).toBeDefined();
+    expect(screen.getByText(/Evento 14$/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button',{name:'Successivi'}));
+    expect(screen.getByText(/Eventi 21–24 di 24 · Pagina 3 di 3/)).toBeDefined();
+    expect(screen.getByText(/Evento 1$/)).toBeDefined();
+    expect((screen.getByRole('button',{name:'Successivi'}) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Filtra per pianta'),{target:{value:'guava'}});
+    expect(screen.getByText(/Eventi 1–10 di 12 · Pagina 1 di 2/)).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Filtra per attività'),{target:{value:'harvest'}});
+    expect(screen.getByText(/Eventi 1–4 di 4 · Pagina 1 di 1/)).toBeDefined();
+    expect(screen.getByText(/Raccolto 250 g/)).toBeDefined();
+    expect(screen.queryByText(/Evento 23$/)).toBeNull();
+    fireEvent.change(screen.getByLabelText('Filtra per pianta'),{target:{value:'empty'}});
+    expect(screen.getByText('Nessun evento corrisponde ai filtri.')).toBeDefined();
+    expect(screen.queryByRole('button',{name:'Successivi'})).toBeNull();
+    expect(await repo.read()).toEqual(before);
+    unmount();
+    render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText(/Eventi 1–10 di 24 · Pagina 1 di 3/)).toBeDefined();
+    expect(await repo.read()).toEqual(before);
+  });
+
+  it('orders equal-date diary entries deterministically after reload, including text-only records',async()=>{
+    const repo=local();
+    await repo.commit({type:'plant.create',plant:{
+      id:'plant',commonName:'Pianta',origin:'seed',status:'active'
+    }});
+    for(const id of ['c','a','b']){
+      await repo.commit({type:'event.add',event:{
+        id,plantId:'plant',date:'2026-09-01',type:'care',note:'Voce '+id
+      }});
+    }
+    const {unmount}=render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText(/Eventi 1–3 di 3/)).toBeDefined();
+    const list=screen.getByRole('list',{name:'Elenco registrazioni diario'});
+    expect(Array.from(list.querySelectorAll('li')).map(li=>li.textContent))
+      .toEqual(expect.arrayContaining([expect.stringContaining('Voce a'),
+        expect.stringContaining('Voce b'),expect.stringContaining('Voce c')]));
+    expect(Array.from(list.querySelectorAll('li')).map(li=>li.textContent?.match(/Voce ([abc])/ )?.[1]))
+      .toEqual(['a','b','c']);
+    unmount();
+    render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText(/Eventi 1–3 di 3/)).toBeDefined();
+    expect(Array.from(screen.getByRole('list',{name:'Elenco registrazioni diario'})
+      .querySelectorAll('li')).map(li=>li.textContent?.match(/Voce ([abc])/ )?.[1]))
+      .toEqual(['a','b','c']);
+  });
+
   it('edits cultivar, pot, minimum temperature, location and notes durably across reloads',async()=>{
     const repo=local();
     await repo.commit({type:'place.create',place:{id:'balcony',name:'Balcone',kind:'balcony'}});
