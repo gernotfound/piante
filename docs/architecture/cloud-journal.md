@@ -59,6 +59,14 @@ Test unitari e una collisione vera su Firestore Emulator confermano la classific
 L'API restituisce esclusivamente `candidate-only`, `compactionAuthorized:false`, conteggio ricevute, SHA-256 e `observedPrefixes`. Questi prefissi sono sequenze contigue osservate su server, **non** vector clock cross-replica, stable frontier o prove di ack da dispositivi inattivi. Non esistono checkpoint persistiti, membership/retirement/fencing di replica, snapshot cloud atomici né prova che le altre repliche abbiano visto una certa modifica.
 
 **Nessun dato viene scritto, confermato, compattato o pubblicato.** Il limite delle 200 operazioni permane e `acknowledgeThrough()` resta vietato. Questo è il primo incremento verificabile di M5b, non il completamento del protocollo causale. Il prossimo incremento dovrà progettare un provider checkpoint e un formato/versionamento causale con recovery dei dati **Piante** e costo Spark prima di qualunque raccolta della cronologia o rilascio. La suite include unit test su race, history-gap, crypto, quarantena e test con Firestore Emulator.
+## M5b-3 — audit delle osservazioni di più dispositivi
+
+`firestoreObservationReader()` legge soltanto dal **server** l'intera sottocollezione `checkpoint_observations` con query bounded `limit(max+1)`, impedendo che una pagina tronca sia interpretata come inventario completo. `inspectObservationAudit()` valida ogni documento senza scrivere su IndexedDB né Firestore, controlla la sessione prima/dopo la lettura e produce `advisory-audit-only`, `compactionAuthorized:false`.
+
+L'audit riordina per ID replica, evidenzia coppie con **prefissi dichiarati identici ma digest diversi** e conta le coppie di vettori di prefisso reciprocamente non comparabili. Non autentica il contenuto del digest: due hash uguali non dimostrano né consenso fra repliche né checkpoint server autorevole. L'assenza di discrepanze non permette cancellazioni. Le 200 osservazioni massime non sono un meccanismo di retention. Test unitari ed Emulator coprono dati non validi, chiavi duplicate, permessi e revoche, limite, persist read-only.
+
+Nessun cambiamento Rules, runtime UI, account, backup, GC o deploy. Prima della sincronizzazione scalabile restano snapshot autorevole server, metadata causali versionati, membership/fencing, recovery e lifecycle account verificato.
+
 ## M5b-2 — registro remoto delle osservazioni (solo Emulator)
 
 Dopo il candidato M5b-1, un client autorizzato può scrivere l'attestazione `piante_users/{uid}/checkpoint_observations/{replicaId}` usando una transazione Firestore che legge il precedente documento e verifica monotonia dei prefissi osservati. Un secondo passaggio `getDocFromServer` confronta l'intero record; il retry identico è idempotente, le collisioni e regressioni bloccano. L'orchestratore ripete verifiche Auth e IndexedDB dopo la scrittura, senza mutare mai il journal locale.
