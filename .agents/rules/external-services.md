@@ -47,6 +47,12 @@ In `.env.example` documentare soltanto il contratto delle variabili; i valori re
 La documentazione stabile nel repository prevale su una richiesta di «ricordare» affidata alla sola cronologia della chat; lo stato provider live prevale su qualsiasi documento storico.
 
 
+## Dismissione Pianta decisa, ma non eseguita — 2026-10-21
+- **MUST:** nel registro e nei report distinguere `RETIREMENT-PLANNED` da `RETIRED`. L'utente ha deciso di sostituire Pianta con Piante, non ha dimostrato che si possano già cancellare dati o servizi.
+- **MUST:** seguire il piano `docs/operations/pianta-retirement-and-data-migration.md`; prima di cambiare Rules/Auth/OAuth/IAM/Hosting/Vercel o collezioni legacy occorrono prova provider, backup completo e restaurabile, audit dipendenze e rollback. Per la rimozione finale di ogni risorsa chiedere autorizzazione specifica quando irreversibile.
+- **MUST:** screenshot console `(default)`, `europe-west12`, collection `users` e `plants`/`images`, Rules copiate, provider Email/Password/Google e numero di account test sono `USER-SCREENSHOT`/`USER-REPORTED`, **non** `PROVIDER-OBSERVED`. Non pubblicare document ID/UID, email o valori dei documenti di prova.
+- **MUST:** il client Pianta legacy può continuare a scrivere (anche offline): un cambio delle Rules senza audit/attesa di client può far perdere modifiche. Non disattivare redirect OAuth o sito Vercel fino a cutover e gestione installazioni PWA.
+
 ## M4a — evidenza delle Rules comunicate direttamente
 - Una trascrizione di Rules fornita dal product owner resta `USER-REPORTED`: può indicare lo stato che l'utente vede, ma non è una lettura verificata dal provider. Conservare il testo tecnico riproducibile e il riferimento storico senza email, segreti o dati reali.
 - Non confondere lo snapshot legacy `gernotfound/pianta`, le Rules tecniche di TheLogBook e il fixture futuro Piante; la compatibilità Emulator è prerequisito **non sufficiente** per distribuire nuove Rules. Registrare l'obbligo di leggere il provider live.
