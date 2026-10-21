@@ -37,6 +37,101 @@ describe('M3a gated private botanical archive (local-only)',()=>{
     expect(screen.getByText(/backup JSON non sono cifrati/)).toBeDefined();
   });
 
+  it('saves height and soil pH in the journal and renders them after a repository reload',async()=>{
+    const repo=local();
+    await repo.commit({type:'plant.create',plant:{
+      id:'papaya',commonName:'Papaya',origin:'seed',status:'active'
+    }});
+    const {unmount}=render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    await screen.findByText('Papaya');
+    fireEvent.click(screen.getByRole('button',{name:'Diario'}));
+    fireEvent.change(screen.getByLabelText('Pianta *'),{target:{value:'papaya'}});
+    fireEvent.change(screen.getByLabelText('Attività'),{target:{value:'measurement'}});
+    fireEvent.change(screen.getByLabelText('Altezza (cm)'),{target:{value:'125.5'}});
+    fireEvent.change(screen.getByLabelText('pH del terreno'),{target:{value:'6.2'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva nel diario'}));
+    await waitFor(async()=>expect(Object.keys((await repo.read()).data.events)).toHaveLength(1));
+    const persisted=await repo.read();
+    expect(persisted.pending).toHaveLength(2);
+    expect(Object.values(persisted.data.events)[0]).toMatchObject({
+      plantId:'papaya',type:'measurement',heightCm:125.5,soilPh:6.2
+    });
+    expect(await screen.findByText(/Altezza 125.5 cm.*pH 6.2/)).toBeDefined();
+    expect((screen.getByLabelText('Altezza (cm)') as HTMLInputElement).value).toBe('');
+    unmount();
+    render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText(/Altezza 125.5 cm.*pH 6.2/)).toBeDefined();
+  });
+
+  it('records harvest grams without leaking stale measurements into another activity',async()=>{
+    const repo=local();
+    await repo.commit({type:'plant.create',plant:{
+      id:'avocado',commonName:'Avocado',origin:'seed',status:'active'
+    }});
+    render(<PrivateGarden ownerScope="user:alice" repository={repo} isStillAuthorized={()=>true}/>);
+    await screen.findByText('Avocado');
+    fireEvent.click(screen.getByRole('button',{name:'Diario'}));
+    fireEvent.change(screen.getByLabelText('Pianta *'),{target:{value:'avocado'}});
+    fireEvent.change(screen.getByLabelText('Attività'),{target:{value:'measurement'}});
+    fireEvent.change(screen.getByLabelText('Altezza (cm)'),{target:{value:'40'}});
+    fireEvent.change(screen.getByLabelText('Attività'),{target:{value:'harvest'}});
+    expect(screen.queryByLabelText('Altezza (cm)')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Peso raccolto (g)'),{target:{value:'325.75'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva nel diario'}));
+    await waitFor(async()=>expect(Object.keys((await repo.read()).data.events)).toHaveLength(1));
+    const event=Object.values((await repo.read()).data.events)[0];
+    expect(event).toMatchObject({type:'harvest',harvestGrams:325.75});
+    expect(event.heightCm).toBeUndefined();
+    expect(event.soilPh).toBeUndefined();
+    expect(await screen.findByText(/Raccolto 325.75 g/)).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Attività'),{target:{value:'measurement'}});
+    expect((screen.getByLabelText('Altezza (cm)') as HTMLInputElement).value).toBe('');
+  });
+
+  it('rejects out-of-range diary values without changing IndexedDB or claiming a save',async()=>{
+    const repo=local();
+    await repo.commit({type:'plant.create',plant:{
+      id:'feijoa',commonName:'Feijoa',origin:'cutting',status:'active'
+    }});
+    render(<PrivateGarden ownerScope="user:alice" repository={repo} isStillAuthorized={()=>true}/>);
+    await screen.findByText('Feijoa');
+    fireEvent.click(screen.getByRole('button',{name:'Diario'}));
+    fireEvent.change(screen.getByLabelText('Pianta *'),{target:{value:'feijoa'}});
+    fireEvent.change(screen.getByLabelText('Attività'),{target:{value:'measurement'}});
+    fireEvent.change(screen.getByLabelText('pH del terreno'),{target:{value:'15'}});
+    fireEvent.submit(screen.getByRole('form',{name:'Aggiungi diario'}));
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent',
+      'Valore numerico non valido per il diario');
+    expect((await repo.read()).pending).toHaveLength(1);
+    expect(Object.keys((await repo.read()).data.events)).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText('pH del terreno'),{target:{value:'0'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva nel diario'}));
+    await waitFor(async()=>expect((await repo.read()).pending).toHaveLength(2));
+    expect(Object.values((await repo.read()).data.events)[0].soilPh).toBe(0);
+  });
+
+  it('does not append a diary event from a form made stale by another tab',async()=>{
+    const dbName='m8c-diary-concurrent-'+(++seq);
+    const a=new LocalGardenRepository('user:alice',{dbName,now:()=>1000});
+    const b=new LocalGardenRepository('user:alice',{dbName,now:()=>1000});
+    await a.commit({type:'plant.create',plant:{
+      id:'guava',commonName:'Guava',origin:'seed',status:'active'
+    }});
+    render(<PrivateGarden ownerScope="user:alice" repository={a} isStillAuthorized={()=>true}/>);
+    await screen.findByText('Guava');
+    fireEvent.click(screen.getByRole('button',{name:'Diario'}));
+    fireEvent.change(screen.getByLabelText('Pianta *'),{target:{value:'guava'}});
+    await b.commit({type:'plant.patch',id:'guava',patch:{notes:'Un altro dispositivo'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva nel diario'}));
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent',
+      'Archivio modificato altrove: aggiorna i dati prima di salvare');
+    const after=await b.read();
+    expect(after.pending).toHaveLength(2);
+    expect(Object.keys(after.data.events)).toHaveLength(0);
+  });
+
   it('edits cultivar, pot, minimum temperature, location and notes durably across reloads',async()=>{
     const repo=local();
     await repo.commit({type:'place.create',place:{id:'balcony',name:'Balcone',kind:'balcony'}});
