@@ -333,14 +333,14 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
             onChange={e=>setEditMotherId(e.target.value)}>
             <option value="">Non indicata</option>
             {plants.filter(parent=>parent.id!==editingPlantId).map(parent=>
-              <option key={parent.id} value={parent.id}>{parent.commonName}</option>)}
+              <option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
           </select>
           <label htmlFor="garden-edit-father">Pianta padre dell’esemplare</label>
           <select id="garden-edit-father" value={editFatherId}
             onChange={e=>setEditFatherId(e.target.value)}>
             <option value="">Non indicato</option>
             {plants.filter(parent=>parent.id!==editingPlantId).map(parent=>
-              <option key={parent.id} value={parent.id}>{parent.commonName}</option>)}
+              <option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
           </select>
           <p className="garden-lineage__help">Seleziona solo genitori già presenti nella tua collezione. I legami ciclici vengono rifiutati.</p>
           <label htmlFor="garden-edit-pot">Capacità vaso (litri)</label>
@@ -419,12 +419,12 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
           <label htmlFor="garden-mother">Pianta madre (se nota)</label>
           <select id="garden-mother" value={motherId} onChange={e=>setMotherId(e.target.value)}>
             <option value="">Non indicata</option>
-            {plants.map(parent=><option key={parent.id} value={parent.id}>{parent.commonName}</option>)}
+            {plants.map(parent=><option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
           </select>
           <label htmlFor="garden-father">Pianta padre (se nota)</label>
           <select id="garden-father" value={fatherId} onChange={e=>setFatherId(e.target.value)}>
             <option value="">Non indicato</option>
-            {plants.map(parent=><option key={parent.id} value={parent.id}>{parent.commonName}</option>)}
+            {plants.map(parent=><option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
           </select>
           <button type="submit" disabled={busy}><Plus size={17}/> {busy?'Salvataggio…':'Salva pianta'}</button>
         </form>}

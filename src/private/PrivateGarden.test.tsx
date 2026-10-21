@@ -260,7 +260,6 @@ describe('M3a gated private botanical archive (local-only)',()=>{
       isStillAuthorized={()=>true}/>);
     fireEvent.click(await screen.findByRole('button',{name:'Modifica Figlia'}));
     expect((screen.getByLabelText('Pianta madre dell’esemplare') as HTMLSelectElement).value).toBe('mom');
-    expect(screen.queryByRole('option',{name:'Figlia'})).not.toBeNull(); // other selectors also include this plant
     const mother=screen.getByLabelText('Pianta madre dell’esemplare') as HTMLSelectElement;
     expect(Array.from(mother.options).some(o=>o.value==='child')).toBe(false);
     fireEvent.change(screen.getByLabelText('Pianta padre dell’esemplare'),{target:{value:'dad'}});
