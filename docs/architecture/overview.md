@@ -92,6 +92,10 @@ Il prefisso `piante_*` è il **namespace nativo, nuovo e isolato di Piante**, no
 - I batch successivi saltano soltanto i receipt **già verificati**; i timeout ambigui sono recuperabili senza deduplicazione cieca.
 - I test Emulator coprono più di 20 operazioni reali; il codice **non** è attivo in UI, Hosting o Rules live. Mancano protocollo causale, scalabilità, account deletion e gestione conflitti utente.
 
+## M8e — genealogia e propagazione di esemplari
+La UI privata di laboratorio ora consente, in creazione e modifica di una pianta, la scelta degli esemplari madre e padre esistenti. Il dominio Piante conservava già `motherId`/`fatherId` e impedisce autogenitorialità, riferimenti inesistenti e cicli genealogici; la UI non modifica quei contratti. L'utente può registrare una talea collegandola alla madre, o un discendente nato da seme con uno o entrambi i genitori; il collegamento non presume che un incrocio o un innesto sia avvenuto senza dati espliciti.
+Il pedigree usa identificativi stabili, non nomi copiati: una rinomina si propaga soltanto nella presentazione e non crea operazioni sulle schede figlie. Creazione e cambio genitore richiedono la revisione IndexedDB corrente e commit atomico insieme al journal, con errore fail-closed su concorrenza o cicli. Nessuna modifica al formato persistito, export, Firestore o proiezioni pubbliche.
+
 ## M8d — storico del diario navigabile
 Nella sola UI privata di prova si può consultare tutta la cronologia IndexedDB, non soltanto gli ultimi otto eventi. I dati sono già nel record owner-scoped: vengono ordinati per data evento decrescente, `createdAt` e ID per spareggi deterministici; poi filtrati in memoria per ID esemplare e attività, con pagine da **10 eventi** e navigazione accessibile. Il filtraggio non modifica envelope, revision, pending, backup o Firestore, e non rende pubbliche note o misurazioni.
 
