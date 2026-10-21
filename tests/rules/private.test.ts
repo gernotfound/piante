@@ -80,8 +80,21 @@ describe('Piante private namespace security',()=>{
   await assertSucceeds(getDoc(doc(db('alice'),path('alice','plants/p1'))));
   await assertFails(getDoc(doc(db('bob'),path('alice','plants/p1'))));
  });
- it('does not expose legacy or public collections in the isolated test rules',async()=>{
-  await assertFails(getDoc(doc(db('alice'),'users/alice/plants/p1')));
+ it('denies legacy user documents and paths to every client in the isolated Piante Rules',async()=>{
+  for(const oldPath of [
+    'users/alice',
+    'users/alice/plants/p1',
+    'users/alice/plants/p1/logs/entry',
+    'users/alice/images/photo',
+    'users/alice/expenses/x',
+    'users/alice/wishlist/item'
+  ]){
+    for(const who of [undefined,'alice','bob']){
+      await assertFails(getDoc(doc(db(who),oldPath)));
+      await assertFails(setDoc(doc(db(who),oldPath),{test:true}));
+      await assertFails(deleteDoc(doc(db(who),oldPath)));
+    }
+  }
   await assertFails(getDoc(doc(db(),'piante_profiles/alice/plants/p1')));
  });
 });

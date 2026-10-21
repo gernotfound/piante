@@ -1,31 +1,15 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createReadStream, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, renameSync, statSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { combineLegacyAndPiante } from './compose-compat-rules.mjs';
 import path from 'node:path';
 import net from 'node:net';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-const compat=process.argv.length===3&&process.argv[2]==='--compat';
-if(process.argv.length>2&&!compat)throw Error('Invalid emulator mode');
-const host='127.0.0.1',port=compat?8178:8177,project='demo-piante-test';
-const generated=compat?mkdtempSync(path.join(tmpdir(),'piante-rules-compat-')):null;
-let rulesFile=path.resolve('firestore.m2-test.rules');
-if(generated){
-  try{
-    const merged=combineLegacyAndPiante(
-      readFileSync('tests/fixtures/pianta-legacy-user-reported.rules','utf8'),
-      readFileSync('firestore.m2-test.rules','utf8')
-    );
-    rulesFile=path.join(generated,'firestore.combined.emulator.rules');
-    writeFileSync(rulesFile,merged,'utf8');
-  }catch(error){
-    rmSync(generated,{recursive:true,force:true});
-    throw error;
-  }
-}
+if(process.argv.length>2)throw Error('No alternative Emulator Rules modes are supported');
+const host='127.0.0.1',port=8177,project='demo-piante-test';
+const rulesFile=path.resolve('firestore.m2-test.rules');
 
 const version='1.22.0',size=136707194;
 const expectedHash='9b6498b7f62714d67f48f59b3818883cd682dbcd46b9f59511de81c97bb5166c';
@@ -74,7 +58,7 @@ try{
   await new Promise(resolve=>setTimeout(resolve,300));
  }
  const vitest=path.resolve('node_modules/vitest/vitest.mjs');
- const child=spawn(process.execPath,[vitest,'run','--config',compat?'vitest.compat.config.ts':'vitest.rules.config.ts'],{
+ const child=spawn(process.execPath,[vitest,'run','--config','vitest.rules.config.ts'],{
   stdio:'inherit',env:{...process.env,FIRESTORE_EMULATOR_HOST:host+':'+port,GCLOUD_PROJECT:project}
  });
  const result=await new Promise((resolve,reject)=>{
@@ -85,5 +69,4 @@ try{
  server.kill('SIGTERM');
  if(process.platform==='win32'&&server.pid)spawnSync('taskkill',['/pid',String(server.pid),'/t','/f']);
  log.end();
- if(generated)rmSync(generated,{recursive:true,force:true});
 }
