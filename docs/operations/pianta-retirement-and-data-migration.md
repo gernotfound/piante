@@ -8,7 +8,7 @@
 
 Pianta (repository `gernotfound/pianta`, documentata con frontend `https://pianta-gnf.vercel.app/`) verrà ritirata *dopo* aver garantito il recupero e, se richiesto, la migrazione dei dati nel nuovo prodotto. Piante rimane sul repository `gernotfound/piante`, target Firebase Project `pianta-db`, Hosting site `piante` e `https://piante.web.app`; Spark gratuito senza Blaze né Vercel per Piante.
 
-La volontà di ritirare il **client** Pianta non autorizza da sola a eliminare dati, account Firebase Auth, collezioni, progetti Google Cloud, app registration, DNS/OAuth, repository o Vercel. **Preservare ciò che esiste fino al superamento dei gate** e a una conferma specifica dell'eventuale eliminazione irreversibile. La nuova PWA non deve perdere lo stato offline, pubblicare note/foto/prezzi né riutilizzare automaticamente i dati dell'app legacy come schede pubbliche.
+La volontà di ritirare il **client** Pianta non autorizza da sola a eliminare dati, account Firebase Auth, collezioni, progetti Google Cloud, app registration, DNS/OAuth, repository o Vercel. Il product owner consente modifiche tecniche al database per sviluppare Piante, ma gli interventi devono soddisfare prerequisiti di inventario, backup e rollback; le eliminazioni irreversibili rimangono condizionate a consenso specifico. **Preservare ciò che esiste fino al superamento dei gate** e a una conferma specifica dell'eventuale eliminazione irreversibile. La nuova PWA non deve perdere lo stato offline, pubblicare note/foto/prezzi né riutilizzare automaticamente i dati dell'app legacy come schede pubbliche.
 
 ## Inventario osservato e incertezze
 
