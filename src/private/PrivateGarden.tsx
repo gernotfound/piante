@@ -64,6 +64,9 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const [diaryType, setDiaryType] = useState<keyof typeof diaryTypes>('observation');
   const [diaryDate, setDiaryDate] = useState(localToday);
   const [diaryNote, setDiaryNote] = useState('');
+  const [diaryHeight, setDiaryHeight] = useState('');
+  const [diarySoilPh, setDiarySoilPh] = useState('');
+  const [diaryHarvest, setDiaryHarvest] = useState('');
   const [editingPlantId,setEditingPlantId]=useState('');
   const [editRevision,setEditRevision]=useState<number|null>(null);
   const [editName,setEditName]=useState('');
@@ -139,12 +142,31 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   }
   function addEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isStillAuthorized()) return;
+    if (!isStillAuthorized() || busy || !snapshot) return;
     if (!diaryPlantId || !diaryDate) { setError('Seleziona una pianta e una data.'); return; }
+    // Validate the exact fields belonging to this event type before journaling.
+    // No hidden values from a previous type can leak into a new event.
+    const values: { heightCm?:number; soilPh?:number; harvestGrams?:number } = {};
+    for (const [kind,raw,min,max] of [
+      ['heightCm',diaryType==='measurement'?diaryHeight:'',0,100000],
+      ['soilPh',diaryType==='measurement'?diarySoilPh:'',0,14],
+      ['harvestGrams',diaryType==='harvest'?diaryHarvest:'',0,100000000]
+    ] as const) {
+      if (!raw.trim()) continue;
+      const number=Number(raw);
+      if (!Number.isFinite(number)||number<min||number>max) {
+        setError('Valore numerico non valido per il diario: controlla le unità e i limiti.');
+        return;
+      }
+      values[kind]=number;
+    }
     void save(() => ({type:'event.add',event:{
       id:newId(),plantId:diaryPlantId,date:diaryDate,type:diaryType,
-      ...(diaryNote.trim() ? {note:diaryNote.trim()} : {})
-    }}), 'Voce di diario salvata');
+      ...(diaryNote.trim() ? {note:diaryNote.trim()} : {}),
+      ...values
+    }}), 'Voce di diario salvata',snapshot.revision,()=>{
+      setDiaryNote('');setDiaryHeight('');setDiarySoilPh('');setDiaryHarvest('');
+    });
   }
   function openPlantEditor(plant:Plant){
     if(busy||!isStillAuthorized()||!snapshot)return;
@@ -371,11 +393,27 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
             {plants.map(plant=><option key={plant.id} value={plant.id}>{plant.commonName}</option>)}
           </select>
           <label htmlFor="garden-diary-type">Attività</label>
-          <select id="garden-diary-type" value={diaryType} onChange={e=>setDiaryType(e.target.value as keyof typeof diaryTypes)}>
+          <select id="garden-diary-type" value={diaryType} onChange={e=>{
+            setDiaryType(e.target.value as keyof typeof diaryTypes);
+            setDiaryHeight('');setDiarySoilPh('');setDiaryHarvest('');
+          }}>
             {Object.entries(diaryTypes).map(([value,label])=><option key={value} value={value}>{label}</option>)}
           </select>
           <label htmlFor="garden-diary-date">Data *</label>
           <input id="garden-diary-date" type="date" required value={diaryDate} onChange={e=>setDiaryDate(e.target.value)}/>
+          {diaryType==='measurement' && <>
+            <label htmlFor="garden-diary-height">Altezza (cm)</label>
+            <input id="garden-diary-height" type="number" min="0" max="100000" step="any"
+              value={diaryHeight} onChange={e=>setDiaryHeight(e.target.value)}/>
+            <label htmlFor="garden-diary-ph">pH del terreno</label>
+            <input id="garden-diary-ph" type="number" min="0" max="14" step="any"
+              value={diarySoilPh} onChange={e=>setDiarySoilPh(e.target.value)}/>
+          </>}
+          {diaryType==='harvest' && <>
+            <label htmlFor="garden-diary-harvest">Peso raccolto (g)</label>
+            <input id="garden-diary-harvest" type="number" min="0" max="100000000" step="any"
+              value={diaryHarvest} onChange={e=>setDiaryHarvest(e.target.value)}/>
+          </>}
           <label htmlFor="garden-diary-note">Note (private)</label>
           <textarea id="garden-diary-note" maxLength={10000} rows={3} value={diaryNote} onChange={e=>setDiaryNote(e.target.value)}/>
           <button type="submit" disabled={busy||!plants.length}><Plus size={17}/> {busy?'Salvataggio…':'Salva nel diario'}</button>
@@ -387,7 +425,12 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
       <ul>{events.slice(0,8).map(event=><li key={event.id}>
         <time dateTime={event.date}>{event.date}</time>
         <strong>{snapshot?.data.plants[event.plantId]?.commonName ?? 'Pianta non disponibile'}</strong>
-        <span>{diaryTypes[event.type]}{event.note ? ` · ${event.note}` : ''}</span>
+        <span>{diaryTypes[event.type]}
+          {event.heightCm!==undefined ? ` · Altezza ${event.heightCm} cm` : ''}
+          {event.soilPh!==undefined ? ` · pH ${event.soilPh}` : ''}
+          {event.harvestGrams!==undefined ? ` · Raccolto ${event.harvestGrams} g` : ''}
+          {event.note ? ` · ${event.note}` : ''}
+        </span>
       </li>)}</ul>
     </section>}
     <BackupPanel ownerScope={ownerScope} repository={repo} isStillAuthorized={isStillAuthorized}
