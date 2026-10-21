@@ -2,11 +2,10 @@
 
 > Classificazione **CRITICAL**: l'archivio JSON esportato contiene dati privati, coordinate, prezzi, note, ricevute cloud e journal.
 
-## Distinzione backup Pianta / Piante nel cutover
-- Il product owner ha deciso di dismettere Pianta (2026-10-21), **non** di cancellare immediatamente gli archivi. Prima della dismissione: backup privato verificato di `users/{uid}`, sottocollezioni, immagini, logs e indici/Rules rilevanti; non affidarsi alla sola copia JSON della UI.
-- Il vecchio client `gernotfound/pianta/src/lib/backup.ts` emette JSON con `schemaVersion:3` e `app:'Pianta'`, **incompatibile** con il backup locale `piante-private-backup/v1`. Non usare `restoreLocalBackup` né `restoreEmptyFromBackup` per importarlo.
-- Verificare i filtri legacy che potrebbero scartare documenti anomali, le preferenze locali, il diario annidato e i client offline. Confrontare manifest/conteggi con inventario Firestore completo e prove di restore. Non salvare file contenenti dati privati nel repository pubblico o in PR/issue.
-- Fino a migrazione, conferma di recuperabilità, cutover e rollback: non distruggere dati o identità legacy; nessuna modifica live in una PR solo documentale.
+## Perimetro del backup
+- Il backup `piante-private-backup/v1` serve solo a dati generati da Piante. Il prodotto **non importa né converte** formati o documenti Pianta.
+- Backup e recovery locali Piante, migrazioni versionate del proprio schema e quarantena restano obbligatori per non perdere dati futuri. Il fatto che non esistano dati da importare dal vecchio client non elimina queste garanzie.
+- La pulizia di dati preesistenti nel provider non fa parte delle funzioni di import/export Piante.
 
 ## Export
 - Fare una lettura durevole da IndexedDB e validare l'intero envelope M1/M2 prima di esportare; non limitarsi allo snapshot visibile della UI.

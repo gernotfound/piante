@@ -3,18 +3,10 @@
 > Stato: specifica e runner server-only INERTE. Classificazione CRITICAL.
 > Riferimento esaminato: `gernotfound/logbook/.agents/rules/account-lifecycle.md` (HEAD GitHub verificato alla data della PR). Adattare i principi, non copiare Vercel né il protocollo di cancellazione.
 
-## Confine critico tra Piante e Pianta legacy
-
-Il Firebase Project `pianta-db` ospita anche **Pianta**. L'identità Firebase Auth può essere condivisa da entrambi i client. Cancellare `auth.users/{uid}` comprometterebbe l'accesso alla vecchia Pianta: **il runner M3c non offre né invoca cancellazione Auth**. Non implementare una schermata "Elimina account" che faccia credere cancellata l'identità condivisa.
-
-La sola cancellazione di dati Piante e la chiusura dell'accesso Piante sono un'operazione distinta. La scelta di prodotto su cosa significhi "elimina account" in presenza di dati legacy richiederà valutazione esplicita prima dell'apertura delle registrazioni.
-
-## Cambio strategia 2026-10-21: ritiro Pianta, non purge immediato
-Il product owner ha scelto di **dismettere Pianta**. Questa decisione modifica lo scenario futuro: dopo una migrazione completa e verificata, Firebase Auth non dovrà più essere mantenuto **per il solo funzionamento del vecchio client**. Fino al cutover, tuttavia, rimane condiviso e va preservato integralmente.
-
-**MUST:** non estendere oggi `deletionRunner` alla collezione `users/{uid}` o all'account Firebase Auth; il runner rimane inerte e limitato a Piante. Progettare separatamente account-deletion end-to-end per Piante, migrazione/ricollegamento delle identità Email/Password e Google, protezione contro creazioni abusive, backfill, token/sessioni e device offline. Cancellazione di dati/UID legacy richiede backup restaurabile e consenso separato per i target irreversibili.
-
-Riferimento di esecuzione: `docs/operations/pianta-retirement-and-data-migration.md` G0–G4. Un solo account test dichiarato non è prova che altri UID o dispositivi non esistano.
+## Identità e dati Piante da zero
+- Il product owner ha escluso import e migrazione della vecchia Pianta. `piante_users` e `piante_access` sono i soli namespace Piante previsti in laboratorio. Non implementare un bridge con `users/{uid}`.
+- Il runner resta **solo Piante e server-only**; non elimina account Firebase Auth né dati `users/{uid}`. Questo limite non è più un requisito di retrocompatibilità del prodotto: è una precauzione verso risorse ancora presenti nel provider e verso il mancato backend trusted.
+- Dopo inventario provider ed esplicito perimetro di cleanup, le identità di test preesistenti potranno essere gestite in un task separato. L'account-deletion Piante futuro dovrà invece coprire l'intero lifecycle Auth e dati, prima di aprire signup. Niente cancellazioni immediate in questo refactoring.
 
 ## Runner e boundary
 
@@ -23,18 +15,18 @@ Riferimento di esecuzione: `docs/operations/pianta-retirement-and-data-migration
 Invarianti:
 1. Solo un backend autenticato/privilegiato può verificare ID token non revocato, recent-auth, App Check ove possibile, intenzione esplicita dell'utente e scope; l'UID deriva dal token, non dal body.
 2. `begin(uid)` crea **atomicamente un tombstone server-only** `piante_account_deletions/{uid}` e prende un lease esclusivo, prima di qualsiasi rimozione dati. Il tombstone **non deve essere cancellato** in caso di errore o alla conclusione.
-3. Le Rules di laboratorio negano letture/scritture per `piante_users/{uid}`, `operations` e get di `piante_access/{uid}` quando esiste il tombstone. Sono un fixture Emulator test-only e NON possono essere distribuite sul progetto condiviso senza audit Rules legacy.
+3. Le Rules di laboratorio negano letture/scritture per `piante_users/{uid}`, `operations` e get di `piante_access/{uid}` quando esiste il tombstone. Sono un fixture Emulator test-only: non distribuire prima dell'audit delle Rules effettive.
 4. `noExternalArtifacts` deve INVENTARIARE da provider tutte le proiezioni pubbliche, username, file Storage, indici e future risorse Piante associate all'UID. Con un risultato incerto o non vuoto il lavoro **si blocca prima del primo batch**; non trattare documenti ignoti come assenti.
 5. `listPrivateCollections` usa l'API amministrativa che enumera le sottocollezioni effettive; oggi soltanto `operations` è ammessa alla rimozione. Sottocollezioni nuove/sconosciute, incluso `plants`, sono blocker finché il relativo percorso non è stato auditato, versionato e testato.
 6. Ogni invocazione cancella **al massimo 50 documenti** dalla testa di una sottocollezione. Ripetere da capo nei retry: no offset/cursor come dipendenza di correttezza. Il lavoro rimane incompleto con tombstone durevole.
 7. Soltanto quando nessuna sottocollezione rimane, cancellare `piante_users/{uid}`, verificarne l'assenza, cancellare il grant **solo Piante** `piante_access/{uid}`, verificarne l'assenza, quindi marcare il job `complete`.
 8. `complete` non è una prova autonoma: ogni retry che lo incontra deve riverificare dati/grant assenti. Fallimenti, richieste concorrenti, timeout, nuove risorse e verifiche incoerenti non sono successi.
-9. Firebase Auth, collezioni legacy `users/{uid}`, app Pianta, credenziali, Firestore Rules live e Hosting non si toccano.
+9. Firebase Auth, altri namespace già presenti, credenziali, Firestore Rules live e Hosting non si toccano nel runner Piante.
 10. **Non eliminare la copia IndexedDB locale** finché non arriva una prova server completa e autenticata, incluso il trattamento del backup in quarantena e degli altri dispositivi. Non è ancora stato costruito questo protocollo.
 
 ## Limitazioni per la release
 
-Il runner NON è collegato a un backend trusted: Firebase Spark attuale non autorizza l'introduzione implicita di Cloud Functions a pagamento né Vercel. Quindi la cancellazione remota degli utenti **non è disponibile nel prodotto**. Prima di attivarla occorrono boundary trusted sostenibile, provider audit/Rules reconciliate, code deletion per tutte le collezioni/private+pubbliche+media, tombstone recovery, recent-auth, device fences, test di stress e policy retention. Il codice non equivale a un servizio operativo.
+Il runner NON è collegato a un backend trusted: Firebase Spark attuale non autorizza l'introduzione implicita di Cloud Functions a pagamento né Vercel. Quindi la cancellazione remota degli utenti **non è disponibile nel prodotto**. Prima di attivarla occorrono boundary trusted sostenibile, provider audit/Rules verificate, code deletion per tutte le collezioni/private+pubbliche+media, tombstone recovery, recent-auth, device fences, test di stress e policy retention. Il codice non equivale a un servizio operativo.
 
 ## Verifiche
 
