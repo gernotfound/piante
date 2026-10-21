@@ -87,6 +87,9 @@ Solo con `VITE_AUTH_TEST_MODE=true`, configurazione Google Auth valida e rispost
 
 **AVVERTENZA:** questi dati esistono solo nel browser corrente; la cancellazione dei dati locali può distruggerli. Non sono previsti backup, esportazione, recupero cross-device o dati pubblici nell'interfaccia M3a. Non usare informazioni reali importanti finché il lifecycle dati non è operativo. Questo modulo viene visualizzato soltanto agli utenti di test autorizzati; la modalità test rimane **false** nel deployment di default. Nessuna credenziale OAuth o apertura registrazioni aggiunta.
 
+## M8c — misurazioni e raccolto nel diario privato
+Il diario sperimentale ora registra altezza in cm, pH del terreno e raccolto in grammi tramite il journal locale Piante. I campi si mostrano soltanto per le rispettive attività, sono facoltativi e verificati contro i limiti del dominio, e vengono presentati con unità dopo il reload. L'inserimento rifiuta revisioni IndexedDB obsolete fra schede. Restano **private-only**, senza cloud né pubblicazione.
+
 ## M3b — backup manuale e recovery offline per account test
 La UI privata di prova offre l'export JSON completo del database locale (schede, eventi, luoghi, journal e receipt) e import con verifica checksum, anteprima e conferma. **Attenzione:** il file è in chiaro e non viene protetto con password; conservalo al sicuro. Il ripristino è permesso solo sullo **stesso account** in un archivio vuoto. Un backup importato resta in **quarantena cloud**, anche se consente modifiche locali, fino a una futura migrazione sicura. Nessun backup automatico o ripristino cloud live è disponibile.
 

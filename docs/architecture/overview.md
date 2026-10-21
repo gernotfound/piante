@@ -92,6 +92,9 @@ Il prefisso `piante_*` è il **namespace nativo, nuovo e isolato di Piante**, no
 - I batch successivi saltano soltanto i receipt **già verificati**; i timeout ambigui sono recuperabili senza deduplicazione cieca.
 - I test Emulator coprono più di 20 operazioni reali; il codice **non** è attivo in UI, Hosting o Rules live. Mancano protocollo causale, scalabilità, account deletion e gestione conflitti utente.
 
+## M8c — diario botanico con quantità
+Nel prototipo locale, l'evento `measurement` consente altezza in **centimetri** e pH del terreno; `harvest` consente la massa raccolta in **grammi**. Gli altri tipi non scrivono dati numerici accidentali. Il dominio Piante li valida già come campi opzionali di `event.add` in un unico journal IndexedDB; l'interfaccia ora li espone, li visualizza con unità, li rilegge dopo reload e rifiuta valori fuori intervallo o edit di una revisione obsoleta. Nessuna migrazione schema, Rules, backup o servizio Firebase live.
+
 ## M8b — luoghi modificabili senza rinumerare le piante
 L'archivio privato di prova elenca i luoghi e permette di aggiornare nome, categoria (balcone/giardino/interno/serra/altro) e note. Una `place.patch` entra nel journal IndexedDB durevole solo dopo un controllo CAS sulla `revision` acquisita all'apertura dell'editor. ID del luogo, coordinate eventuali e riferimenti `plant.placeId` restano invariati; una seconda scheda con una modifica più recente blocca il form obsoleto e richiede riapertura. Il nuovo workflow è **solo locale e test-only** e non pubblica coordinate o note.
 

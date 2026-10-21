@@ -15,6 +15,12 @@
 - **MUST:** per l'editing usare `expectedRevision` acquisita all'apertura del form e verificata nella transazione IDB; un'altra modifica nello stesso owner durante l'editing impone il blocco e la rilettura. Non rimpiazzare il journal con lo snapshot del form. `null` elimina solo optional; campo omesso non deve essere resettato.
 - **MUST:** non creare un'operazione per salvataggi no-op; successo solo dopo `oncomplete`. Ripristino backup e revoca Auth mantengono i guard correnti. Test su reload, alterazioni concorrenti, invalidità e rinomina/luogo/vaso/note.
 
+## M8c — diario numerico tipizzato (CRITICAL per dati)
+- **MUST:** mostrare misura altezza (cm) e pH solo nell'attività misurazione, peso raccolto (g) solo in raccolta. L'attività `care` e tutte le altre non devono incorporare valori metrici nascosti.
+- **MUST:** lo schema resta il contratto autorevole; la UI applica range finite anche prima del commit, non converte campo vuoto in `0`, e mantiene compatibilità dei vecchi eventi senza misure. Mai introdurre timestamp o formati cloud nuovi per questi dati.
+- **MUST:** `event.add` salva solo dopo CAS sulla revisione IndexedDB catturata in UI; cancellazioni di sessione, una seconda scheda o fallimento del database non vengono mostrati come successo. Dopo salvataggio cancellare i campi del form sensibili ai duplicati accidentali.
+- **TEST:** misura, pH, raccolto, zero valido, range non valido, tipo cambiato, reload, stale revision e private-only.
+
 ## M8b — editor luoghi (CRITICAL per dati)
 - **MUST:** luoghi mostrati e modificati esclusivamente nell'area privata già autorizzata, solo IndexedDB. Etichette e form non duplicano dati nelle viste pubbliche; le note sono riservate.
 - **MUST:** i place ID e i riferimenti `plant.placeId` restano invariati. Patch soltanto dei campi mostrati (name, kind, notes), lasciando coordinate e campi futuri intatti. Le note vuote producono `null`, mai una cancellazione dell'oggetto luogo.
