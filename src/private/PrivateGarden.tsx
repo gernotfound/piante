@@ -436,30 +436,34 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
     {events.length>0 && <section className="garden-section garden-diary" aria-label="Storico diario">
       <h3><BookOpen size={20}/> Storico del diario</h3>
       <div className="garden-history__filters">
-        <label htmlFor="garden-history-plant">Filtra per pianta</label>
-        <select id="garden-history-plant" value={historyPlantId} onChange={event=>{
-          setHistoryPlantId(event.target.value);
-          setHistoryPage(0);
-        }}>
-          <option value="">Tutte le piante</option>
-          {plants.map(plant=><option key={plant.id} value={plant.id}>{plant.commonName}</option>)}
-        </select>
-        <label htmlFor="garden-history-type">Filtra per attività</label>
-        <select id="garden-history-type" value={historyType} onChange={event=>{
-          setHistoryType(event.target.value);
-          setHistoryPage(0);
-        }}>
-          <option value="">Tutte le attività</option>
-          {Object.entries(diaryTypes).map(([value,label])=>
-            <option key={value} value={value}>{label}</option>)}
-        </select>
+        <div className="garden-history__field">
+          <label htmlFor="garden-history-plant">Filtra per pianta</label>
+          <select id="garden-history-plant" value={historyPlantId} onChange={event=>{
+            setHistoryPlantId(event.target.value);
+            setHistoryPage(0);
+          }}>
+            <option value="">Tutte le piante</option>
+            {plants.map(plant=><option key={plant.id} value={plant.id}>{plant.commonName}</option>)}
+          </select>
+        </div>
+        <div className="garden-history__field">
+          <label htmlFor="garden-history-type">Filtra per attività</label>
+          <select id="garden-history-type" value={historyType} onChange={event=>{
+            setHistoryType(event.target.value);
+            setHistoryPage(0);
+          }}>
+            <option value="">Tutte le attività</option>
+            {Object.entries(diaryTypes).map(([value,label])=>
+              <option key={value} value={value}>{label}</option>)}
+          </select>
+        </div>
       </div>
       <p className="garden-history__count" role="status" aria-live="polite">
         {history.length===0
           ? 'Nessun evento corrisponde ai filtri.'
           : `Eventi ${historyStart+1}–${historyStart+historyVisible.length} di ${history.length} · Pagina ${historyCurrentPage+1} di ${historyPages}`}
       </p>
-      <ul>{historyVisible.map(event=><li key={event.id}>
+      <ul aria-label="Elenco registrazioni diario">{historyVisible.map(event=><li key={event.id}>
         <time dateTime={event.date}>{event.date}</time>
         <strong>{snapshot?.data.plants[event.plantId]?.commonName ?? 'Pianta non disponibile'}</strong>
         <span>{diaryTypes[event.type]}

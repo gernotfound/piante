@@ -109,6 +109,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .garden-form button[type="submit"] { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .garden-feedback { padding: 10px 13px; border-radius: 10px; background: var(--subtle); color: var(--text); }
 .garden-feedback--error { border: 1px solid #ca746e; }
+.garden-history__filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.garden-history__field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.garden-history__field label { font-size: 13px; font-weight: 700; }
+.garden-history__field select { width: 100%; min-height: 44px; padding: 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+.garden-history__count { font-size: 13px; color: var(--muted); margin: 14px 0 10px; }
+.garden-history__pagination { display: flex; gap: 10px; justify-content: space-between; margin-top: 15px; }
+.auth-test-panel .garden-history__pagination button { min-height: 44px; background: var(--subtle); color: var(--text); }
+@media (max-width: 580px) { .garden-history__filters { grid-template-columns: minmax(0, 1fr); } }
 .garden-diary { margin-top: 15px; }
 .garden-diary li { display: flex; gap: 9px; flex-wrap: wrap; font-size: 13px; padding: 11px 0; border-top: 1px solid var(--border); }
 .garden-diary li span { color: var(--muted); overflow-wrap: anywhere; }
