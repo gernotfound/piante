@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, renameSync, statSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 import { Readable } from 'node:stream';
