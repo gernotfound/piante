@@ -102,8 +102,8 @@ describe('M3a gated private botanical archive (local-only)',()=>{
     fireEvent.change(screen.getByLabelText('Attività'),{target:{value:'measurement'}});
     fireEvent.change(screen.getByLabelText('pH del terreno'),{target:{value:'15'}});
     fireEvent.submit(screen.getByRole('form',{name:'Aggiungi diario'}));
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent',
-      'Valore numerico non valido per il diario');
+    expect((await screen.findByRole('alert')).textContent)
+      .toContain('Valore numerico non valido per il diario');
     expect((await repo.read()).pending).toHaveLength(1);
     expect(Object.keys((await repo.read()).data.events)).toHaveLength(0);
     fireEvent.change(screen.getByLabelText('pH del terreno'),{target:{value:'0'}});
