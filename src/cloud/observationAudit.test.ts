@@ -4,7 +4,7 @@ import { buildObservationAudit, inspectObservationAudit, type ObservationRow } f
 const a='123e4567-e89b-42d3-a456-426614174000';
 const b='123e4567-e89b-42d3-a456-426614174001';
 const c='123e4567-e89b-42d3-a456-426614174002';
-const row=(id:string,prefixes:Record<string,number>,hash='a'.repeat(64)):ObservationRow=>({
+const row=(id:string,prefixes:Record<string,number>,hash='a'.repeat(64))=>({
   id,data:{protocol:1,status:'observation-only',compactionAuthorized:false,
     ownerUid:'alice',replicaId:id,receiptCount:Object.values(prefixes).reduce((x,y)=>x+y,0),
     observedPrefixes:prefixes,sha256:hash}
