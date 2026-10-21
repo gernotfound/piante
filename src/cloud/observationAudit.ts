@@ -118,7 +118,10 @@ export async function inspectObservationAudit(
   }
   let rows:readonly ObservationRow[];
   try{rows=await observations.readAll(ownerUid,max);}
-  catch{throw new ObservationAuditBlocked('remote-unavailable');}
+  catch(error){
+    if(error instanceof ObservationAuditBlocked)throw error;
+    throw new ObservationAuditBlocked('remote-unavailable');
+  }
   if(!isStillAuthorized())throw new ReconciliationBlocked('identity-changed');
   const audit=buildObservationAudit(candidate,rows,max);
   if(!isStillAuthorized())throw new ReconciliationBlocked('identity-changed');

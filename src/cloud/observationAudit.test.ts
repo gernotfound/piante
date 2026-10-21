@@ -3,7 +3,7 @@ import { webcrypto } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocalGardenRepository } from '../storage/localRepository';
 import { prepareCloudRecord, type CloudJournalRecord } from './journal';
-import { buildObservationAudit, inspectObservationAudit, type ObservationRow } from './observationAudit';
+import { ObservationAuditBlocked, buildObservationAudit, inspectObservationAudit, type ObservationRow } from './observationAudit';
 import { type CloudJournalReader } from './reconciliationPreview';
 import { type CheckpointCandidate } from './checkpointCandidate';
 
@@ -149,6 +149,10 @@ describe('M5b-3 read-only observation audit (CRITICAL)',()=>{
     await expect(inspectObservationAudit(repo,journal(freshRows),{
       readAll:async()=>{throw new Error('network offline');}
     },'alice',()=>true)).rejects.toMatchObject({reason:'remote-unavailable'});
+    await expect(inspectObservationAudit(repo,journal(freshRows),{
+      readAll:async()=>{throw new ObservationAuditBlocked('limit-exceeded');}
+    },'alice',()=>true)).rejects.toMatchObject({reason:'limit-exceeded'});
+
     expect((await repo.read()).pending).toHaveLength(2);
   });
 });
