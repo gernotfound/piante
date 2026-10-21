@@ -206,6 +206,130 @@ describe('M3a gated private botanical archive (local-only)',()=>{
       .toEqual(['a','b','c']);
   });
 
+  it('creates a cutting with a stable mother link and a seedling with both parents',async()=>{
+    const repo=local();
+    await repo.commit({type:'plant.create',plant:{
+      id:'mother',commonName:'Passiflora madre',origin:'seed',status:'active'
+    }});
+    await repo.commit({type:'plant.create',plant:{
+      id:'father',commonName:'Passiflora padre',origin:'purchased',status:'active'
+    }});
+    const {unmount}=render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText('Passiflora madre')).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Nome comune *'),{target:{value:'Talea di passiflora'}});
+    fireEvent.change(screen.getByLabelText('Origine'),{target:{value:'cutting'}});
+    fireEvent.change(screen.getByLabelText('Pianta madre (se nota)'),{target:{value:'mother'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva pianta'}));
+    await waitFor(async()=>expect(Object.values((await repo.read()).data.plants)).toHaveLength(3));
+    const cutting=Object.values((await repo.read()).data.plants)
+      .find(plant=>plant.commonName==='Talea di passiflora');
+    expect(cutting).toMatchObject({origin:'cutting',motherId:'mother'});
+    expect(cutting?.fatherId).toBeUndefined();
+    expect(screen.getByText('Madre: Passiflora madre')).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Nome comune *'),{target:{value:'Ibrido di passiflora'}});
+    fireEvent.change(screen.getByLabelText('Origine'),{target:{value:'seed'}});
+    fireEvent.change(screen.getByLabelText('Pianta madre (se nota)'),{target:{value:'mother'}});
+    fireEvent.change(screen.getByLabelText('Pianta padre (se nota)'),{target:{value:'father'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva pianta'}));
+    await waitFor(async()=>expect(Object.values((await repo.read()).data.plants)).toHaveLength(4));
+    const seedling=Object.values((await repo.read()).data.plants)
+      .find(plant=>plant.commonName==='Ibrido di passiflora');
+    expect(seedling).toMatchObject({motherId:'mother',fatherId:'father',origin:'seed'});
+    expect(screen.getByText('Padre: Passiflora padre')).toBeDefined();
+    expect((await repo.read()).pending).toHaveLength(4);
+    unmount();
+    render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText('Padre: Passiflora padre')).toBeDefined();
+    expect((await repo.read()).data.plants[seedling!.id].motherId).toBe('mother');
+  });
+
+  it('edits parent references, updates linked names after a rename, and clears an optional parent',async()=>{
+    const repo=local();
+    await repo.commit({type:'plant.create',plant:{
+      id:'mom',commonName:'Pianta originale',origin:'cutting',status:'active'
+    }});
+    await repo.commit({type:'plant.create',plant:{
+      id:'dad',commonName:'Impollinatore',origin:'seed',status:'active'
+    }});
+    await repo.commit({type:'plant.create',plant:{
+      id:'child',commonName:'Figlia',origin:'seed',status:'active',motherId:'mom'
+    }});
+    const {unmount}=render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Modifica Figlia'}));
+    expect((screen.getByLabelText('Pianta madre dell’esemplare') as HTMLSelectElement).value).toBe('mom');
+    expect(screen.queryByRole('option',{name:'Figlia'})).not.toBeNull(); // other selectors also include this plant
+    const mother=screen.getByLabelText('Pianta madre dell’esemplare') as HTMLSelectElement;
+    expect(Array.from(mother.options).some(o=>o.value==='child')).toBe(false);
+    fireEvent.change(screen.getByLabelText('Pianta padre dell’esemplare'),{target:{value:'dad'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva dettagli'}));
+    await waitFor(async()=>expect((await repo.read()).data.plants.child.fatherId).toBe('dad'));
+    fireEvent.click(screen.getByRole('button',{name:'Modifica Pianta originale'}));
+    fireEvent.change(screen.getByLabelText('Nome dell’esemplare *'),{target:{value:'Pianta madre rinominata'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva dettagli'}));
+    await waitFor(async()=>expect((await repo.read()).data.plants.mom.commonName).toBe('Pianta madre rinominata'));
+    expect(screen.getByText('Madre: Pianta madre rinominata')).toBeDefined();
+    fireEvent.click(screen.getByRole('button',{name:'Modifica Figlia'}));
+    fireEvent.change(screen.getByLabelText('Pianta madre dell’esemplare'),{target:{value:''}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva dettagli'}));
+    await waitFor(async()=>expect((await repo.read()).data.plants.child.motherId).toBeUndefined());
+    expect((await repo.read()).data.plants.child.fatherId).toBe('dad');
+    expect((await repo.read()).pending).toHaveLength(6);
+    unmount();
+    render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    expect(await screen.findByText('Padre: Impollinatore')).toBeDefined();
+    expect(screen.queryByText('Madre: Pianta madre rinominata')).toBeNull();
+  });
+
+  it('rejects genealogical cycles and preserves the previously saved IndexedDB journal',async()=>{
+    const repo=local();
+    await repo.commit({type:'plant.create',plant:{
+      id:'mom',commonName:'Madre',origin:'seed',status:'active'
+    }});
+    await repo.commit({type:'plant.create',plant:{
+      id:'child',commonName:'Figlia',origin:'cutting',status:'active',motherId:'mom'
+    }});
+    const before=await repo.read();
+    render(<PrivateGarden ownerScope="user:alice" repository={repo}
+      isStillAuthorized={()=>true}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Modifica Madre'}));
+    fireEvent.change(screen.getByLabelText('Pianta madre dell’esemplare'),{
+      target:{value:'child'}
+    });
+    fireEvent.click(screen.getByRole('button',{name:'Salva dettagli'}));
+    expect((await screen.findByRole('alert')).textContent).toContain('Genealogia ciclica');
+    expect(await repo.read()).toEqual(before);
+  });
+
+  it('rejects a stale family-link change from another tab without losing any records',async()=>{
+    const dbName='m8e-lineage-shared-'+(++seq);
+    const a=new LocalGardenRepository('user:alice',{dbName,now:()=>1000});
+    const b=new LocalGardenRepository('user:alice',{dbName,now:()=>1000});
+    await a.commit({type:'plant.create',plant:{
+      id:'mother',commonName:'Madre',origin:'seed',status:'active'
+    }});
+    await a.commit({type:'plant.create',plant:{
+      id:'child',commonName:'Figlia',origin:'cutting',status:'active'
+    }});
+    render(<PrivateGarden ownerScope="user:alice" repository={a}
+      isStillAuthorized={()=>true}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Modifica Figlia'}));
+    fireEvent.change(screen.getByLabelText('Pianta madre dell’esemplare'),{
+      target:{value:'mother'}
+    });
+    await b.commit({type:'plant.patch',id:'child',patch:{notes:'Aggiornamento da altro tab'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva dettagli'}));
+    expect((await screen.findByRole('alert')).textContent)
+      .toContain('Archivio modificato altrove');
+    const state=await b.read();
+    expect(state.data.plants.child.motherId).toBeUndefined();
+    expect(state.data.plants.child.notes).toBe('Aggiornamento da altro tab');
+    expect(state.pending).toHaveLength(3);
+  });
+
   it('edits cultivar, pot, minimum temperature, location and notes durably across reloads',async()=>{
     const repo=local();
     await repo.commit({type:'place.create',place:{id:'balcony',name:'Balcone',kind:'balcony'}});
