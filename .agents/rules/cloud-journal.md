@@ -62,9 +62,5 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** nessun percorso cloud observation può chiamare `acknowledgeThrough`, rimuovere pending/receipts, sbloccare cloud UI o affermare convergenza causale. Le osservazioni sono attestazioni client; Firestore conferma la loro *persistenza*, NON la verità del digest o la stable frontier.
 - **MUST:** `checkpointObservationSchema` impedisce `compactionAuthorized=true` e versioni ignote, verifica prefissi contigui coerenti con count massimo 200. Adapter CAS idempotente; avanzamenti con vecchi prefissi mancanti, conteggio regressivo, stesso count ma digest differente, input server invalido e readback divergente falliscono chiusi.
 - **MUST:** epoch Auth/owner e snapshot IndexedDB immutati attorno a scansione, hash, scrittura, verifica server. Il commit remoto in caso di errore locale non autorizza a marcare successo.
-- **MUST:** il fixture Emulator mantiene ownership/grant/tombstone e nega anonimi, cross-user, delete, schema invalido e regressione. La composizione per compatibilità conserva byte-per-byte il legacy di Pianta.
+- **MUST:** il fixture Emulator mantiene ownership/grant/tombstone e nega anonimi, cross-user, delete, schema invalido, regressione e ogni accesso a `users/{uid}`. Nessuna composizione con Rules Pianta.
 
-## M4a — obbligo di conservare le autorizzazioni legacy
-- La baseline comunicata dal proprietario del prodotto corrisponde ai percorsi di `gernotfound/pianta/firestore.rules` (prove `USER-REPORTED` e `GITHUB-OBSERVED`, non `PROVIDER-OBSERVED`). Non usare Rules LogBook per ricostruire la baseline del progetto Firebase di Pianta.
-- Ogni modifica alle Rules richiede due suite Emulator: il fixture Piante originale ed il file composito **generato soltanto nel runner** da sorgenti pinned. Non cancellare un test per far diventare verdi i controlli.
-- Se le Rules live differiscono dallo snapshot, fermare il processo prima di qualunque distribuzione e rieseguire l'audit con la vera versione provider. Il file composito non deve essere aggiunto a `firebase.json`.

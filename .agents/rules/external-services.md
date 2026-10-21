@@ -10,10 +10,10 @@ Il registro stabile è [`docs/operations/external-services-register.md`](../../d
 - **MUST:** registrare anche i servizi intenzionalmente **non** attivati o proibiti, per evitare integrazioni accidentali.
 - **MUST:** distinguere tre fonti: (1) codice/repository, (2) screenshot o dichiarazioni dell'utente, (3) verifica direttamente osservata nel provider. Una schermata inviata dall'utente non costituisce verifica API live.
 - **MUST:** datare evidenze e decisioni, elencare esplicitamente gli elementi non verificati e aggiornare l'event log a ogni riconfigurazione. Gli elementi del registro non sono per definizione lo stato attuale.
-- **MUST:** prima di modificare un provider condiviso, verificare il relativo impatto sulle app legacy e predisporre rollback. Il progetto Firebase `pianta-db` è condiviso con **Pianta**.
+- **MUST:** prima di modificare Firebase `pianta-db`, verificare le risorse effettivamente presenti e predisporre rollback. Il nuovo prodotto non implementa supporto Pianta; il provider contiene comunque dati del vecchio client secondo le schermate utente.
 - **MUST:** non abilitare costi/Blaze senza consenso. Firebase Spark, GitHub pubblico e Hosting statico sono i vincoli di riferimento.
 - **MUST:** tenere separati i contratti di Auth, OAuth, Firestore/Rules, Hosting, API key, IAM/App Check e deployment, anche se condividono un progetto Google Cloud.
-- **MUST:** per modifiche alle allowlist OAuth/Auth/API-key **aggiungere senza rimuovere** origin e callback legacy finché non è stato dimostrato che nessun client ne dipende. La pulizia richiede audit dedicato.
+- **MUST:** modifiche o pulizia di OAuth/Auth/API-key richiedono read-back provider, inventario dei client ancora funzionanti e rollback; non rimuovere origini o callback ancora usati tramite un refactoring locale.
 - **MUST:** dopo una modifica esterna, distinguere *registrata nella console* da *funzionante nel browser/runtime*; un test del popup richiede deploy e prova reale.
 - **MUST:** nessuna PR di sola documentazione distribuisce Firestore Rules, indici, Hosting o modifica Auth.
 
@@ -22,7 +22,7 @@ Il registro stabile è [`docs/operations/external-services-register.md`](../../d
 Usare stati coerenti con il registro LogBook, precisando lo stato effettivo:
 - `ACTIVE`: utilizzo confermato in codice/CI/runtime nel perimetro dichiarato.
 - `CONFIGURED-NOT-ACTIVE`: configurazione predisposta, ma funzionalità/deploy non abilitato o non testato.
-- `LEGACY`: dipendenza di Pianta o di un client precedente, da preservare.
+- `LEGACY`: risorsa residua di un client precedente sul provider; non implica compatibilità del nuovo prodotto.
 - `OPTIONAL`: integrazione candidata, non obbligatoria.
 - `NOT-INTEGRATED`: servizio non utilizzato dalla nuova Piante.
 - `VERIFY-LIVE`: stato provider non letto direttamente, oppure evidenza incompleta.
@@ -47,12 +47,9 @@ In `.env.example` documentare soltanto il contratto delle variabili; i valori re
 La documentazione stabile nel repository prevale su una richiesta di «ricordare» affidata alla sola cronologia della chat; lo stato provider live prevale su qualsiasi documento storico.
 
 
-## Dismissione Pianta decisa, ma non eseguita — 2026-10-21
-- **MUST:** nel registro e nei report distinguere `RETIREMENT-PLANNED` da `RETIRED`. L'utente ha deciso di sostituire Pianta con Piante, non ha dimostrato che si possano già cancellare dati o servizi.
-- **MUST:** seguire il piano `docs/operations/pianta-retirement-and-data-migration.md`; prima di cambiare Rules/Auth/OAuth/IAM/Hosting/Vercel o collezioni legacy occorrono prova provider, backup completo e restaurabile, audit dipendenze e rollback. Per la rimozione finale di ogni risorsa chiedere autorizzazione specifica quando irreversibile.
-- **MUST:** screenshot console `(default)`, `europe-west12`, collection `users` e `plants`/`images`, Rules copiate, provider Email/Password/Google e numero di account test sono `USER-SCREENSHOT`/`USER-REPORTED`, **non** `PROVIDER-OBSERVED`. Non pubblicare document ID/UID, email o valori dei documenti di prova.
-- **MUST:** il client Pianta legacy può continuare a scrivere (anche offline): un cambio delle Rules senza audit/attesa di client può far perdere modifiche. Non disattivare redirect OAuth o sito Vercel fino a cutover e gestione installazioni PWA.
+## Piante greenfield — decisione 2026-10-21
+- **MUST:** Piante parte con dati nuovi, senza migrazione, adattamento o test di coesistenza Pianta. Non ricreare le vecchie fixture Rules e i converter backup.
+- **MUST:** distinguere `NO-MIGRATION` (scelta prodotto), `CLEANUP-PENDING` (risorse provider osservate ma non cancellate) e `RETIRED` (verificato su provider). L'utente non vuole esportare dati dal vecchio client; ciò non attesta un database Firestore vuoto.
+- **MUST:** conservare come fatto storico l'evidenza `USER-SCREENSHOT`: Firestore `(default)` `europe-west12` con `users`, `plants` e `images`; Rules copiate dall'utente, Auth Email/Password e Google, un solo account test dichiarato `USER-REPORTED`. Nessuna di queste osservazioni costituisce verifica API provider.
+- **MUST:** non eliminare dati/UID, Rules, app OAuth o sito Vercel nel task di pulizia del codice. La dismissione esterna può seguire con inventario, valutazione delle dipendenze e consenso esplicito per la rimozione irreversibile.
 
-## M4a — evidenza delle Rules comunicate direttamente
-- Una trascrizione di Rules fornita dal product owner resta `USER-REPORTED`: può indicare lo stato che l'utente vede, ma non è una lettura verificata dal provider. Conservare il testo tecnico riproducibile e il riferimento storico senza email, segreti o dati reali.
-- Non confondere lo snapshot legacy `gernotfound/pianta`, le Rules tecniche di TheLogBook e il fixture futuro Piante; la compatibilità Emulator è prerequisito **non sufficiente** per distribuire nuove Rules. Registrare l'obbligo di leggere il provider live.

@@ -31,9 +31,9 @@ La completa cancellazione cross-collection/account e alcune garanzie sulla pubbl
 
 
 ## M3c — distinzione tra dati Piante e account condiviso
-- Il Progetto Firebase `pianta-db` ospita l'identità Auth e le collection della vecchia Pianta. La cancellazione del solo spazio Piante è distinta dalla rimozione dell'account Auth condiviso.
+- Il progetto Firebase `pianta-db` contiene ancora risorse del vecchio client secondo la Console, ma Piante non le importa né usa. Il runner di laboratorio tratta soltanto il nuovo namespace Piante; cancellazione Auth richiede un futuro backend trusted.
 - Un job privato `piante_account_deletions/{uid}`, creato **solo da un backend amministrativo futuro**, funge da barriera: nella suite Rules Emulator impedisce l'accesso client al namespace `piante_users/{uid}` e al grant Piante.
-- Non pubblicare operazioni cancellabili attraverso SDK client; non toccare `users/{uid}` legacy, né Firebase Auth. Lo stato complete deve avere prova di assenza cloud, compresi grant e dipendenze pubbliche/media.
+- Non pubblicare operazioni cancellabili attraverso SDK client; non toccare `users/{uid}` o Firebase Auth da un runner Piante. Lo stato complete deve avere prova di assenza cloud, compresi grant e dipendenze pubbliche/media.
 - Il runner di laboratorio `src/account/deletionRunner.ts` è intenzionalmente inerte e NON costituisce una procedura di diritto alla cancellazione operativa. La UI non offre per ora la cancellazione account.
 - Vedi `.agents/rules/account-lifecycle.md` per sequenza, crash consistency, limiti e blocker esterni.
 

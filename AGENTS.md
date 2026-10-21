@@ -6,13 +6,13 @@
 
 - Verificare HEAD reale di `gernotfound/piante` prima di qualsiasi modifica.
 - Consultare `gernotfound/logbook` per principi, non copiare automaticamente implementazioni o versioni di protocolli.
-- Consultare `gernotfound/pianta` soltanto per inventario funzionale e migrazione dei dati legacy.
+- Il repository `gernotfound/pianta` è un riferimento storico di dominio, **non** sorgente per import, retrofit o compatibilità. Progettare Piante ex novo.
 - Non dichiarare eseguiti test, deployment o verifiche mai osservati.
 - Ogni modifica a contratti o pipeline aggiorna anche i documenti normativi pertinenti.
 
 ## Vincoli non negoziabili
 - Solo servizi compatibili con Firebase Spark, GitHub Free e hosting statico; nessun servizio a pagamento introdotto implicitamente.
-- Firebase target di test `pianta-db`, Hosting site `piante`; **contiene dati legacy da preservare**.
+- Firebase target di test `pianta-db`, Hosting site `piante`; il provider contiene ancora il vecchio namespace `users` secondo screenshot: non cancellarlo o cambiare Rules live senza inventario e autorizzazione specifica.
 - Niente Vercel, Firebase Analytics/GA4, token o credenziali amministrative nel client/repository.
 - Non usare Firestore o Firebase Authentication nella shell M0; Firebase deve rimanere inattivo fino a una milestone approvata.
 - Non distribuire Rules o modificare i dati esistenti nel corso di M0.
@@ -45,13 +45,13 @@
 5. Eseguire i controlli locali disponibili e il gate GitHub sullo SHA candidato.
 6. Solo dopo verifiche e revisione, valutare merge, sincronizzazione dei Rules e Hosting.
 
-## Decisione 2026-10-21 — dismissione pianificata di Pianta (CRITICAL)
-- Il product owner ha deciso di **ritirare la vecchia Pianta** e sviluppare **Piante come unica PWA di destinazione**; la dismissione è `RETIREMENT-PLANNED`, **non eseguita**. La decisione non prova che esista un backup, che gli account siano migrati o che il vecchio client sia stato spento.
-- La documentazione autorevole della decisione, dei gate G0–G4, della migrazione e dei rollback è `docs/operations/pianta-retirement-and-data-migration.md`. L'inventario e la cronologia dei provider sono in `docs/operations/external-services-register.md`, come in TheLogBook.
-- **MUST:** conservare `users/{uid}`, sottocollezioni, Firebase Auth, Rules, configurazioni OAuth e il sito legacy finché non siano conclusi inventario live, backup privato **completo e restaurabile**, import Piante verificato e cutover con rollback. Nessuna cancellazione irreversibile è autorizzata da questa sola decisione; occorre un consenso specifico sul target dopo prova di recovery.
-- **MUST:** il JSON Pianta `schemaVersion:3` non coincide col backup IndexedDB Piante v1: niente import diretto, drop di documenti invalidi, attivazione di cloud sync o pubblicazione automatica. Verificare anche le installazioni PWA/offline e le scritture legacy residue.
-- **MUST:** nessuna modifica alle Rules pubblicate, account Auth, Firestore live, Hosting o Vercel per una PR di aggiornamento contesto. Continuare ad applicare i gate attuali ed eseguire ogni modifica di codice su branch/PR con CI exact-SHA.
-- Evidenze 2026-10-21: `USER-SCREENSHOT` Firestore `(default)` `europe-west12`, `users`, `plants`/`images`; `USER-REPORTED` un solo account test e provider Auth Email/Password+Google. **Non** equivalgono a inventario API completo né a verifica provider indipendente.
+## Decisione 2026-10-21 — Piante da zero, senza import Pianta (CRITICAL)
+- Il product owner ha deciso che **tutti i dati di Piante saranno nuovi**: nessuna migrazione, riadattamento, import o compatibilità applicativa con Pianta. Non sviluppare parser backup Pianta, conversioni schema legacy, dual-write, backfill o test di coesistenza.
+- Eliminare il runner di compatibilità Rules M4a e testare solo le Rules Piante su Firestore Emulator, con default-deny esplicito per `users/{uid}`. Il nome `pianta-db` del progetto Firebase rimane invariato.
+- Il servizio cloud **non** è stato ripulito: la Console ha mostrato documenti sotto `users`, Authentication con Email/Password e Google, e un account test *dichiarato*. Non interpretare "non voglio esportare nulla" come prova di database vuoto o autorizzazione a cancellare UID/dati reali. Per cleanup live: audit provider e consenso specifico sulle risorse da rimuovere.
+- La dismissione del sito Pianta è desiderata ma non ancora eseguita; non sospendere Vercel, Auth o OAuth legacy automaticamente. Il prodotto Piante non ne dipenderà; evitare qualunque riadattamento.
+- Non confondere backup/ripristino **nativi Piante** e migrazioni versionate dello schema Piante (necessari) con import della vecchia Pianta (escluso). Nessun provider/deploy live in questo refactoring.
+- Fonti di verità esterne, evidenze e stato di pulizia sono in `docs/operations/external-services-register.md`.
 
 ## M0
 - M0 crea esclusivamente una shell presentazionale, routing, design tokens, manifest e pipeline CI.
@@ -72,12 +72,12 @@
 - I dati Firebase legacy sono fuori perimetro; nessun nuovo listener, scrittura cloud o deploy Rules/Hosting in M1.
 
 ## M2a — dominio OAuth e Rules di laboratorio
-- Google OAuth della nuova Piante deve usare `authDomain=piante.web.app` e Project ID `pianta-db`. Non modificare la configurazione dei client Pianta legacy.
+- Google OAuth della nuova Piante deve usare `authDomain=piante.web.app` e Project ID `pianta-db`. Eventuali domini di vecchi client si rimuovono solo come pulizia provider separata e verificata.
 - Il modulo Auth viene importato soltanto se `VITE_AUTH_TEST_MODE=true`; valore predefinito **false**. Questa protezione UI non impedisce la creazione di account Firebase Auth da accessi Google: l'apertura generale resta vietata.
 - Il controller Auth blocca la sessione fino al grant positivo `piante_access/{uid}.enabled===true`. Gli epoch di sessione invalidano i grant asincroni obsoleti. Nessun dato privato viene caricato in M2a.
-- `firestore.m2-test.rules` è un fixture per **Firebase Emulator soltanto**; NON è incluso in `firebase.json`. Contiene un default-deny intenzionale che interromperebbe il legacy se distribuito.
+- `firestore.m2-test.rules` è un fixture per **Firebase Emulator soltanto**; NON è incluso in `firebase.json`. Nega per default anche il namespace legacy `users`, ma non è una configurazione live distribuibile automaticamente.
 - `npm run test:rules` è un required gate CI con Emulator, Java e checksum del JAR. Non sostituirlo con test mock o statici.
-- Le Rules live devono essere lette dal provider e riconciliate con il legacy prima di distribuire qualsiasi versione.
+- Prima di distribuire Rules live occorre leggere/versionare le Rules effettive dal provider e pianificare la sostituzione senza perdita di dati o accessi imprevisti; nessun test Emulator equivale a deploy.
 - M2b deve implementare e testare le scritture cloud, la sincronizzazione/recovery e la cancellazione prima dell'apertura degli account.
 
 ## M2b — append-only cloud transport di laboratorio
@@ -102,7 +102,7 @@
 - Receipt server mancanti, corrotti o cambiati tra scansioni, scope sbagliato, edit concorrenti o conflitti tra device bloccano hydration preservando lo stato IDB. Nessun overwrite silenzioso.
 - Testare runtime di due client reali con Emulator, recovery offline dopo riavvio, fallimenti IndexedDB, logout/revoca, collisioni e storie incomplete.
 - Lo stato è **una convergenza limitata di laboratorio**, non un protocollo completo con checkpoint, deletion/tombstone, GC, gestione conflitti semantici, account deletion o registrazioni libere.
-- **NON collegare alla UI né distribuire su pianta-db** finché Security Rules live legacy, IAM, recovery end-to-end e cancellazione account non sono sottoposti a audit e test.
+- **NON collegare alla UI né distribuire su pianta-db** finché Security Rules live, IAM, recovery end-to-end e cancellazione account non sono sottoposti a audit e test.
 
 
 ## M2e — ciclo sincrono batch del journal (laboratorio)
@@ -118,7 +118,7 @@
 - Usare `LocalGardenRepository.commit()` per ogni modifica: visualizzare conferma soltanto dopo `tx.oncomplete`. Gli errori di schema/storage rimangono errori visibili; non simulare successo.
 - Conservare lo stato privato, i pending e le note nel solo record IDB, senza servizi terzi, analytics o cloud. Nessuna vetrina pubblica è alimentata da questo componente.
 - Mostrare avviso esplicito: dati locali **non sincronizzati e senza backup live**; si possono perdere cancellando dati browser. Non incoraggiare uso produttivo finché export/backup e recupero reali non sono disponibili.
-- Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live Security Rules legacy, account lifecycle e cancellazione.
+- Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live delle Security Rules, del lifecycle account e della cancellazione.
 - Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
 
 ## M8a — modifica dettagli privati con CAS di revisione (CRITICAL)
@@ -132,15 +132,15 @@
 - Valutare versione/schema, checksum SHA-256 e replay integrale prima di un'importazione; anteprima separata e conferma esplicita.
 - Ripristinare **esclusivamente su un archivio vuoto dello stesso UID**, in una transazione IDB, con controllo autorizzazione.
 - `backupQuarantined=true` blocca upload/hydration Firestore dopo import, perché i vecchi `replicaId` potrebbero esistere su altri device; una migrazione futura dovrà risolvere il rekey causale.
-- Vietate sovrascritture distruttive automatiche, import legacy Pianta non autorizzati e distribuzione Rules/Hosting in questa milestone.
+- Vietate sovrascritture distruttive automatiche, import di formati Pianta (fuori prodotto) e distribuzione Rules/Hosting in questa milestone.
 
 
 ## M3c — preflight e barriera di cancellazione, SOLO Emulator
 - Consultare `.agents/rules/account-lifecycle.md` e le regole cloud/esterni prima di toccare account, cleanup o Rules. Studiare i contratti correnti di LogBook come principi, **non** trasferirne i provider o protocolli.
-- Firebase Auth nel progetto `pianta-db` può essere condiviso con la vecchia Pianta: non eliminare mai utenti Auth o dati `users/{uid}` legacy.
+- Firebase Auth nel progetto `pianta-db` potrebbe contenere ancora identità esistenti. Il runner Piante non deve eliminare Auth o dati fuori dal proprio namespace; eventuale pulizia di dati test preesistenti è un'operazione provider separata.
 - `src/account/deletionRunner.ts` è codice di laboratorio indipendente dal client e **non collegato ad alcun backend live**. Richiede un futuro provider trusted e un tombstone `piante_account_deletions/{uid}` atomico e amministrativo con lease.
 - Prima di ogni cleanup controllare completezza di tutte le risorse associate, incluse proiezioni pubbliche e Storage; bloccare collezioni private sconosciute. Batch <= 50, retry idempotenti, verifica vuoto e grant Piante cancellato **prima** del complete; nessuna eliminazione Auth.
-- Le Rules di laboratorio bloccano il grant e ogni documento privato Piante dopo tombstone. Mai distribuire il fixture su Firebase condiviso senza audit legacy e backend autorizzato.
+- Le Rules di laboratorio bloccano il grant e ogni documento privato Piante dopo tombstone. Mai distribuire il fixture su Firebase live senza audit del provider e backend autorizzato.
 - Nessun purge IndexedDB soltanto perché Auth non esiste o un client è offline; servono conferma server effettiva e recovery device sicuro.
 - Nessuna UI "Elimina account" o apertura delle registrazioni fino a lifecycle end-to-end funzionante e decisione sull'identità condivisa.
 
@@ -158,7 +158,7 @@
 - L'artefatto `npm run build` è **solo una shell statica**: `scripts/check-release-boundary.mjs` e Vite rifiutano build se `VITE_AUTH_TEST_MODE` non è disabilitato. Non riattivare login sperimentale in una release normale.
 - Il controllo vieta nuovi blocchi Firebase `firestore`, `functions`, `storage` e altri provider nel file Hosting, site/progetto inattesi, riscritture diverse dalla SPA e rimozione degli header di sicurezza.
 - `Verification / Static Release Boundary` esegue invarianti + preflight sullo **SHA esatto**, e `Canonical Verification` ne richiede il successo insieme agli altri gate.
-- Questi controlli provano **solo configurazione statica GitHub**, non Firebase live. La CI non dispone di credenziali e non distribuisce niente. La riconciliazione delle Rules legacy, IAM, OAuth/App Check e lifecycle account restano vincoli prima dell'attivazione.
+- Questi controlli provano **solo configurazione statica GitHub**, non Firebase live. La CI non dispone di credenziali e non distribuisce niente. L'audit Rules live, IAM, OAuth/App Check e lifecycle account restano vincoli prima dell'attivazione.
 
 
 ## M3f — invalidazione live del grant Auth per l'area privata di laboratorio
@@ -185,11 +185,5 @@
 ## M5b-2 — osservazioni cloud durevoli, NON checkpoint causali (CRITICAL)
 - `checkpoint_observations/{replicaId}` è un registro **di laboratorio** per attestazioni client monotone, non una sorgente server-autorevole di causalità. `status=observation-only` e `compactionAuthorized=false` sono invarianti di schema e Rules; non usare questi dati per cancellare receipt o compattare IndexedDB.
 - `publishCheckpointObservation` richiede un candidato M5b-1 completo, UID e snapshot IDB immutati prima/dopo scrittura; `firestoreCheckpointObservationPort` aggiorna tramite transazione CAS solo con prefissi che coprono il precedente record e count crescente, gestisce i retry identici e conferma la persistenza con `getDocFromServer`. Errori/revoche/race non sono successo.
-- Regressioni Emulator: anonimi, cross-user, grant negato, schema, collisione, monotonia, recupero e isolamento `users/{uid}` legacy. Fixtures e hash compositore pinned aggiornati **solo per Emulator**. Nessuna distribuzione Rules; cap 200 immutato. Per GC servono comunque checkpoint causale autorevole, membership/fencing, recovery dei dispositivi inattivi e protocollo versionato.
+- Regressioni Emulator: anonimi, cross-user, grant negato, schema, collisione, monotonia, recupero e **deny** per `users/{uid}`. Nessuna composizione con Rules Pianta o distribuzione; cap 200 immutato. Per GC servono comunque checkpoint causale autorevole, membership/fencing, recovery dei dispositivi inattivi e protocollo versionato.
 
-## M4a — compatibilità con Rules attuali riferite dal product owner
-- Il 2026-10-09 il product owner ha fornito il testo delle Rules attuali `pianta-db` (fonte `USER-REPORTED`), diverso dalle precedenti Rules TheLogBook. La struttura coincide con lo snapshot versionato `gernotfound/pianta/firestore.rules` e deve essere trattata come **legacy da preservare**, non come prova provider live.
-- Il file `tests/fixtures/pianta-legacy-user-reported.rules` preserva byte-for-byte lo snapshot legacy, con Git blob SHA pinned; `scripts/compose-compat-rules.mjs` valida anche il fixture Piante e costruisce solo in memoria/temp la composizione isolata per Emulator.
-- **MUST:** `npm run test:rules` e `npm run test:rules:compat` fanno entrambi parte del job canonico `Verification / Firestore Emulator`. Le prove comprendono owner, anonimo, cross-user, validazioni/permessi CRUD legacy e nuovi namespace Piante.
-- **MUST:** non distribuire `firestore.m2-test.rules`, snapshot legacy o Rules composte a `pianta-db`. Il fixture unito serve **solo** per l'Emulator. Una composizione staticamente valida non equivale ad audit del provider.
-- Prima di distribuzione reale: read-back delle Rules live versionate dal provider, audit delle query/client legacy, backup, verifica compatibilità e rollback autorizzato; Cloud/Hosting/Rules rimangono separati. Vedi `docs/operations/firestore-rules-compatibility.md`.

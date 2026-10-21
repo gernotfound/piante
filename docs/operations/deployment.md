@@ -8,7 +8,7 @@
 - Firebase Hosting site ID: `piante`.
 - URL: `https://piante.web.app`.
 - Piano desiderato: Spark.
-- Esistono app legacy che usano lo stesso Firebase Project: audit obbligatorio prima di deploy Rules, Auth, App Check, indici o migrazioni.
+- Il prodotto è nuovo, ma il progetto Firebase presenta ancora risorse del precedente client: inventario provider obbligatorio prima di deploy Rules, Auth, App Check, indici o pulizia.
 - Vietato dichiarare convalidato lo stato live basandosi sui file repository.
 
 ## CI
@@ -22,21 +22,21 @@ La PR usa un check aggregato `Canonical Verification` che richiede lint, test, b
 5. WIF/OIDC con identità di deploy distinte e privilegi minimi; niente JSON service account.
 6. Protezione GitHub del branch `main` con required check `Canonical Verification`.
 
-Nel progetto di test esistente questa pipeline resta disabilitata fino al cutover approvato.
+Nel progetto di test esistente questa pipeline resta disabilitata fino al primo rilascio Piante approvato.
 
 ## Rollback
 - Conservare SHA precedente, build e versione di Rules compatibile.
 - Non usare il rollback frontend per cercare di invertire migrazioni Firestore distruttive.
-- Stendere un piano di migrazione/backfill e backup verificato prima di ogni cambio di schema.
+- Per i futuri dati Piante, stendere un piano di migrazione/versionamento del **solo schema Piante** e backup verificati prima di cambi distruttivi.
 
 ## Vercel e Analytics
-Nessuna integrazione Vercel o Google Analytics viene introdotta nel repository. Disabilitare eventuali collegamenti Vercel legacy nella relativa dashboard dopo verifica, non mediante modifiche cieche ad altri repository.
+Nessuna integrazione Vercel o Google Analytics viene introdotta nel repository. La dismissione dell'eventuale sito Vercel Pianta è un task esterno separato, previa verifica del provider; Piante non usa Vercel.
 
 ## M2a — OAuth Piante e configurazione esterna ancora da verificare
 Firebase Authentication usa il Project ID `pianta-db`, ma l'Auth helper e il dominio mostrato da Google devono puntare a `piante.web.app` tramite `VITE_FIREBASE_AUTH_DOMAIN=piante.web.app`.
 Provider Google:
-1. Verificare in Firebase Authentication > Settings > Authorized domains che sia incluso `piante.web.app` senza rimuovere `pianta-db.firebaseapp.com` o altri domini legacy.
-2. In Google Cloud > APIs & Services > Credentials, aggiungere al client OAuth utilizzato da Firebase Google: `https://piante.web.app/__/auth/handler`; non sostituire gli URI legacy.
+1. Verificare in Firebase Authentication > Settings > Authorized domains che sia incluso `piante.web.app`; la pulizia di altri domini è un task provider separato e verificato.
+2. In Google Cloud > APIs & Services > Credentials, verificare il redirect del client OAuth utilizzato da Piante: `https://piante.web.app/__/auth/handler`; l'utente ne ha riferito l'aggiunta.
 3. Confermare che `https://piante.web.app/__/auth/handler` venga servito realmente dal Firebase Hosting site `piante` prima di aprire il login.
 4. Registrare e verificare l'App ID della web app Piante e fornire la configurazione Firebase Web pubblica nel sistema di build prima del deploy.
 Queste operazioni sono esterne al repository: **non dichiararle completate senza verifica del provider**.
@@ -48,7 +48,7 @@ Prima di modificare Firebase, Google Cloud o un altro provider consultare
 [`external-services-register.md`](external-services-register.md)
 e [la regola sulle integrazioni](../../.agents/rules/external-services.md).
 
-**Checkpoint 2026-10-08, screenshot del product owner:** `piante.web.app` è mostrato come dominio Firebase Auth autorizzato e `https://piante.web.app/__/auth/handler` è mostrato tra i redirect OAuth. L'origine JavaScript `https://piante.web.app` **non** è nella lista visibile e resta da aggiungere. Non rimuovere URI/referrer legacy. Il registro distingue tali screenshot da verifiche provider indipendenti.
+**Checkpoint 2026-10-08, screenshot del product owner:** `piante.web.app` è mostrato come dominio Firebase Auth autorizzato e `https://piante.web.app/__/auth/handler` è mostrato tra i redirect OAuth. L'origine JavaScript `https://piante.web.app` **non** è nella lista visibile e resta da aggiungere. Lo stato storico è stato successivamente aggiornato dall'utente; il registro distingue gli screenshot iniziali da modifiche riferite e da letture API provider indipendenti.
 
 
 ## M3e — preflight non distruttivo delle release statiche
@@ -56,13 +56,14 @@ Da ora ogni build eseguita con `npm run build` applica `npm run check:release-bo
 
 `scripts/release-boundary.mjs` permette solo una configurazione Firebase **Hosting statico** (`site=piante`, `public=dist`, rewrite SPA invariata), un unico progetto predefinito `pianta-db`, header di sicurezza e **nessuna sezione** `firestore`, `storage`, `functions`, `database`, `extensions`, `emulators`. Le configurazioni env locali `.env`, `.env.local`, `.env.production`, `.env.production.local` vengono lette **senza stamparne il contenuto** per impedire accidentalmente flag test attivi. Il mode scelto da Vite è verificato da un secondo guard indipendente. Il guard viene testato con `npm run test:release-boundary` (test negativi) e dal nuovo job CI `Verification / Static Release Boundary`; la verifica aggregata `Canonical Verification` ora include questo job.
 
-**Questo non è un comando deploy.** Non modifica Firebase e non prova le impostazioni provider attuali, né autorizza ad attivare OAuth, Auth o Rules. Niente segreti, ruoli, id-token, Service Account, upload di build o nuovo costo. Il prossimo deploy richiederà una decisione di release, la prova live dal provider, audit Rules di Pianta, WIF/least privilege e smoke test dello SHA effettivamente pubblicato. Non sostituire la verifica provider con un successo CI.
+**Questo non è un comando deploy.** Non modifica Firebase e non prova le impostazioni provider attuali, né autorizza ad attivare OAuth, Auth o Rules. Niente segreti, ruoli, id-token, Service Account, upload di build o nuovo costo. Il prossimo deploy richiederà una decisione di release, la prova live dal provider, audit Rules effettive del provider, WIF/least privilege e smoke test dello SHA effettivamente pubblicato. Non sostituire la verifica provider con un successo CI.
 
 **Nota cronologia OAuth:** la precedente sezione M2a riportava l'origine JavaScript `https://piante.web.app` come ancora da aggiungere sulla base dello screenshot iniziale. Il product owner ne ha poi **dichiarato l'aggiunta** (2026-10-08), come tracciato nel registro. Rimane **VERIFY-LIVE** per la verifica diretta provider e la prova runtime; non dedurre che OAuth sia funzionante dal codice.
 
-## Cutover da Pianta a Piante — decisione 2026-10-21
+## Primo rilascio Piante, senza migrazione da Pianta (decisione 2026-10-21)
 
-La vecchia Pianta è **da dismettere**, non già dismessa. Il repository Pianta dichiara il frontend `https://pianta-gnf.vercel.app/` (stato live Vercel da verificare); Piante ha come target `https://piante.web.app` su Firebase Hosting. **Nessuna migrazione, deploy o disconnessione di servizi deriva dalla sola decisione**.
+Il product owner ha stabilito che **tutti i dati Piante saranno creati ex novo**. Nessun import di backup, dual-write, riadattamento dei modelli o cutover dati Pianta è previsto. Il progetto target resta `pianta-db` su Spark e il frontend previsto è `https://piante.web.app`; nessuna distribuzione è stata eseguita durante la pulizia della compatibilità.
 
-Seguire [il runbook di ritiro e migrazione](pianta-retirement-and-data-migration.md): audit provider e dispositivi, backup privato completo/restaurabile, import testato e reversibile, Auth Email/Password+Google, Rules/indici separati da Hosting, CI exact-SHA, smoke test runtime e solo successiva dismissione Vercel/redirect legacy. Il progetto `pianta-db` resta sul piano Spark e non viene sostituito automaticamente. Non collegare dati della vecchia Pianta alla nuova UI né distribuire nuove Rules prima dei gate. Ogni target di rimozione irreversibile richiede conferma distinta.
+Prima della prima attivazione: lettura provider di Auth/Firestore Rules/indici/IAM/OAuth/App Check, rimozione o isolamento **autorizzati** delle risorse vecchie, verifica di cancellazione account Piante, recovery cloud/offline, CI exact-SHA e smoke test. Non interpretare il diniego del namespace `users` nell'Emulator come modifica alle Rules già pubblicate: esse rimangono operative finché non vengono sostituite mediante una procedura live specifica.
 
+L'eventuale sito Vercel Pianta è **da dismettere** ma non è usato dal nuovo prodotto: la chiusura effettiva va verificata sul provider e non deriva dalla cancellazione di fixture GitHub.

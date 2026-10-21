@@ -6,7 +6,7 @@
 - `LOCAL_ENVELOPE_VERSION=1`, `LOCAL_DATA_SCHEMA_VERSION=1`, indipendenti da TheLogBook.
 - IndexedDB `piante-local-m1`, object store `envelopes`. Chiavi owner-scope `user:<uid>` e `guest:<id>`.
 - Un solo record JSON-clonabile per owner contiene `data` (plants, places, events), `replicaId`, `revision`, `lastSequence` e `pending[]`.
-- Non si accede a dati Auth, Firestore, Vercel, collezioni legacy o pubblicazioni da questo modulo.
+- Non si accede a dati Auth, Firestore, Vercel, vecchie collezioni Pianta o pubblicazioni da questo modulo.
 - Le IDB key sono isolamento logico, **non una barriera crittografica o un sostituto dell'autorizzazione**. Prima di collegare questo codice a un utente autenticato servono bootstrap/logout, cleanup e controllo ownership provati in M2.
 
 ## Operazioni
@@ -51,4 +51,4 @@ Una prima `read()` senza envelope ora crea e conferma **atomicamente** l'envelop
 - Validazione d'import: stesso ownerScope autenticato, versione stretta, checksum, replay completo. L'anteprima non muta lo storage.
 - Recovery atomico consentito solo su archive **vuoto**, con check della sessione dentro `readwrite`; ogni fallimento annulla l'intero record, senza perdita di dati preesistenti.
 - La copia conserva il `replicaId` e gli operationId originali per non alterare la prova del journal, ma marca `backupQuarantined=true` e blocca uploads/hydration cloud anche se il file proviene da un dispositivo precedentemente sincronizzato. Questa quarantena non ha sblocco automatico.
-- Il sistema non esegue merge import, import Pianta legacy né sync dopo restore. Per ripristino multi-device futuro occorrono rekey sicuro, protocolli causali, checkpoint e accounting dei receipt.
+- Il sistema non esegue merge import né sync dopo restore. Non è previsto import da Pianta; per recupero multi-device dei dati nativi Piante servono rekey sicuro, protocolli causali, checkpoint e accounting dei receipt.
