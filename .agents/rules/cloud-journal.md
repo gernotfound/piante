@@ -58,6 +58,12 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** controllare epoch di autorizzazione e intero snapshot IndexedDB prima e dopo lettura server e SHA-256. Un backup in quarantena non può neppure avviare la scansione; errori di crypto e I/O non producono un candidato.
 - **MUST:** digest e prefissi osservati non sono checkpoint persistiti né certificazioni causali/globali. Non ridurre i receipt, non aggiornare il journal, non sbloccare `acknowledgeThrough` e non alzare il limite 200 su questa base.
 - **MUST:** testare assenza di conferma server, scanner Emulator, corruzione/duplicazione, auth, race, riavvio IDB e SHA. Per GC servono provider checkpoint autorevole, stable frontier/membership/fencing e recovery versionato.
+## M5b-3 — confronto read-only delle osservazioni
+- **MUST:** qualsiasi confronto di osservazioni usa una lettura interamente server-backed limitata a 200+1 per rilevare scansioni troncate, validando tutte le righe prima di costruire il report.
+- **MUST:** una osservazione con owner/document ID incoerenti, status non previsto, protocollo ignoto, `compactionAuthorized` diverso da `false`, collisioni di document ID o digest/prefissi malformati interrompe la lettura. Nessuna sostituzione con cache.
+- **MUST:** lo stato `advisory-audit-only` non attesta che le osservazioni siano vere; una coppia di prefissi identici ma hash diversi segnala incompatibilità delle dichiarazioni, non autorizza GC. Prefissi incomparabili non vengono fusi in un finto watermark.
+- **MUST:** nessun nuovo adapter di scrittura, UI live, acknowledge/compaction o modifica Rules: limitarsi a test Emulator e percorsi di lettura. Revoca Auth o accesso negato sono errori visibili.
+
 ## M5b-2 — registro delle osservazioni non autoritative
 - **MUST:** nessun percorso cloud observation può chiamare `acknowledgeThrough`, rimuovere pending/receipts, sbloccare cloud UI o affermare convergenza causale. Le osservazioni sono attestazioni client; Firestore conferma la loro *persistenza*, NON la verità del digest o la stable frontier.
 - **MUST:** `checkpointObservationSchema` impedisce `compactionAuthorized=true` e versioni ignote, verifica prefissi contigui coerenti con count massimo 200. Adapter CAS idempotente; avanzamenti con vecchi prefissi mancanti, conteggio regressivo, stesso count ma digest differente, input server invalido e readback divergente falliscono chiusi.

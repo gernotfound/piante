@@ -206,6 +206,12 @@
 - Gli `observedPrefixes` sono massimi contigui **osservati** per replica; NON sono un vector clock, una stable frontier, un acknowledgement di tutti i device né una prova per eliminare il journal. SHA-256 non firma né autentica il server.
 - Il candidato è effimero e read-only: non viene persistito, non modifica `remoteReceipts`, non estende il limite di 200, non riattiva `acknowledgeThrough`, non abilita Rules, login, sync UI o deploy. Servono un checkpoint autorevole e durevole, metadata causali versionati, membership/fencing delle repliche e test end-to-end prima della GC.
 - Regressioni CRITICAL su interleaving fra device, storia corrotta/troncata, auth revocata, backup in quarantena, race IDB durante scan/hash, assenza di crypto ed Emulator reale.
+## M5b-3 — audit non autoritativo delle osservazioni di più repliche (CRITICAL)
+- `src/cloud/observationAudit.ts` e `firestoreObservationReader.ts` eseguono solo scansione server completa capped (max 200+1), validazione stretta di owner, document ID, protocollo, status, prefissi e digest; mai usare cache o scansioni tronche.
+- Il report `advisory-audit-only` segnala digest client incompatibili a prefissi identici e coppie di prefissi non confrontabili; non deduce la verità dei digest, un fronte stabile globale o la causalità. `compactionAuthorized:false` obbligatorio.
+- Nessuna scrittura IDB/Firestore, nessun GC, acknowledge, ritocco Rules, cloud UI o deploy. Revoca Auth, guasti server, righe spurie/corrotte, oltre-limite e duplicati falliscono chiusi.
+- Regressioni unit e Firestore Emulator con owner, anonimo, cross-user, grant revocato, scansione oltre limite e read-only persistito. Rimangono necessari checkpoint server autorevole e fencing delle repliche prima di GC.
+
 ## M5b-2 — osservazioni cloud durevoli, NON checkpoint causali (CRITICAL)
 - `checkpoint_observations/{replicaId}` è un registro **di laboratorio** per attestazioni client monotone, non una sorgente server-autorevole di causalità. `status=observation-only` e `compactionAuthorized=false` sono invarianti di schema e Rules; non usare questi dati per cancellare receipt o compattare IndexedDB.
 - `publishCheckpointObservation` richiede un candidato M5b-1 completo, UID e snapshot IDB immutati prima/dopo scrittura; `firestoreCheckpointObservationPort` aggiorna tramite transazione CAS solo con prefissi che coprono il precedente record e count crescente, gestisce i retry identici e conferma la persistenza con `getDocFromServer`. Errori/revoche/race non sono successo.
