@@ -118,6 +118,99 @@ describe('M3a gated private botanical archive (local-only)',()=>{
     expect(stored.pending).toHaveLength(2);
   });
 
+  it('edits place name/kind/notes durably and preserves plant references, coordinates and journal',async()=>{
+    const repo=local();
+    await repo.commit({type:'place.create',place:{
+      id:'balcony',name:'Balcone',kind:'balcony',latitude:40.7,longitude:14.7,notes:'Esposto a ovest'
+    }});
+    await repo.commit({type:'plant.create',plant:{
+      id:'passiflora',commonName:'Passiflora',placeId:'balcony',origin:'cutting',status:'active'
+    }});
+    const {unmount}=render(<PrivateGarden ownerScope="user:alice"
+      repository={repo} isStillAuthorized={()=>true}/>);
+    expect(await screen.findByRole('button',{name:'Modifica luogo Balcone'})).toBeDefined();
+    fireEvent.click(screen.getByRole('button',{name:'Modifica luogo Balcone'}));
+    fireEvent.change(screen.getByLabelText('Nome luogo da modificare *'),{target:{value:'Serra'}});
+    fireEvent.change(screen.getByLabelText('Tipologia del luogo'),{target:{value:'greenhouse'}});
+    fireEvent.change(screen.getByLabelText('Note private del luogo'),{
+      target:{value:'Riparo dalle gelate'}
+    });
+    fireEvent.click(screen.getByRole('button',{name:'Salva luogo modificato'}));
+    await waitFor(async()=>expect((await repo.read()).data.places.balcony.name).toBe('Serra'));
+    const updated=await repo.read();
+    expect(updated.data.places.balcony).toMatchObject({
+      id:'balcony',name:'Serra',kind:'greenhouse',notes:'Riparo dalle gelate',
+      latitude:40.7,longitude:14.7
+    });
+    expect(updated.data.plants.passiflora.placeId).toBe('balcony');
+    expect(updated.pending).toHaveLength(3);
+    unmount();
+    render(<PrivateGarden ownerScope="user:alice" repository={repo} isStillAuthorized={()=>true}/>);
+    expect(await screen.findByRole('button',{name:'Modifica luogo Serra'})).toBeDefined();
+    fireEvent.click(screen.getByRole('button',{name:'Modifica luogo Serra'}));
+    expect((screen.getByLabelText('Tipologia del luogo') as HTMLSelectElement).value)
+      .toBe('greenhouse');
+    expect((screen.getByLabelText('Note private del luogo') as HTMLTextAreaElement).value)
+      .toBe('Riparo dalle gelate');
+  });
+
+  it('clears optional place notes and does not append a journal operation for a no-op',async()=>{
+    const repo=local();
+    await repo.commit({type:'place.create',place:{
+      id:'indoor',name:'Salotto',kind:'indoor',notes:'Da rinvasare'
+    }});
+    render(<PrivateGarden ownerScope="user:alice" repository={repo} isStillAuthorized={()=>true}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Modifica luogo Salotto'}));
+    fireEvent.change(screen.getByLabelText('Note private del luogo'),{target:{value:''}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva luogo modificato'}));
+    await waitFor(async()=>expect((await repo.read()).pending).toHaveLength(2));
+    expect((await repo.read()).data.places.indoor.notes).toBeUndefined();
+    fireEvent.click(screen.getByRole('button',{name:'Modifica luogo Salotto'}));
+    fireEvent.click(screen.getByRole('button',{name:'Salva luogo modificato'}));
+    expect(await screen.findByText('Nessuna modifica da salvare.')).toBeDefined();
+    expect((await repo.read()).pending).toHaveLength(2);
+  });
+
+  it('rejects place editor changes from a stale tab without overwriting the newer state',async()=>{
+    const name='m8b-places-shared-'+(++seq);
+    const a=new LocalGardenRepository('user:alice',{dbName:name,now:()=>1000});
+    const b=new LocalGardenRepository('user:alice',{dbName:name,now:()=>1000});
+    await a.commit({type:'place.create',place:{
+      id:'terrace',name:'Terrazzo',kind:'balcony'
+    }});
+    render(<PrivateGarden ownerScope="user:alice" repository={a} isStillAuthorized={()=>true}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Modifica luogo Terrazzo'}));
+    fireEvent.change(screen.getByLabelText('Nome luogo da modificare *'),{
+      target:{value:'Terrazzo chiuso'}
+    });
+    await b.commit({type:'place.patch',id:'terrace',patch:{notes:'Cambio dalla seconda scheda'}});
+    fireEvent.click(screen.getByRole('button',{name:'Salva luogo modificato'}));
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent',
+      'Archivio modificato altrove: aggiorna i dati prima di salvare');
+    const state=await b.read();
+    expect(state.data.places.terrace).toMatchObject({
+      name:'Terrazzo',notes:'Cambio dalla seconda scheda'
+    });
+    expect(state.pending).toHaveLength(2);
+  });
+
+  it('does not announce a place save or change its data when IndexedDB fails',async()=>{
+    const repo=local();
+    await repo.commit({type:'place.create',place:{
+      id:'room',name:'Stanza',kind:'indoor'
+    }});
+    render(<PrivateGarden ownerScope="user:alice" repository={repo} isStillAuthorized={()=>true}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Modifica luogo Stanza'}));
+    fireEvent.change(screen.getByLabelText('Nome luogo da modificare *'),{
+      target:{value:'Stanza nuova'}
+    });
+    vi.spyOn(repo,'commit').mockRejectedValueOnce(new Error('IDB write aborted'));
+    fireEvent.click(screen.getByRole('button',{name:'Salva luogo modificato'}));
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent','IDB write aborted');
+    expect((await repo.read()).data.places.room.name).toBe('Stanza');
+    expect((await repo.read()).pending).toHaveLength(1);
+  });
+
   it('keeps owner-specific archives isolated even in the same browser database',async()=>{
     const name='piante-m3a-shared-'+(++seq);
     const alice=new LocalGardenRepository('user:alice',{dbName:name,now:()=>1});
