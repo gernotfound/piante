@@ -61,6 +61,8 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const [placeName, setPlaceName] = useState('');
   const [placeKind, setPlaceKind] = useState<keyof typeof places>('balcony');
   const [placeId, setPlaceId] = useState('');
+  const [motherId,setMotherId] = useState('');
+  const [fatherId,setFatherId] = useState('');
   const [diaryPlantId, setDiaryPlantId] = useState('');
   const [diaryType, setDiaryType] = useState<keyof typeof diaryTypes>('observation');
   const [diaryDate, setDiaryDate] = useState(localToday);
@@ -77,6 +79,8 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const [editScientific,setEditScientific]=useState('');
   const [editCultivar,setEditCultivar]=useState('');
   const [editPlaceId,setEditPlaceId]=useState('');
+  const [editMotherId,setEditMotherId]=useState('');
+  const [editFatherId,setEditFatherId]=useState('');
   const [editPot,setEditPot]=useState('');
   const [editMinTemp,setEditMinTemp]=useState('');
   const [editNotes,setEditNotes]=useState('');
@@ -138,14 +142,19 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   }
   function addPlant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isStillAuthorized()) return;
+    if (!isStillAuthorized() || !snapshot || busy) return;
     const name = plantName.trim();
     if (!name) { setError('Inserisci il nome della pianta.'); return; }
     void save(() => ({type:'plant.create',plant:{
       id: newId(), commonName: name, origin, status: 'active',
       ...(scientificName.trim() ? {scientificName: scientificName.trim()} : {}),
-      ...(placeId ? {placeId} : {})
-    }}), 'Pianta salvata');
+      ...(placeId ? {placeId} : {}),
+      ...(motherId ? {motherId} : {}),
+      ...(fatherId ? {fatherId} : {})
+    }}), 'Pianta salvata',snapshot.revision,()=>{
+      setPlantName('');setScientificName('');setPlaceId('');
+      setMotherId('');setFatherId('');
+    });
   }
   function addPlace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -186,6 +195,7 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
     setEditingPlantId(plant.id);setEditRevision(snapshot.revision);
     setEditName(plant.commonName);setEditScientific(plant.scientificName??'');
     setEditCultivar(plant.cultivar??'');setEditPlaceId(plant.placeId??'');
+    setEditMotherId(plant.motherId??'');setEditFatherId(plant.fatherId??'');
     setEditPot(plant.potLiters===undefined?'':String(plant.potLiters));
     setEditMinTemp(plant.minimumTemperatureC===undefined?'':String(plant.minimumTemperatureC));
     setEditNotes(plant.notes??'');setError('');setNotice('');
@@ -197,12 +207,14 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
     if(!previous){setError('Esemplare non disponibile: aggiorna l’archivio.');return;}
     const name=editName.trim(),scientific=editScientific.trim()||null;
     const cultivar=editCultivar.trim()||null,place=editPlaceId||null;
+    const mother=editMotherId||null,father=editFatherId||null;
     const notes=editNotes.trim()||null;
     const pot=editPot.trim()?Number(editPot):null;
     const temperature=editMinTemp.trim()?Number(editMinTemp):null;
     if(!name){setError('Inserisci il nome della pianta.');return;}
     if(previous.commonName===name&&(previous.scientificName??null)===scientific&&
       (previous.cultivar??null)===cultivar&&(previous.placeId??null)===place&&
+      (previous.motherId??null)===mother&&(previous.fatherId??null)===father&&
       (previous.potLiters??null)===pot&&
       (previous.minimumTemperatureC??null)===temperature&&
       (previous.notes??null)===notes){
@@ -211,6 +223,7 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
     }
     void save({type:'plant.patch',id:previous.id,patch:{
       commonName:name,scientificName:scientific,cultivar,placeId:place,
+      motherId:mother,fatherId:father,
       potLiters:pot,minimumTemperatureC:temperature,notes
     }},'Dettagli pianta aggiornati',editRevision,()=>{
       setEditingPlantId('');setEditRevision(null);
@@ -277,6 +290,8 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
               <strong>{plant.commonName}</strong>
               {plant.scientificName && <em>{plant.scientificName}</em>}
               <span>{origins[plant.origin]} · {plant.placeId ? snapshot?.data.places[plant.placeId]?.name ?? 'Luogo non trovato' : 'Luogo non assegnato'}</span>
+              {plant.motherId && <span>Madre: {snapshot?.data.plants[plant.motherId]?.commonName ?? 'Pianta non disponibile'}</span>}
+              {plant.fatherId && <span>Padre: {snapshot?.data.plants[plant.fatherId]?.commonName ?? 'Pianta non disponibile'}</span>}
             </div>
             <div className="garden-plant__actions">
               <label htmlFor={`status-${plant.id}`}>Stato</label>
@@ -313,6 +328,21 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
             <option value="">Non assegnata</option>
             {locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}
           </select>
+          <label htmlFor="garden-edit-mother">Pianta madre dell’esemplare</label>
+          <select id="garden-edit-mother" value={editMotherId}
+            onChange={e=>setEditMotherId(e.target.value)}>
+            <option value="">Non indicata</option>
+            {plants.filter(parent=>parent.id!==editingPlantId).map(parent=>
+              <option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
+          </select>
+          <label htmlFor="garden-edit-father">Pianta padre dell’esemplare</label>
+          <select id="garden-edit-father" value={editFatherId}
+            onChange={e=>setEditFatherId(e.target.value)}>
+            <option value="">Non indicato</option>
+            {plants.filter(parent=>parent.id!==editingPlantId).map(parent=>
+              <option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
+          </select>
+          <p className="garden-lineage__help">Seleziona solo genitori già presenti nella tua collezione. I legami ciclici vengono rifiutati.</p>
           <label htmlFor="garden-edit-pot">Capacità vaso (litri)</label>
           <input id="garden-edit-pot" type="number" min="0.01" max="100000" step="any"
             value={editPot} onChange={e=>setEditPot(e.target.value)}/>
@@ -385,6 +415,16 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
           <select id="garden-place" value={placeId} onChange={e=>setPlaceId(e.target.value)}>
             <option value="">Da assegnare</option>
             {locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}
+          </select>
+          <label htmlFor="garden-mother">Pianta madre (se nota)</label>
+          <select id="garden-mother" value={motherId} onChange={e=>setMotherId(e.target.value)}>
+            <option value="">Non indicata</option>
+            {plants.map(parent=><option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
+          </select>
+          <label htmlFor="garden-father">Pianta padre (se nota)</label>
+          <select id="garden-father" value={fatherId} onChange={e=>setFatherId(e.target.value)}>
+            <option value="">Non indicato</option>
+            {plants.map(parent=><option key={parent.id} value={parent.id}>{parent.commonName} · esemplare</option>)}
           </select>
           <button type="submit" disabled={busy}><Plus size={17}/> {busy?'Salvataggio…':'Salva pianta'}</button>
         </form>}

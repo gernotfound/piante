@@ -15,6 +15,12 @@
 - **MUST:** per l'editing usare `expectedRevision` acquisita all'apertura del form e verificata nella transazione IDB; un'altra modifica nello stesso owner durante l'editing impone il blocco e la rilettura. Non rimpiazzare il journal con lo snapshot del form. `null` elimina solo optional; campo omesso non deve essere resettato.
 - **MUST:** non creare un'operazione per salvataggi no-op; successo solo dopo `oncomplete`. Ripristino backup e revoca Auth mantengono i guard correnti. Test su reload, alterazioni concorrenti, invalidità e rinomina/luogo/vaso/note.
 
+## M8e — legami genealogici degli esemplari
+- **MUST:** la scheda di test può impostare `motherId` e `fatherId` soltanto scegliendo esemplari già appartenenti allo stesso archivio privato. Mai inferire madri/padri da testo, cultivar o nome; non inventare progenitori non registrati.
+- **MUST:** sul salvataggio lasciare la validazione autoritativa di `gardenStateSchema` vietare riferimenti esterni, self-parenting e cicli; l'interfaccia può nascondere se stessa fra i genitori ma questo non sostituisce l'enforcement del dominio. Conservare gli ID e usare `null` per rimuovere un genitore.
+- **MUST:** commit di creazione e patch CAS per revisione dentro IDB; gli errori non devono diventare successo. Nomina e rinomina genitore sono display locali, non copia della relazione né pubblicazione.
+- Regressioni: parentela talea/seme, doppio genitore, rinomina, eliminazione di un collegamento, reload, tentativo ciclo e stale cross-tab. Nessuna esportazione automatica di pedigree pubblico.
+
 ## M8d — lettura storica e filtri del diario
 - **MUST:** lo storico è privato e test-only, alimentato unicamente dallo snapshot `LocalGardenRepository` già autorizzato. Mostrare l'intera cronologia solo per pagine da 10 eventi; non limitarsi agli ultimi 8 né produrre query/scritture cloud.
 - **MUST:** filtro per `plantId` e tipo evento, mai basato su stringhe di nomi non univoci. Filtri combinati con AND e reset della pagina; pagina corrente clamped se cambia il numero di risultati. Data discendente, poi timestamp e ID per ordine stabile.

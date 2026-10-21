@@ -121,6 +121,12 @@
 - Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live delle Security Rules, del lifecycle account e della cancellazione.
 - Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
 
+## M8e — genealogia botanica privata (CRITICAL)
+- L'area privata di laboratorio gestisce le relazioni **madre e padre** di un esemplare direttamente tramite i campi già esistenti `motherId` e `fatherId`. Una talea può indicare la pianta madre; un seme può indicare uno o entrambi i genitori solo quando sono già nell'archivio.
+- Salvare gli **ID stabili** dei genitori (non i nomi) in `plant.create`/`plant.patch`; mostrare etichette ricavate dallo snapshot locale owner-scoped. Rinomine dei genitori aggiornano quindi la visualizzazione dei discendenti senza mutare il journal.
+- **MUST:** per create e patch usare CAS `expectedRevision` nell'unica transazione IndexedDB di commit. Genitori non presenti, auto-parentela, cicli anche indiretti, identità cambiate, write abort e tab obsoleti falliscono senza successo o perdita dati. `null` su un genitore rimuove solo quella referenza; nessuna azione delete dei genitori né ristrutturazione del modello.
+- Testare creazione talea/figlio da seme con parentela, rinomina e rimozione link, cycle rejection, race tra tab, restore/reload e nessuna esposizione pubblica. Nessuna migrazione di schema o connessione Firebase live.
+
 ## M8d — storico completo privato del diario (SENSITIVE)
 - La UI di prova non deve nascondere eventi oltre gli ultimi otto: mostrare **tutta la cronologia locale Piante** a pagine limitate di 10 eventi, con filtri per esemplare e tipo di attività. I filtri/pagine sono sola proiezione in memoria sullo snapshot IndexedDB dell'owner.
 - Ordine deterministico: data botanica decrescente, `createdAt` decrescente, ID evento come tie-break. Cambiare filtro riparte dalla prima pagina; il numero di pagina visibile è sempre limitato ai risultati disponibili. Un filtro senza corrispondenze non deve restituire eventi di altri esemplari.
