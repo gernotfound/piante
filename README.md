@@ -87,6 +87,9 @@ Solo con `VITE_AUTH_TEST_MODE=true`, configurazione Google Auth valida e rispost
 
 **AVVERTENZA:** questi dati esistono solo nel browser corrente; la cancellazione dei dati locali può distruggerli. Non sono previsti backup, esportazione, recupero cross-device o dati pubblici nell'interfaccia M3a. Non usare informazioni reali importanti finché il lifecycle dati non è operativo. Questo modulo viene visualizzato soltanto agli utenti di test autorizzati; la modalità test rimane **false** nel deployment di default. Nessuna credenziale OAuth o apertura registrazioni aggiunta.
 
+## M8d — storico completo del diario in locale
+L'area privata di laboratorio mostra l'intero storico delle attività botaniche, con filtri per pianta e tipo di evento e pagine da dieci registrazioni. È una consultazione sola lettura dei dati IndexedDB già salvati: nessuna scrittura cloud, ulteriore journal, duplicazione di dati o modifica dello schema. Note e dati restano privati e limitati alla modalità test autorizzata.
+
 ## M8c — misurazioni e raccolto nel diario privato
 Il diario sperimentale ora registra altezza in cm, pH del terreno e raccolto in grammi tramite il journal locale Piante. I campi si mostrano soltanto per le rispettive attività, sono facoltativi e verificati contro i limiti del dominio, e vengono presentati con unità dopo il reload. L'inserimento rifiuta revisioni IndexedDB obsolete fra schede. Restano **private-only**, senza cloud né pubblicazione.
 

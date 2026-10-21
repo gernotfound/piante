@@ -121,6 +121,12 @@
 - Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live delle Security Rules, del lifecycle account e della cancellazione.
 - Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
 
+## M8d — storico completo privato del diario (SENSITIVE)
+- La UI di prova non deve nascondere eventi oltre gli ultimi otto: mostrare **tutta la cronologia locale Piante** a pagine limitate di 10 eventi, con filtri per esemplare e tipo di attività. I filtri/pagine sono sola proiezione in memoria sullo snapshot IndexedDB dell'owner.
+- Ordine deterministico: data botanica decrescente, `createdAt` decrescente, ID evento come tie-break. Cambiare filtro riparte dalla prima pagina; il numero di pagina visibile è sempre limitato ai risultati disponibili. Un filtro senza corrispondenze non deve restituire eventi di altri esemplari.
+- Nessuna query pubblica, Firestore, archiviazione ridondante, journal, backup o schema nuovo. Non inserire in DOM pagine non visualizzate; i valori numerici mantengono le unità e le note restano private.
+- Test: oltre 20 eventi, filtro per pianta/tipo, zero risultati, pagination boundaries, date uguali, owner isolation e reload; `repo.read()` identico prima/dopo ogni filtro. Tutti i gate attuali restano obbligatori.
+
 ## M8c — diario misure e raccolti locali (CRITICAL)
 - Il form del diario, disponibile solo in `PrivateGarden` test-only, può registrare `heightCm` e `soilPh` **esclusivamente** per `measurement` e `harvestGrams` **esclusivamente** per `harvest`. Intervalli: altezza 0..100000 cm, pH 0..14, raccolto 0..100000000 g; valori facoltativi. I limiti sono applicati anche nello schema Zod e durante la commit atomica.
 - Gli input precedenti vengono svuotati al cambio di attività e dopo il salvataggio; valori nascosti non possono finire nell'operazione, né essere salvati come stringhe. Renderizzare i valori esistenti con le unità. La UI non pubblica misure o note.

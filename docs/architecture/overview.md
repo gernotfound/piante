@@ -92,6 +92,9 @@ Il prefisso `piante_*` è il **namespace nativo, nuovo e isolato di Piante**, no
 - I batch successivi saltano soltanto i receipt **già verificati**; i timeout ambigui sono recuperabili senza deduplicazione cieca.
 - I test Emulator coprono più di 20 operazioni reali; il codice **non** è attivo in UI, Hosting o Rules live. Mancano protocollo causale, scalabilità, account deletion e gestione conflitti utente.
 
+## M8d — storico del diario navigabile
+Nella sola UI privata di prova si può consultare tutta la cronologia IndexedDB, non soltanto gli ultimi otto eventi. I dati sono già nel record owner-scoped: vengono ordinati per data evento decrescente, `createdAt` e ID per spareggi deterministici; poi filtrati in memoria per ID esemplare e attività, con pagine da **10 eventi** e navigazione accessibile. Il filtraggio non modifica envelope, revision, pending, backup o Firestore, e non rende pubbliche note o misurazioni.
+
 ## M8c — diario botanico con quantità
 Nel prototipo locale, l'evento `measurement` consente altezza in **centimetri** e pH del terreno; `harvest` consente la massa raccolta in **grammi**. Gli altri tipi non scrivono dati numerici accidentali. Il dominio Piante li valida già come campi opzionali di `event.add` in un unico journal IndexedDB; l'interfaccia ora li espone, li visualizza con unità, li rilegge dopo reload e rifiuta valori fuori intervallo o edit di una revisione obsoleta. Nessuna migrazione schema, Rules, backup o servizio Firebase live.
 

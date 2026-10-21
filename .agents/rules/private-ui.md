@@ -15,6 +15,12 @@
 - **MUST:** per l'editing usare `expectedRevision` acquisita all'apertura del form e verificata nella transazione IDB; un'altra modifica nello stesso owner durante l'editing impone il blocco e la rilettura. Non rimpiazzare il journal con lo snapshot del form. `null` elimina solo optional; campo omesso non deve essere resettato.
 - **MUST:** non creare un'operazione per salvataggi no-op; successo solo dopo `oncomplete`. Ripristino backup e revoca Auth mantengono i guard correnti. Test su reload, alterazioni concorrenti, invalidità e rinomina/luogo/vaso/note.
 
+## M8d — lettura storica e filtri del diario
+- **MUST:** lo storico è privato e test-only, alimentato unicamente dallo snapshot `LocalGardenRepository` già autorizzato. Mostrare l'intera cronologia solo per pagine da 10 eventi; non limitarsi agli ultimi 8 né produrre query/scritture cloud.
+- **MUST:** filtro per `plantId` e tipo evento, mai basato su stringhe di nomi non univoci. Filtri combinati con AND e reset della pagina; pagina corrente clamped se cambia il numero di risultati. Data discendente, poi timestamp e ID per ordine stabile.
+- **MUST:** mantenere note e misurazioni visibili solo nell'area privata; filtri UI senza persistenza, senza journal extra e senza cross-user leak. Elementi di navigazione accessibili e interazioni mobili, incluso feedback di elenco vuoto.
+- **TEST:** storico >20 eventi, filtro per pianta/tipo, pagina precedente/successiva, zero risultati, date pari, reload e snapshot/pending byte-equivalenti.
+
 ## M8c — diario numerico tipizzato (CRITICAL per dati)
 - **MUST:** mostrare misura altezza (cm) e pH solo nell'attività misurazione, peso raccolto (g) solo in raccolta. L'attività `care` e tutte le altre non devono incorporare valori metrici nascosti.
 - **MUST:** lo schema resta il contratto autorevole; la UI applica range finite anche prima del commit, non converte campo vuoto in `0`, e mantiene compatibilità dei vecchi eventi senza misure. Mai introdurre timestamp o formati cloud nuovi per questi dati.

@@ -21,6 +21,7 @@ const places = {
   balcony: 'Balcone', garden: 'Giardino', indoor: 'Interno',
   greenhouse: 'Serra', other: 'Altro'
 } as const;
+const HISTORY_PAGE_SIZE = 10;
 const diaryTypes = {
   observation: 'Osservazione', care: 'Cura', measurement: 'Misurazione',
   flowering: 'Fioritura', fruiting: 'Fruttificazione', harvest: 'Raccolta'
@@ -67,6 +68,9 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const [diaryHeight, setDiaryHeight] = useState('');
   const [diarySoilPh, setDiarySoilPh] = useState('');
   const [diaryHarvest, setDiaryHarvest] = useState('');
+  const [historyPlantId,setHistoryPlantId] = useState('');
+  const [historyType,setHistoryType] = useState('');
+  const [historyPage,setHistoryPage] = useState(0);
   const [editingPlantId,setEditingPlantId]=useState('');
   const [editRevision,setEditRevision]=useState<number|null>(null);
   const [editName,setEditName]=useState('');
@@ -99,7 +103,16 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const locations: Place[] = Object.values(snapshot?.data.places ?? {})
     .sort((a,b) => a.name.localeCompare(b.name,'it'));
   const events: PlantEvent[] = Object.values(snapshot?.data.events ?? {})
-    .sort((a,b) => b.date.localeCompare(a.date) || b.createdAt-a.createdAt);
+    .sort((a,b) => b.date.localeCompare(a.date) || b.createdAt-a.createdAt || a.id.localeCompare(b.id));
+  // Read-only projection: filters and pagination never modify IndexedDB or its journal.
+  const history = events.filter(event=>
+    (!historyPlantId||event.plantId===historyPlantId) &&
+    (!historyType||event.type===historyType)
+  );
+  const historyPages = Math.max(1,Math.ceil(history.length/HISTORY_PAGE_SIZE));
+  const historyCurrentPage = Math.min(historyPage,historyPages-1);
+  const historyStart = historyCurrentPage*HISTORY_PAGE_SIZE;
+  const historyVisible = history.slice(historyStart,historyStart+HISTORY_PAGE_SIZE);
 
   async function save(
     operation: DomainOperation | (()=>DomainOperation), success: string,
@@ -420,9 +433,37 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
         </form>}
       </section>
     </div>
-    {events.length>0 && <section className="garden-section garden-diary" aria-label="Ultimi eventi">
-      <h3><BookOpen size={20}/> Diario recente</h3>
-      <ul>{events.slice(0,8).map(event=><li key={event.id}>
+    {events.length>0 && <section className="garden-section garden-diary" aria-label="Storico diario">
+      <h3><BookOpen size={20}/> Storico del diario</h3>
+      <div className="garden-history__filters">
+        <div className="garden-history__field">
+          <label htmlFor="garden-history-plant">Filtra per pianta</label>
+          <select id="garden-history-plant" value={historyPlantId} onChange={event=>{
+            setHistoryPlantId(event.target.value);
+            setHistoryPage(0);
+          }}>
+            <option value="">Tutte le piante</option>
+            {plants.map(plant=><option key={plant.id} value={plant.id}>{plant.commonName}</option>)}
+          </select>
+        </div>
+        <div className="garden-history__field">
+          <label htmlFor="garden-history-type">Filtra per attività</label>
+          <select id="garden-history-type" value={historyType} onChange={event=>{
+            setHistoryType(event.target.value);
+            setHistoryPage(0);
+          }}>
+            <option value="">Tutte le attività</option>
+            {Object.entries(diaryTypes).map(([value,label])=>
+              <option key={value} value={value}>{label}</option>)}
+          </select>
+        </div>
+      </div>
+      <p className="garden-history__count" role="status" aria-live="polite">
+        {history.length===0
+          ? 'Nessun evento corrisponde ai filtri.'
+          : `Eventi ${historyStart+1}–${historyStart+historyVisible.length} di ${history.length} · Pagina ${historyCurrentPage+1} di ${historyPages}`}
+      </p>
+      <ul aria-label="Elenco registrazioni diario">{historyVisible.map(event=><li key={event.id}>
         <time dateTime={event.date}>{event.date}</time>
         <strong>{snapshot?.data.plants[event.plantId]?.commonName ?? 'Pianta non disponibile'}</strong>
         <span>{diaryTypes[event.type]}
@@ -432,6 +473,12 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
           {event.note ? ` · ${event.note}` : ''}
         </span>
       </li>)}</ul>
+      {historyPages>1 && <nav className="garden-history__pagination" aria-label="Pagine del diario">
+        <button type="button" disabled={historyCurrentPage===0}
+          onClick={()=>setHistoryPage(Math.max(0,historyCurrentPage-1))}>Precedenti</button>
+        <button type="button" disabled={historyCurrentPage>=historyPages-1}
+          onClick={()=>setHistoryPage(Math.min(historyPages-1,historyCurrentPage+1))}>Successivi</button>
+      </nav>}
     </section>}
     <BackupPanel ownerScope={ownerScope} repository={repo} isStillAuthorized={isStillAuthorized}
       onRestored={value=>{if(isStillAuthorized()){setSnapshot(value);setNotice('Archivio ripristinato in modo durevole; sincronizzazione cloud bloccata.');}}}/>
