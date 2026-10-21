@@ -73,6 +73,11 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
   const [editPot,setEditPot]=useState('');
   const [editMinTemp,setEditMinTemp]=useState('');
   const [editNotes,setEditNotes]=useState('');
+  const [editingPlaceId,setEditingPlaceId]=useState('');
+  const [editPlaceRevision,setEditPlaceRevision]=useState<number|null>(null);
+  const [editPlaceName,setEditPlaceName]=useState('');
+  const [editPlaceKind,setEditPlaceKind]=useState<keyof typeof places>('balcony');
+  const [editPlaceNotes,setEditPlaceNotes]=useState('');
 
 
   useEffect(() => {
@@ -176,6 +181,35 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
       setEditingPlantId('');setEditRevision(null);
     });
   }
+  function openPlaceEditor(location:Place){
+    if(busy||!isStillAuthorized()||!snapshot)return;
+    setEditingPlaceId(location.id);
+    setEditPlaceRevision(snapshot.revision);
+    setEditPlaceName(location.name);
+    setEditPlaceKind(location.kind);
+    setEditPlaceNotes(location.notes??'');
+    setError('');setNotice('');
+  }
+  function editPlace(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!snapshot||editPlaceRevision===null||!isStillAuthorized()||busy)return;
+    const previous=snapshot.data.places[editingPlaceId];
+    if(!previous){setError('Luogo non disponibile: aggiorna l’archivio.');return;}
+    const name=editPlaceName.trim();
+    const notes=editPlaceNotes.trim()||null;
+    if(!name){setError('Inserisci il nome del luogo.');return;}
+    if(previous.name===name&&previous.kind===editPlaceKind&&
+      (previous.notes??null)===notes){
+      setEditingPlaceId('');setEditPlaceRevision(null);
+      setNotice('Nessuna modifica da salvare.');
+      return;
+    }
+    void save({type:'place.patch',id:previous.id,patch:{
+      name,kind:editPlaceKind,notes
+    }},'Luogo aggiornato',editPlaceRevision,()=>{
+      setEditingPlaceId('');setEditPlaceRevision(null);
+    });
+  }
   const pending = snapshot?.pending.length ?? 0;
   if (loading) return <p role="status">Apertura archivio locale…</p>;
 
@@ -257,6 +291,43 @@ export function PrivateGarden({ownerScope, repository, isStillAuthorized}: Props
           <button type="button" disabled={busy} onClick={()=>{setEditingPlantId('');setEditRevision(null);}}>
             Annulla modifica
           </button>
+        </form>}
+      </section>
+      <section className="garden-section" aria-label="Elenco luoghi">
+        <h3><MapPin size={20} aria-hidden="true"/> I miei luoghi</h3>
+        {locations.length===0
+          ? <p className="garden-empty">Nessun luogo nell'archivio locale.</p>
+          : <ul className="garden-plants">{locations.map(location=><li key={location.id} className="garden-plant">
+              <div className="garden-plant__body">
+                <strong>{location.name}</strong>
+                <span>{places[location.kind]} · {plants.filter(plant=>plant.placeId===location.id).length} esemplari</span>
+                {location.notes && <span className="garden-place__notes">{location.notes}</span>}
+              </div>
+              <div className="garden-plant__actions">
+                <button type="button" disabled={busy} onClick={()=>openPlaceEditor(location)}>
+                  Modifica luogo {location.name}
+                </button>
+              </div>
+            </li>)}</ul>}
+        {editingPlaceId && <form className="garden-form garden-plant-editor"
+          onSubmit={editPlace} aria-label="Modifica dettagli luogo">
+          <h3>Modifica luogo</h3>
+          <label htmlFor="garden-place-edit-name">Nome luogo da modificare *</label>
+          <input id="garden-place-edit-name" required maxLength={120} value={editPlaceName}
+            onChange={event=>setEditPlaceName(event.target.value)}/>
+          <label htmlFor="garden-place-edit-kind">Tipologia del luogo</label>
+          <select id="garden-place-edit-kind" value={editPlaceKind}
+            onChange={event=>setEditPlaceKind(event.target.value as keyof typeof places)}>
+            {Object.entries(places).map(([value,label])=>
+              <option key={value} value={value}>{label}</option>)}
+          </select>
+          <label htmlFor="garden-place-edit-notes">Note private del luogo</label>
+          <textarea id="garden-place-edit-notes" maxLength={10000} rows={3}
+            value={editPlaceNotes} onChange={event=>setEditPlaceNotes(event.target.value)}/>
+          <button type="submit" disabled={busy}>{busy?'Salvataggio…':'Salva luogo modificato'}</button>
+          <button type="button" disabled={busy} onClick={()=>{
+            setEditingPlaceId('');setEditPlaceRevision(null);
+          }}>Annulla modifica luogo</button>
         </form>}
       </section>
       <section className="garden-section" aria-label="Nuova registrazione">
