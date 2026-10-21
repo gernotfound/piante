@@ -15,6 +15,11 @@
 - **MUST:** per l'editing usare `expectedRevision` acquisita all'apertura del form e verificata nella transazione IDB; un'altra modifica nello stesso owner durante l'editing impone il blocco e la rilettura. Non rimpiazzare il journal con lo snapshot del form. `null` elimina solo optional; campo omesso non deve essere resettato.
 - **MUST:** non creare un'operazione per salvataggi no-op; successo solo dopo `oncomplete`. Ripristino backup e revoca Auth mantengono i guard correnti. Test su reload, alterazioni concorrenti, invalidità e rinomina/luogo/vaso/note.
 
+## M8b — editor luoghi (CRITICAL per dati)
+- **MUST:** luoghi mostrati e modificati esclusivamente nell'area privata già autorizzata, solo IndexedDB. Etichette e form non duplicano dati nelle viste pubbliche; le note sono riservate.
+- **MUST:** i place ID e i riferimenti `plant.placeId` restano invariati. Patch soltanto dei campi mostrati (name, kind, notes), lasciando coordinate e campi futuri intatti. Le note vuote producono `null`, mai una cancellazione dell'oggetto luogo.
+- **MUST:** la revisione letta all'apertura è verificata nella stessa transazione IDB dell'append; tutte le race, gli abort IDB e le revoche falliscono senza successo UI. No-op non crea journal. Regressioni su reload, referenze, cancellazione note, concorrenza e fallimenti.
+
 ## M3b — controlli di backup locale
 - Montare BackupPanel solo dentro PrivateGarden di owner test autorizzato; import/export devono ricontrollare la stessa sessione durante I/O asincrono e prima del commit IDB.
 - Download manuale JSON in chiaro, avviso di rischio privacy; eventuali errori di generazione/browser non vanno mascherati da successo.

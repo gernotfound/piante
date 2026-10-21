@@ -92,6 +92,9 @@ Il prefisso `piante_*` è il **namespace nativo, nuovo e isolato di Piante**, no
 - I batch successivi saltano soltanto i receipt **già verificati**; i timeout ambigui sono recuperabili senza deduplicazione cieca.
 - I test Emulator coprono più di 20 operazioni reali; il codice **non** è attivo in UI, Hosting o Rules live. Mancano protocollo causale, scalabilità, account deletion e gestione conflitti utente.
 
+## M8b — luoghi modificabili senza rinumerare le piante
+L'archivio privato di prova elenca i luoghi e permette di aggiornare nome, categoria (balcone/giardino/interno/serra/altro) e note. Una `place.patch` entra nel journal IndexedDB durevole solo dopo un controllo CAS sulla `revision` acquisita all'apertura dell'editor. ID del luogo, coordinate eventuali e riferimenti `plant.placeId` restano invariati; una seconda scheda con una modifica più recente blocca il form obsoleto e richiede riapertura. Il nuovo workflow è **solo locale e test-only** e non pubblica coordinate o note.
+
 ## M3a — primo workflow botanico, con isolamento Auth
 - Dopo grant Firebase Auth test-only valido (feature flag disabilitato di default), un modulo `PrivateGarden` monta il repository IndexedDB per lo specifico `user:uid`. La vista è rimossa subito quando decade l'autorizzazione.
 - Funzionalità locali iniziali: aggiunta pianta e luogo, evento di diario, aggiornamento stato. La UI riflette il risultato solo dopo transazione durevole e segnala gli errori. Dati e cronologia pendente sono **private-only**.

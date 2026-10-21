@@ -121,6 +121,12 @@
 - Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live delle Security Rules, del lifecycle account e della cancellazione.
 - Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
 
+## M8b — modifica dei luoghi privati (CRITICAL)
+- L'area test-only mostra i luoghi del solo archivio IndexedDB dell'owner autorizzato e consente patch native Piante di **nome, tipologia e note private**. Gli ID restano stabili: il cambio del nome non disconnette i riferimenti delle piante già assegnate.
+- L'editor salva con `commit(place.patch, auth, expectedRevision)` e controllo CAS **dentro** la transazione IndexedDB; un secondo tab che modifica qualsiasi dato impedisce una scrittura stale e conserva integralmente snapshot e journal.
+- `notes:null` cancella esplicitamente solo le note; coordinate esistenti restano invariate, non vengono esposte/pubblicate. Un no-op chiude il form senza append, errori IDB e revoche non sono successi.
+- Testare reload, legami pianta-luogo, conservazione coordinate, rimozione note, collisioni tra tab e write abort. Nessuna connessione Firebase live o accesso pubblico.
+
 ## M8a — modifica dettagli privati con CAS di revisione (CRITICAL)
 - `PrivateGarden` sperimentale permette aggiornare nome, nome scientifico, cultivar, vaso, posizione, temperatura minima e note di un esemplare **solo** in IndexedDB. Le modifiche sono patch tipizzate e `null` rimuove un campo opzionale; nessuna pubblicazione o trasporto cloud.
 - `LocalGardenRepository.commit(operation,auth,expectedRevision?)` controlla la revisione attesa **dentro** la transazione `readwrite` serializzata: se una seconda scheda ha salvato, fallisce senza alterare snapshot o journal. La UI ricarica lo stato, segnala conflitto e richiede di riaprire il form; no overwrites silenziosi.
