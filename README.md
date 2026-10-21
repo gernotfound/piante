@@ -5,7 +5,7 @@ Piante è una PWA botanica **offline-first**, con un'area privata per gestire la
 **Stato:** M3a — shell pubblica e prototipo privato **riservato ai test**; persistenza locale su IndexedDB. Login e archivio non sono attivi per default e non è collegata alcuna sincronizzazione Firebase live.
 
 - Repository nuovo: `gernotfound/piante`.
-- Riferimento tecnico: `gernotfound/logbook`; riferimento funzionale legacy: `gernotfound/pianta`.
+- Riferimento tecnico: `gernotfound/logbook` (principi tecnici); **nessun import né adattamento da Pianta**.
 - Hosting desiderato: `https://piante.web.app` sul sito Firebase `piante` nel progetto `pianta-db`.
 - Nessun deploy automatico, nessuna scrittura Firebase e nessuna API di backend prevista in M0.
 - Nessun Google Analytics o tracciamento di utilizzo integrato.
@@ -51,7 +51,7 @@ Gli asset generati sono esclusi dal repository.
 
 ## Sicurezza dello sviluppo
 
-Il progetto Firebase `pianta-db` contiene anche dati e configurazioni della vecchia Pianta. **Non eliminare o modificare collezioni legacy, Rules live, utenti Auth o hosting esistente senza audit e piano di migrazione reversibile.** In M0 non è previsto alcun deployment automatico.
+Il prodotto Piante **parte da zero**: non importa dati, backup, schemi o Rules della vecchia Pianta. Il progetto Firebase `pianta-db` mostra ancora risorse precedenti: **non eliminare documenti/UID o cambiare Rules live senza audit provider e autorizzazione specifica**. Nessun deployment automatico è previsto.
 
 La pipeline di verifica non usa segreti o credenziali Firebase reali. Solo una modifica verificata e approvata potrà successivamente attivare la distribuzione.
 
@@ -64,7 +64,7 @@ Vedi [contratto di persistenza locale](docs/architecture/offline-storage.md) per
 
 ## M2a: autenticazione sperimentale e confini cloud
 La nuova web app può usare Google Auth con `piante.web.app` come `authDomain`, ma la modalità test è disabilitata per default. Non viene letta alcuna scheda privata e non viene effettuata alcuna scrittura live.
-Le Rules `firestore.m2-test.rules` vengono validate con Firebase Emulator tramite `npm run test:rules`, **mai distribuite sul progetto legacy**.
+Le Rules `firestore.m2-test.rules` vengono validate con Firebase Emulator tramite `npm run test:rules`, **mai distribuite automaticamente sul progetto live**.
 Prima di abilitare il login è obbligatoria la configurazione OAuth esterna e la verifica del sito.
 
 ## M2b: trasporto cloud di laboratorio
@@ -76,7 +76,7 @@ Disponibile una *anteprima* di riconciliazione fra journal locale e operazioni r
 
 
 ## M2d: recupero offline da Firestore, ancora in laboratorio
-È ora possibile testare un ripristino persistente da receipt remoti con verifica owner, CAS e salvataggio atomico in IndexedDB; i device convergono per modifiche non conflittuali. Il journal locale rimane durevole e il codice **non viene eseguito nella PWA distribuita**. Il trasporto completo richiede checkpoint, gestione conflitti, quota Spark, ciclo account e audit Rules legacy. Leggi [`cloud-journal.md`](docs/architecture/cloud-journal.md).
+È ora possibile testare un ripristino persistente da receipt remoti con verifica owner, CAS e salvataggio atomico in IndexedDB; i device convergono per modifiche non conflittuali. Il journal locale rimane durevole e il codice **non viene eseguito nella PWA distribuita**. Il trasporto completo richiede checkpoint, gestione conflitti, quota Spark, ciclo account e audit Rules live. Leggi [`cloud-journal.md`](docs/architecture/cloud-journal.md).
 
 
 ## M2e: ciclo privato cloud (solo laboratorio)
@@ -92,16 +92,19 @@ La UI privata di prova offre l'export JSON completo del database locale (schede,
 
 
 ## M3c — sicurezza del ciclo di cancellazione (solo laboratorio)
-Il repository include un modello testato di cleanup amministrativo riprendibile con tombstone e blocco delle scritture concorrenti. **Non è collegato a un server**, non cancella account reali e non permette al client di cancellare dati Firestore. Firebase Auth è condiviso con Pianta legacy e non viene rimosso. Consulta `.agents/rules/account-lifecycle.md` per vincoli e prerequisiti prima dell'apertura a nuovi utenti.
+Il repository include un modello testato di cleanup amministrativo riprendibile con tombstone e blocco delle scritture concorrenti. **Non è collegato a un server**, non cancella account reali e non permette al client di cancellare dati Firestore. Firebase Auth non viene rimosso dal runner Piante; la cancellazione account futura richiede un backend trusted e una procedura end-to-end. Consulta `.agents/rules/account-lifecycle.md` per vincoli e prerequisiti prima dell'apertura a nuovi utenti.
 
 
 ## M3e — controllo di sicurezza delle build statiche
-Prima di produrre `dist/`, la build controlla che il progetto Firebase sia `pianta-db`, che sia configurato **solo Hosting statico sul sito `piante`**, che siano presenti gli header di sicurezza e che il login test non sia abilitato. Lo stesso confine è testato da `npm run test:release-boundary` e da un job Canonical Verification indipendente. Non viene pubblicato niente automaticamente; il risultato non sostituisce l'audit live di Firebase e della vecchia Pianta.
+Prima di produrre `dist/`, la build controlla che il progetto Firebase sia `pianta-db`, che sia configurato **solo Hosting statico sul sito `piante`**, che siano presenti gli header di sicurezza e che il login test non sia abilitato. Lo stesso confine è testato da `npm run test:release-boundary` e da un job Canonical Verification indipendente. Non viene pubblicato niente automaticamente; il risultato non sostituisce l'audit live di Firebase.
 
 
 ## M3f — invalidazione continua dell'accesso privato (solo account test)
 La prova del grant `piante_access/{uid}` deve ora essere **da server** e rimane osservata mentre la sessione di test è aperta. Revoca, cache/offline, errori e cambi di account chiudono immediatamente la UI al verificarsi del relativo evento; il controller impedisce che vecchi callback la riaprano. Non vengono cancellati né cifrati i dati locali. Questo non apre registrazioni, non distribuisce Rules e non abilita Auth in una build: il flag di login test rimane disattivato di default e bloccato dal guard di release M3e.
 
 
-## M4a — compatibilità Security Rules con Pianta
-Il progetto Firebase condiviso usa Rules legacy comunicate dal product owner. La CI testa su **Firestore Emulator** la convivenza dei permessi originali Pianta con le nuove allowlist Piante, senza generare Rules distribuibili o fare deploy. Gli script `npm run test:rules` e `npm run test:rules:compat` sono entrambi required nel gate canonico. I risultati non sostituiscono la verifica delle Rules effettivamente pubblicate sul provider.
+## Greenfield — nessuna compatibilità Pianta
+
+Su decisione esplicita del product owner (2026-10-21), Piante non importa i dati dell'app precedente e **non dispone più di fixture, converter o test di convivenza Pianta**. La CI conserva `npm run test:rules` e tutti i controlli Piante owner/anonimo/cross-user/tombstone/revoca, incluso il diniego del vecchio percorso `users/{uid}`.
+
+Le Rules di laboratorio **non sono** le Rules live di Firebase e non vengono distribuite. Per lo stato dei provider, verifiche e pulizia esterna delle risorse preesistenti: [registro servizi](docs/operations/external-services-register.md).

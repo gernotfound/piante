@@ -1,6 +1,6 @@
 # M2b — Trasporto journal su Firestore (laboratorio)
 
-> Stato: **implementazione e test Emulator soltanto**, nessun accesso cloud reale, nessun deploy Rules/Hosting, nessun collegamento UI. Le collezioni legacy di `pianta-db` restano intatte.
+> Stato: **implementazione e test Emulator soltanto**, nessun accesso cloud reale, nessun deploy Rules/Hosting, nessun collegamento UI. Piante crea dati nuovi, non importa quelli Pianta; il provider potrebbe contenere ancora risorse preesistenti.
 
 ## Problema affrontato
 
@@ -37,7 +37,7 @@ Questi sono stati di **trasporto**, non stati business di sincronizzazione compl
 - Nessun `acknowledgeThrough()` automatico, né compattazione del journal.
 - Nessuna gestione delle repliche dismesse, tombstone, ordinamento causale dei cambi interdipendenti.
 - Nessuna scrittura documenti business finali, nessuna UI CRUD e nessun sistema multiutente aperto.
-- Nessuna sostituzione delle Rules live della vecchia Pianta.
+- Nessuna sostituzione delle Rules live non verificate del progetto Firebase.
 - Nessun procedimento di eliminazione account/cleanup cross-collection ancora disponibile.
 - Limiti quota, retention e gestione media saranno progettati prima di abilitare le scritture vere.
 
@@ -58,14 +58,14 @@ Test unitari e una collisione vera su Firestore Emulator confermano la classific
 
 L'API restituisce esclusivamente `candidate-only`, `compactionAuthorized:false`, conteggio ricevute, SHA-256 e `observedPrefixes`. Questi prefissi sono sequenze contigue osservate su server, **non** vector clock cross-replica, stable frontier o prove di ack da dispositivi inattivi. Non esistono checkpoint persistiti, membership/retirement/fencing di replica, snapshot cloud atomici né prova che le altre repliche abbiano visto una certa modifica.
 
-**Nessun dato viene scritto, confermato, compattato o pubblicato.** Il limite delle 200 operazioni permane e `acknowledgeThrough()` resta vietato. Questo è il primo incremento verificabile di M5b, non il completamento del protocollo causale. Il prossimo incremento dovrà progettare un provider checkpoint e un formato/versionamento causale con recovery, migrazioni, compatibilità col legacy e costo Spark prima di qualunque raccolta della cronologia o rilascio. La suite include unit test su race, history-gap, crypto, quarantena e test con Firestore Emulator.
+**Nessun dato viene scritto, confermato, compattato o pubblicato.** Il limite delle 200 operazioni permane e `acknowledgeThrough()` resta vietato. Questo è il primo incremento verificabile di M5b, non il completamento del protocollo causale. Il prossimo incremento dovrà progettare un provider checkpoint e un formato/versionamento causale con recovery dei dati **Piante** e costo Spark prima di qualunque raccolta della cronologia o rilascio. La suite include unit test su race, history-gap, crypto, quarantena e test con Firestore Emulator.
 ## M5b-2 — registro remoto delle osservazioni (solo Emulator)
 
 Dopo il candidato M5b-1, un client autorizzato può scrivere l'attestazione `piante_users/{uid}/checkpoint_observations/{replicaId}` usando una transazione Firestore che legge il precedente documento e verifica monotonia dei prefissi osservati. Un secondo passaggio `getDocFromServer` confronta l'intero record; il retry identico è idempotente, le collisioni e regressioni bloccano. L'orchestratore ripete verifiche Auth e IndexedDB dopo la scrittura, senza mutare mai il journal locale.
 
 Il record è rigorosamente tipizzato (`protocol=1`, `status=observation-only`, `compactionAuthorized=false`, `ownerUid`, `replicaId`, `receiptCount`, `observedPrefixes`, `sha256`). In Firestore le Rules Emulator limitano owner+grant+tombstone e numero massimo, ma **non possono verificare che una dichiarazione client provenga davvero da scansione completa**. Neppure un documento durabilmente persistito equivale a una stable frontier o a un checkpoint server-autorevole. Un altro dispositivo può essere offline o possedere cronologia causale non osservata.
 
-L'operazione è solo un passo di laboratorio. **Nessuna GC, delete, acknowledgement, nuova registrazione, sincronizzazione UI o deploy**. Rimangono il limite 200, la necessità di metadata causali/versionamento, membership e fencing generazionale delle repliche, una strategia di recovery con snapshot server-autorevole e audit delle Rules live legacy. La composizione delle Rules aggiorna solo il fixture Emulator e il relativo SHA pinned.
+L'operazione è solo un passo di laboratorio. **Nessuna GC, delete, acknowledgement, nuova registrazione, sincronizzazione UI o deploy**. Rimangono il limite 200, la necessità di metadata causali/versionamento, membership e fencing generazionale delle repliche, una strategia di recovery con snapshot server-autorevole e audit delle Rules live. Si usa solo il fixture Emulator Piante: nessuna composizione con Rules Pianta.
 
 ## M2c — anteprima di convergenza (NON hydration)
 Lettura read-only del journal privato remoto, forzata al server con `getDocsFromServer`. Il reader esegue **una singola query** limitata a `max+1`: se il risultato supera il tetto (massimo 200 operazioni in laboratorio) rifiuta il risultato; **non** assume che la prima pagina rappresenti tutto il cloud.
@@ -94,7 +94,7 @@ L'array additivo `remoteReceipts` mantiene compatibilità di lettura con envelop
 **Limiti da non mascherare:**
 - Questo algoritmo è volutamente conservativo. Blocca modifiche concorrenti allo stesso campo provenienti da repliche diverse, anche in alcune situazioni sequenziali lecite; non usa vector clock o risolutore semantico.
 - Non implementa causalità completa, tombstone, cancellazione, checkpoint, compattazione, upload+hydrate orchestrati in background, pending acknowledgements e retention. La scansione completa di 200 receipt è soltanto per test, non una strategia sostenibile con quote Spark.
-- Il metodo di riconciliazione **non è collegato all'interfaccia**, e le Security Rules `firestore.m2-test.rules` restano confinate a Emulator: distribuirle troncherebbe i path legacy.
+- Il metodo di riconciliazione **non è collegato all'interfaccia**, e le Security Rules `firestore.m2-test.rules` restano confinate a Emulator: non sono Rules live verificate o approvate per la distribuzione.
 - La cancellazione account, il controllo delle registrazioni e la riconciliazione con Rules reali rimangono blocker prima di attivare dati/utenti live.
 - Il database condiviso `pianta-db` non viene modificato in M2d.
 

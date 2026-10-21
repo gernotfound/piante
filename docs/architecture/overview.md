@@ -7,7 +7,7 @@
 | UI | Stato di navigazione, presentazione e accessibilità |
 | Dominio | Esemplari botanici, propagazione, diario, luoghi, cure, pubblicazione |
 | Repository locale | IndexedDB owner-scoped e journal di operazioni durevoli |
-| Replica cloud | Firestore con validazione, migrazioni e retry |
+| Replica cloud | Firestore con validazione, evoluzioni versionate **native Piante** e retry |
 | Proiezione pubblica | Schede con campi consentiti e snapshot confermati |
 | Ambiente | Meteo e allerte per luoghi con soglie per esemplare |
 | Account | Login, ownership, logout, backup e cancellazione |
@@ -28,8 +28,7 @@ piante_profiles/{username}
   media/{mediaId}
 ```
 
-Il nome `piante_*` è un namespace di migrazione, non uno schema version.
-Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
+Il prefisso `piante_*` è il **namespace nativo, nuovo e isolato di Piante**, non un ponte di migrazione da Pianta. Non leggere né importare `users/{uid}`; i documenti ancora presenti sul provider richiedono pulizia esterna separata.
 
 ## Principi
 1. Esemplare distinto da specie e cultivar; eventuale identità di madre, padre e propagazioni con ID stabili.
@@ -85,7 +84,7 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - `remoteReceipts` persistiti con `data` in un solo envelope IndexedDB; ripristino dopo reload e commit di nuovi eventi su piante remote.
 - CAS e replay validante nel commit IDB; edit tra tab, revoca owner, receipt corrotti e conflitti portano a rifiuto senza perdere l'archivio precedente.
 - Suite Firestore Emulator con due device: upload idempotente e lettura convergente su un sottoinsieme compatibile di operazioni.
-- **Non attiva in UI/cloud live:** no checkpoint scalabile, tombstone, conflitti semantici, registrazione account, cancellazione sicura o Rules legacy riconciliate.
+- **Non attiva in UI/cloud live:** no checkpoint scalabile, tombstone, conflitti semantici, registrazione account, cancellazione sicura o Rules live auditabili.
 
 
 ## Stato M2e — batch e conferme server
@@ -101,25 +100,25 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 ## Stato M3b — export/restore JSON privati
 - L'utente di test autorizzato può esportare manualmente un file completo delle schede e del journal locale, con controllo di integrità SHA-256 (non autenticazione).
 - Una importazione è verificata in anteprima e accettata soltanto su un archivio dello stesso UID completamente vuoto; salvataggio IDB atomico e quarantena del cloud.
-- Nessuna cancellazione, merge automatico di altri dati, import legacy o distribuzione Firebase. I dati importati restano **local-only**.
+- Nessuna cancellazione, merge di dati estranei o distribuzione Firebase. Il backup di recupero riguarda esclusivamente l'archivio generato da Piante.
 
 
 ## M3c — percorso trusted di cancellazione preparato (non operativo)
 - Contratto del runner server-only per **solo** dati Piante: tombstone amministrativo, lease, inventory di collezioni e asset, batch massimo 50, stato riprendibile e verifica finale.
 - Rules e regressioni Firestore Emulator negano tutti i path Piante (incluso grant) quando compare tombstone, senza esporre o mutare il job dal client.
-- L'account Firebase Auth **non** viene cancellato: è condiviso con Pianta legacy. Non esiste backend live né UI di cancellazione. Le Rules di prova non sono quelle distribuite. Non aprire signup né dichiarare lifecycle completo.
+- L'account Firebase Auth **non** viene cancellato: il runner di laboratorio Piante non gestisce ancora identità. Non esiste backend live né UI di cancellazione. Le Rules di prova non sono quelle distribuite. Non aprire signup né dichiarare lifecycle completo.
 
 
 ## Stato M3d — hardening lease amministrativi
 - Verificato HEAD e CI precedenti su GitHub, poi rafforzata la barriera di cancellazione con token di fencing e regressioni sui race TOCTOU fra scan e delete.
 - Il contratto richiede validazione atomica del lease dentro i mutatori server, rilascio condizionale e nuova verifica degli artifact esterni prima del completamento.
-- **Non implementato:** adapter Firebase Admin reale, endpoint, cancellazione/Auth lifecycle, deploy Rules/Hosting o cleanup di dati condivisi. La validazione provider live è ancora aperta.
+- **Non implementato:** adapter Firebase Admin reale, endpoint, cancellazione/Auth lifecycle, deploy Rules/Hosting o cleanup delle risorse preesistenti. La validazione provider live è ancora aperta.
 
 
 ## Stato M3e — rilascio Hosting statico protetto da CI
 - Testa separatamente configurazioni di deploy pericolose, project/site target e flag `VITE_AUTH_TEST_MODE` prima di compilare `dist/`.
 - Il job `Verification / Static Release Boundary` è parte integrante di `Canonical Verification` e legge configurazioni senza secret; la configurazione Vite rifiuta anche build invocate senza npm prebuild se il flag test è attivo.
-- **Non configurato né verificato:** provider IAM/OAuth/App Check/Rules live, backend trusted/cancellazione, credenziali WIF, deploy Hosting e smoke test sul sito; quindi nessun cutover autorizzato.
+- **Non configurato né verificato:** provider IAM/OAuth/App Check/Rules live, backend trusted/cancellazione, credenziali WIF, deploy Hosting e smoke test sul sito; quindi nessun rilascio pubblico autorizzato.
 
 
 ## Stato M3f — listener di autorizzazione privata a prova di cache
@@ -128,7 +127,7 @@ Le collezioni legacy `users/{uid}/...` non vanno alterate durante il bootstrap.
 - Suite unit e Firestore Emulator verificano revoca live, stato deny, tombstone e gate di scrittura IndexedDB. **Nessun deploy** e flag test OFF in produzione; impatto letture Firestore da auditare prima dell'attivazione.
 
 
-## M4a — rehearsal Rules composite con Pianta legacy
-- Baseline `/users/{uid}` e sue sottocollezioni comunicata dal product owner e confrontata con `gernotfound/pianta`; fonte user-reported, senza read-back provider live.
-- Le regole legacy rimangono intatte e le funzioni/path `piante_users` e `piante_access` del fixture M2 vengono inserite in un composito **soltanto per Emulator**. La CI prova l'isolamento e la convivenza, più il fixture originale.
-- Restano bloccati Rules deploy, attivazione Auth/sync nel sito, indici e mutazioni di dati condivisi finché non si completa un audit provider e del comportamento client legacy.
+## Piante greenfield — decisione 2026-10-21
+- Non esiste alcuna migrazione dal precedente prodotto Pianta: nessun import, adattamento, coesistenza o backfill.
+- Rimossi il vecchio harness di composizione Rules e la suite di compatibilità legacy. I test Firestore Emulator **Piante** e il default-deny su `users/{uid}` rimangono nel gate Canonical.
+- Le Rules live del provider e la presenza di dati o account precedenti richiedono verifica separata: una pulizia del codice non cancella risorse reali. Il nuovo prodotto resta in fase di laboratorio finché non completa causalità/recovery, account deletion e audit Firebase.
