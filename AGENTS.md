@@ -45,6 +45,14 @@
 5. Eseguire i controlli locali disponibili e il gate GitHub sullo SHA candidato.
 6. Solo dopo verifiche e revisione, valutare merge, sincronizzazione dei Rules e Hosting.
 
+## Decisione 2026-10-21 — dismissione pianificata di Pianta (CRITICAL)
+- Il product owner ha deciso di **ritirare la vecchia Pianta** e sviluppare **Piante come unica PWA di destinazione**; la dismissione è `RETIREMENT-PLANNED`, **non eseguita**. La decisione non prova che esista un backup, che gli account siano migrati o che il vecchio client sia stato spento.
+- La documentazione autorevole della decisione, dei gate G0–G4, della migrazione e dei rollback è `docs/operations/pianta-retirement-and-data-migration.md`. L'inventario e la cronologia dei provider sono in `docs/operations/external-services-register.md`, come in TheLogBook.
+- **MUST:** conservare `users/{uid}`, sottocollezioni, Firebase Auth, Rules, configurazioni OAuth e il sito legacy finché non siano conclusi inventario live, backup privato **completo e restaurabile**, import Piante verificato e cutover con rollback. Nessuna cancellazione irreversibile è autorizzata da questa sola decisione; occorre un consenso specifico sul target dopo prova di recovery.
+- **MUST:** il JSON Pianta `schemaVersion:3` non coincide col backup IndexedDB Piante v1: niente import diretto, drop di documenti invalidi, attivazione di cloud sync o pubblicazione automatica. Verificare anche le installazioni PWA/offline e le scritture legacy residue.
+- **MUST:** nessuna modifica alle Rules pubblicate, account Auth, Firestore live, Hosting o Vercel per una PR di aggiornamento contesto. Continuare ad applicare i gate attuali ed eseguire ogni modifica di codice su branch/PR con CI exact-SHA.
+- Evidenze 2026-10-21: `USER-SCREENSHOT` Firestore `(default)` `europe-west12`, `users`, `plants`/`images`; `USER-REPORTED` un solo account test e provider Auth Email/Password+Google. **Non** equivalgono a inventario API completo né a verifica provider indipendente.
+
 ## M0
 - M0 crea esclusivamente una shell presentazionale, routing, design tokens, manifest e pipeline CI.
 - Non esistono ancora login, scritture Firestore, pubblicazioni attive o API trusted.

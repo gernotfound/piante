@@ -9,6 +9,13 @@ Il Firebase Project `pianta-db` ospita anche **Pianta**. L'identità Firebase Au
 
 La sola cancellazione di dati Piante e la chiusura dell'accesso Piante sono un'operazione distinta. La scelta di prodotto su cosa significhi "elimina account" in presenza di dati legacy richiederà valutazione esplicita prima dell'apertura delle registrazioni.
 
+## Cambio strategia 2026-10-21: ritiro Pianta, non purge immediato
+Il product owner ha scelto di **dismettere Pianta**. Questa decisione modifica lo scenario futuro: dopo una migrazione completa e verificata, Firebase Auth non dovrà più essere mantenuto **per il solo funzionamento del vecchio client**. Fino al cutover, tuttavia, rimane condiviso e va preservato integralmente.
+
+**MUST:** non estendere oggi `deletionRunner` alla collezione `users/{uid}` o all'account Firebase Auth; il runner rimane inerte e limitato a Piante. Progettare separatamente account-deletion end-to-end per Piante, migrazione/ricollegamento delle identità Email/Password e Google, protezione contro creazioni abusive, backfill, token/sessioni e device offline. Cancellazione di dati/UID legacy richiede backup restaurabile e consenso separato per i target irreversibili.
+
+Riferimento di esecuzione: `docs/operations/pianta-retirement-and-data-migration.md` G0–G4. Un solo account test dichiarato non è prova che altri UID o dispositivi non esistano.
+
 ## Runner e boundary
 
 `src/account/deletionRunner.ts` contiene un contratto **esclusivamente per un backend trusted futuro**. Non ha import del client Firestore, non è un API route e non espone servizi privilegiati nella PWA. Nessun deploy o job attivo.

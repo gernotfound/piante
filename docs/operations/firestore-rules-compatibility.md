@@ -27,3 +27,12 @@ Le Rules di laboratorio `firestore.m2-test.rules` hanno namespace `piante_access
 ## Stato e passi obbligatori prima di modificare Firebase
 
 **M4a è prova in laboratorio, non release.** Per qualsiasi distribuzione futura: recuperare tramite provider competente le Rules live con metadati/versione, confrontarle con lo snapshot user-reported, fare inventario dei client e dati legacy, ottenere backup e piano reversibile autorizzato, aggiungere Rules Piante con allowlist su percorsi separati, testare su Emulator i client legacy e Piante, validare ogni required check SHA, predisporre una distribuzione isolata di sole Rules e monitorare rollback. Hosting resta separato e non viene modificato.
+
+## Cambio di strategia 2026-10-21 — Pianta da dismettere, dati ancora da proteggere
+
+Il product owner ha confermato la **dismissione futura** del vecchio client Pianta. Il rilascio delle Rules definitive Piante può quindi eliminare **in futuro**, dopo cutover, la necessità di mantenere la vecchia struttura autorizzativa, ma **non oggi**: `users/{uid}`, Auth e client legacy vanno considerati attivi fino a inventario, backup restaurabile, import comprovato, gestione offline e piano di rollback.
+
+L'evidenza del 2026-10-21 è: Rules fornite dall'utente dalla console, corrispondenti al fixture legacy; screenshot di Firestore `(default)` `europe-west12` e root `users` con `plants` e `images`. La lettura di Rules/versione **direttamente tramite API provider** non è ancora avvenuta. I test Emulator compositi **devono restare nel gate CI** durante la migrazione. Il nuovo piano è in [Dismissione Pianta → Piante](pianta-retirement-and-data-migration.md).
+
+Nessuna Rules Piante è stata pubblicata in seguito a questa decisione. Non sostituire le Rules live con `firestore.m2-test.rules`, né cancellare documenti o autenticazioni prima dei gate G0–G4.
+
