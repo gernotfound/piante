@@ -2,7 +2,7 @@
 
 > Decisione prodotto: **2026-10-21**, il product owner sceglie di dismettere la vecchia **Pianta** a favore di **Piante**. **Stato: DECIDED / NOT EXECUTED**. Classificazione **CRITICAL** (Firestore, Auth, Rules, backup, migrazione, PWA). Nessuna cancellazione, cambio provider, deploy o migrazione è avvenuta con questa decisione.
 >
-> Fonti distinte: `USER-REPORTED` (decisione, un account di test, provider Auth abilitati); `USER-SCREENSHOT` (Firestone console `(default)` regione `europe-west12`, collezione radice `users` visibile, sotto il documento mostrato `plants` e `images`); `GITHUB-OBSERVED` (codice e fixture dei due repository). **Non** sono `PROVIDER-OBSERVED`: manca accesso API alla configurazione live.
+> Fonti distinte: `USER-REPORTED` (decisione, un account di test, provider Auth abilitati); `USER-SCREENSHOT` (Firestore console `(default)` regione `europe-west12`, collezione radice `users` visibile, sotto il documento mostrato `plants` e `images`); `GITHUB-OBSERVED` (codice e fixture dei due repository). **Non** sono `PROVIDER-OBSERVED`: manca accesso API alla configurazione live.
 
 ## Obiettivo e ambito
 

@@ -59,3 +59,10 @@ Da ora ogni build eseguita con `npm run build` applica `npm run check:release-bo
 **Questo non è un comando deploy.** Non modifica Firebase e non prova le impostazioni provider attuali, né autorizza ad attivare OAuth, Auth o Rules. Niente segreti, ruoli, id-token, Service Account, upload di build o nuovo costo. Il prossimo deploy richiederà una decisione di release, la prova live dal provider, audit Rules di Pianta, WIF/least privilege e smoke test dello SHA effettivamente pubblicato. Non sostituire la verifica provider con un successo CI.
 
 **Nota cronologia OAuth:** la precedente sezione M2a riportava l'origine JavaScript `https://piante.web.app` come ancora da aggiungere sulla base dello screenshot iniziale. Il product owner ne ha poi **dichiarato l'aggiunta** (2026-10-08), come tracciato nel registro. Rimane **VERIFY-LIVE** per la verifica diretta provider e la prova runtime; non dedurre che OAuth sia funzionante dal codice.
+
+## Cutover da Pianta a Piante — decisione 2026-10-21
+
+La vecchia Pianta è **da dismettere**, non già dismessa. Il repository Pianta dichiara il frontend `https://pianta-gnf.vercel.app/` (stato live Vercel da verificare); Piante ha come target `https://piante.web.app` su Firebase Hosting. **Nessuna migrazione, deploy o disconnessione di servizi deriva dalla sola decisione**.
+
+Seguire [il runbook di ritiro e migrazione](pianta-retirement-and-data-migration.md): audit provider e dispositivi, backup privato completo/restaurabile, import testato e reversibile, Auth Email/Password+Google, Rules/indici separati da Hosting, CI exact-SHA, smoke test runtime e solo successiva dismissione Vercel/redirect legacy. Il progetto `pianta-db` resta sul piano Spark e non viene sostituito automaticamente. Non collegare dati della vecchia Pianta alla nuova UI né distribuire nuove Rules prima dei gate. Ogni target di rimozione irreversibile richiede conferma distinta.
+
