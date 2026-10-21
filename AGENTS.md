@@ -121,6 +121,12 @@
 - Proibito collegare in UI `runPrivateJournalCycle`, `hydratePrivateJournal` o Firestore prima dell'audit live delle Security Rules, del lifecycle account e della cancellazione.
 - Verificare a ogni modifica il gate Canonical, più regressioni form validation, isolamento UID, failure path IDB e PWA/routing.
 
+## M8c — diario misure e raccolti locali (CRITICAL)
+- Il form del diario, disponibile solo in `PrivateGarden` test-only, può registrare `heightCm` e `soilPh` **esclusivamente** per `measurement` e `harvestGrams` **esclusivamente** per `harvest`. Intervalli: altezza 0..100000 cm, pH 0..14, raccolto 0..100000000 g; valori facoltativi. I limiti sono applicati anche nello schema Zod e durante la commit atomica.
+- Gli input precedenti vengono svuotati al cambio di attività e dopo il salvataggio; valori nascosti non possono finire nell'operazione, né essere salvati come stringhe. Renderizzare i valori esistenti con le unità. La UI non pubblica misure o note.
+- L'inserimento usa `LocalGardenRepository.commit(event.add,auth,expectedRevision)`: uno snapshot obsoleto tra schede fallisce senza append e non è un successo. Errori di validazione, IndexedDB e Auth restano visibili e non producono eventi.
+- Testare misure decimali/zero, limiti, raccolto, cambio di attività, reload e race cross-tab. **Nessun cambio di formato persistito né sync/live Firebase**.
+
 ## M8b — modifica dei luoghi privati (CRITICAL)
 - L'area test-only mostra i luoghi del solo archivio IndexedDB dell'owner autorizzato e consente patch native Piante di **nome, tipologia e note private**. Gli ID restano stabili: il cambio del nome non disconnette i riferimenti delle piante già assegnate.
 - L'editor salva con `commit(place.patch, auth, expectedRevision)` e controllo CAS **dentro** la transazione IndexedDB; un secondo tab che modifica qualsiasi dato impedisce una scrittura stale e conserva integralmente snapshot e journal.
