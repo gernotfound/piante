@@ -58,6 +58,12 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** controllare epoch di autorizzazione e intero snapshot IndexedDB prima e dopo lettura server e SHA-256. Un backup in quarantena non può neppure avviare la scansione; errori di crypto e I/O non producono un candidato.
 - **MUST:** digest e prefissi osservati non sono checkpoint persistiti né certificazioni causali/globali. Non ridurre i receipt, non aggiornare il journal, non sbloccare `acknowledgeThrough` e non alzare il limite 200 su questa base.
 - **MUST:** testare assenza di conferma server, scanner Emulator, corruzione/duplicazione, auth, race, riavvio IDB e SHA. Per GC servono provider checkpoint autorevole, stable frontier/membership/fencing e recovery versionato.
+## M5b-3b — validazione della cronologia contro le attestazioni
+- **MUST:** `inspectObservationPreflight` usa `inspectCheckpointCandidate` prima di `inspectObservationAudit`: non dedurre la verità di due client concordi senza confrontarne il digest con journal completo, stato locale e conferme remote identiche.
+- **MUST:** il controllo è soltanto diagnostico: hash e prefissi possono cambiare tra due query non atomiche, quindi su disaccordi bloccare senza modifiche. Non trattare il conteggio `matchingCurrentCount` come quorum e non compattare il journal.
+- **MUST:** verifiche Auth e stato IndexedDB immutato prima, fra e dopo entrambe le scansioni. Qualsiasi pending senza receipt, osservazione forged/full hash divergente, prefisso superiore alla scansione e race → errore; una osservazione storica parziale non deve essere giudicata falsa solo perché il suo SHA differisce da quello corrente.
+- **TEST:** unità e Firestore Emulator con scritture autentiche, più repliche, credenziali anonime/cross-user, revoca, falsificazione, race IndexedDB e conservazione integrale di pending e receipt. Nessuna alterazione live di Rules o Hosting.
+
 ## M5b-3 — confronto read-only delle osservazioni
 - **MUST:** qualsiasi confronto di osservazioni usa una lettura interamente server-backed limitata a 200+1 per rilevare scansioni troncate, validando tutte le righe prima di costruire il report.
 - **MUST:** una osservazione con owner/document ID incoerenti, status non previsto, protocollo ignoto, `compactionAuthorized` diverso da `false`, collisioni di document ID o digest/prefissi malformati interrompe la lettura. Nessuna sostituzione con cache.
