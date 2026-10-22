@@ -206,6 +206,12 @@
 - Gli `observedPrefixes` sono massimi contigui **osservati** per replica; NON sono un vector clock, una stable frontier, un acknowledgement di tutti i device né una prova per eliminare il journal. SHA-256 non firma né autentica il server.
 - Il candidato è effimero e read-only: non viene persistito, non modifica `remoteReceipts`, non estende il limite di 200, non riattiva `acknowledgeThrough`, non abilita Rules, login, sync UI o deploy. Servono un checkpoint autorevole e durevole, metadata causali versionati, membership/fencing delle repliche e test end-to-end prima della GC.
 - Regressioni CRITICAL su interleaving fra device, storia corrotta/troncata, auth revocata, backup in quarantena, race IDB durante scan/hash, assenza di crypto ed Emulator reale.
+## M5b-3b — preflight incrociato journal/attestazioni (CRITICAL)
+- `src/cloud/observationPreflight.ts` estende il report M5b-3 senza sostituirlo: preflight M5b-1 del journal server completo/validato e stato IDB, poi lettura server delle attestazioni. Non ci sono snapshot atomici fra le due collection: l'esito può essere invalidato da scritture contemporanee.
+- **MUST:** prima e dopo le letture/digest controllare stessa identità/epoch e identico envelope IndexedDB. Le pending non confermate, restore in quarantena, dati corrotti o receipt mancanti bloccano prima dell'audit osservazioni.
+- **MUST:** rifiutare attestazioni che dichiarano prefissi non presenti, attestazioni dello stesso prefisso con digest discordanti e attestazioni dell'intera scansione con SHA-256 diverso dal candidato. L'assenza di osservazioni o un hash storico parziale diverso non autorizzano un consenso causale.
+- **MUST:** mantenere `status:'cross-check-only'`, `compactionAuthorized:false`; non esiste membership autenticata, snapshot cloud autorevole, fencing/retirement, GC, ack, deploy né UI runtime. Test unit + Firestore Emulator su false attestation, prefix ahead, stale Auth/IDB, owner e grant revocato.
+
 ## M5b-3 — audit non autoritativo delle osservazioni di più repliche (CRITICAL)
 - `src/cloud/observationAudit.ts` e `firestoreObservationReader.ts` eseguono solo scansione server completa capped (max 200+1), validazione stretta di owner, document ID, protocollo, status, prefissi e digest; mai usare cache o scansioni tronche.
 - Il report `advisory-audit-only` segnala digest client incompatibili a prefissi identici e coppie di prefissi non confrontabili; non deduce la verità dei digest, un fronte stabile globale o la causalità. `compactionAuthorized:false` obbligatorio.
