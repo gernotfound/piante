@@ -58,6 +58,12 @@ Nelle nuove milestone il protocollo di scrittura cloud, la riconciliazione dello
 - **MUST:** controllare epoch di autorizzazione e intero snapshot IndexedDB prima e dopo lettura server e SHA-256. Un backup in quarantena non può neppure avviare la scansione; errori di crypto e I/O non producono un candidato.
 - **MUST:** digest e prefissi osservati non sono checkpoint persistiti né certificazioni causali/globali. Non ridurre i receipt, non aggiornare il journal, non sbloccare `acknowledgeThrough` e non alzare il limite 200 su questa base.
 - **MUST:** testare assenza di conferma server, scanner Emulator, corruzione/duplicazione, auth, race, riavvio IDB e SHA. Per GC servono provider checkpoint autorevole, stable frontier/membership/fencing e recovery versionato.
+## M5b-4 — bloccare i cambiamenti remoti durante l'audit (CRITICAL)
+- **MUST:** due scansioni server complete e capped dello stesso journal, una prima e una dopo l'audit della collection osservazioni, devono restituire candidati `candidate-only` equivalenti per `sha256`, `observedPrefixes`, owner e conteggio. Qualunque variazione → `remote-changed`; non riciclare la stessa risposta in cache per simulare la seconda scansione.
+- **MUST:** ripetere le verifiche di ogni pending, quarantena backup, Auth epoch, stato IndexedDB e replay durante la seconda scansione. Eventuali errori devono bloccare, non diventare `retry success`.
+- **MUST:** non chiamarlo snapshot globale atomico: modifiche successive alla seconda lettura restano possibili e le attestazioni sono ancora fornite da client non attendibili. Invarianti `cross-check-only`, `compactionAuthorized:false`, no GC/ack/readiness UI.
+- **MUST:** misurare il costo delle due scansioni e non abilitarle come polling continuativo Spark. Test Emulator: append remoto tra query e revoca; unit: mutazione del payload a stesso count/prefissi e abort sulla seconda rete.
+
 ## M5b-3b — validazione della cronologia contro le attestazioni
 - **MUST:** `inspectObservationPreflight` usa `inspectCheckpointCandidate` prima di `inspectObservationAudit`: non dedurre la verità di due client concordi senza confrontarne il digest con journal completo, stato locale e conferme remote identiche.
 - **MUST:** il controllo è soltanto diagnostico: hash e prefissi possono cambiare tra due query non atomiche, quindi su disaccordi bloccare senza modifiche. Non trattare il conteggio `matchingCurrentCount` come quorum e non compattare il journal.
