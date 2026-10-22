@@ -41,7 +41,9 @@ describe('M5c-1 strict causal v2 laboratory contract (CRITICAL)',()=>{
       {...a1().data,observedPrefixes:{[A]:1}},
       {...a1().data,observedPrefixes:{[A]:-1}},
       {...a1().data,operationId:'forged'},
-      {...a1().data,observedPrefixes:{['__proto__']:1,[A]:0}}
+      {...a1().data,observedPrefixes:{['__proto__']:1,[A]:0}},
+      {...a1().data,observedPrefixes:{unexpected:1,[A]:0}},
+      {...a1().data,observedPrefixes:new Date()}
     ]){
       expect(causalReceiptV2Schema.safeParse(bad).success).toBe(false);
     }

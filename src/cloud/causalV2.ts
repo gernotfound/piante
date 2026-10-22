@@ -10,6 +10,22 @@ import { uidSchema } from './protocol';
 export const MAX_CAUSAL_V2_ROWS = 1000;
 export const MAX_CAUSAL_V2_REPLICAS = 64;
 
+// Zod may omit special dictionary keys during record parsing. Reject malformed
+// ORIGINAL keys before normalization, rather than silently converting a
+// malformed observed vector into a valid-looking causal statement.
+const observedPrefixesSchema = z.unknown().superRefine((raw,ctx)=>{
+  if(raw===null||typeof raw!=='object'||Array.isArray(raw))return;
+  const prototype=Object.getPrototypeOf(raw);
+  if(prototype!==Object.prototype&&prototype!==null){
+    ctx.addIssue({code:'custom',message:'Observed vector is not a plain map'});
+  }
+  for(const key of Object.keys(raw)){
+    if(!z.uuid().safeParse(key).success){
+      ctx.addIssue({code:'custom',message:'Invalid replica key in causal vector'});
+    }
+  }
+}).pipe(z.record(z.uuid(),z.number().int().nonnegative().safe()));
+
 export const causalReceiptV2Schema = z.strictObject({
   protocol: z.literal(2),
   ownerUid: uidSchema,
@@ -19,7 +35,7 @@ export const causalReceiptV2Schema = z.strictObject({
   operationId: z.string().min(1).max(160),
   appliedAt: z.number().int().nonnegative().safe(),
   // A vector of operations observed BEFORE this event. Counts include 0.
-  observedPrefixes: z.record(z.uuid(), z.number().int().nonnegative().safe()),
+  observedPrefixes: observedPrefixesSchema,
   operation: domainOperationSchema
 }).superRefine((row,ctx)=>{
   if(row.operationId!==row.replicaId+':'+row.sequence){
