@@ -75,6 +75,15 @@ export async function inspectObservationPreflight(
       matchingCurrentCount++;
     }
   }
+  // Reject an intervening local edit BEFORE the extra server request,
+  // so the real concurrent-IDB cause cannot be masked as an unconfirmed
+  // pending operation discovered by the second journal candidate.
+  if(!isStillAuthorized())throw new ReconciliationBlocked('identity-changed');
+  const intermediate=await repository.read();
+  if(!isStillAuthorized())throw new ReconciliationBlocked('identity-changed');
+  if(!sameObservation(before,intermediate)){
+    throw new ReconciliationBlocked('concurrent-local-change');
+  }
   // A journal append/rewrite BETWEEN the two server collection reads
   // invalidates the candidate. This is a second FULL server scan, not a
   // transaction or proof that the remote history cannot change afterward.

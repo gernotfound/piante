@@ -195,6 +195,24 @@ describe('M5b-3b verified advisory preflight (CRITICAL, no GC)',()=>{
     expect(await first.read()).toEqual(before);
   });
 
+  it('classifies local edits after observations before a second network request',async()=>{
+    const {first,rows,before}=await setup();
+    const scanned=vi.fn(async()=>rows.map(data=>({id:data.operationId,data})));
+    const changes={
+      readAll:async()=>{
+        await first.commit(plant('new-local'));
+        return [] as ObservationRow[];
+      }
+    };
+    await expect(inspectObservationPreflight(first,{readAll:scanned},
+      changes,'alice',()=>true))
+      .rejects.toMatchObject({reason:'concurrent-local-change'});
+    expect(scanned).toHaveBeenCalledTimes(1);
+    const after=await first.read();
+    expect(after.pending).toHaveLength(before.pending.length+1);
+    expect(after.data.plants['new-local'].commonName).toBe('new-local');
+  });
+
   it('blocks an authorization-epoch change during the second journal read',async()=>{
     const {first,rows,before}=await setup();
     let authorized=true,count=0;
