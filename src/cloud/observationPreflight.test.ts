@@ -138,6 +138,108 @@ describe('M5b-3b verified advisory preflight (CRITICAL, no GC)',()=>{
     expect(await first.read()).toEqual(before);
   });
 
+  it('detects a new remote journal operation committed during the observation read',async()=>{
+    const {first,rows,before}=await setup();
+    const third=repo();
+    await third.commit(plant('late-remote'));
+    const later=await receipts(third);
+    let serverRows=[...rows];
+    const scanned=vi.fn(async()=>serverRows.map(data=>({id:data.operationId,data})));
+    const query=vi.fn(async()=>{
+      serverRows=[...rows,...later];
+      return [] as ObservationRow[];
+    });
+    await expect(inspectObservationPreflight(first,{readAll:scanned},
+      {readAll:query},'alice',()=>true))
+      .rejects.toMatchObject({reason:'remote-changed'});
+    expect(scanned).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(await first.read()).toEqual(before);
+  });
+
+  it('detects a changed remote operation payload even when counts and prefixes stay equal',async()=>{
+    const {first,rows,before}=await setup();
+    const altered:CloudJournalRecord={
+      ...rows[1],
+      operation:{type:'plant.create',plant:{
+        id:'feijoa',commonName:'Tampered after first scan',
+        origin:'seed',status:'active'
+      }}
+    };
+    let count=0;
+    const dynamicJournal:CloudJournalReader={
+      readAll:async()=>{
+        count++;
+        return (count===1?rows:[rows[0],altered])
+          .map(data=>({id:data.operationId,data}));
+      }
+    };
+    await expect(inspectObservationPreflight(first,dynamicJournal,
+      source([]),'alice',()=>true)).rejects.toMatchObject({reason:'remote-changed'});
+    expect(count).toBe(2);
+    expect(await first.read()).toEqual(before);
+  });
+
+  it('fails closed when the second server read fails after a successful observation scan',async()=>{
+    const {first,rows,before}=await setup();
+    let count=0;
+    await expect(inspectObservationPreflight(first,{
+      readAll:async()=>{
+        count++;
+        if(count===2)throw new Error('Second server request timed out');
+        return rows.map(data=>({id:data.operationId,data}));
+      }
+    },source([]),'alice',()=>true))
+      .rejects.toMatchObject({reason:'remote-unavailable'});
+    expect(count).toBe(2);
+    expect(await first.read()).toEqual(before);
+  });
+
+  it('classifies local edits after observations before a second network request',async()=>{
+    const {first,rows,before}=await setup();
+    const scanned=vi.fn(async()=>rows.map(data=>({id:data.operationId,data})));
+    const changes={
+      readAll:async()=>{
+        await first.commit(plant('new-local'));
+        return [] as ObservationRow[];
+      }
+    };
+    await expect(inspectObservationPreflight(first,{readAll:scanned},
+      changes,'alice',()=>true))
+      .rejects.toMatchObject({reason:'concurrent-local-change'});
+    expect(scanned).toHaveBeenCalledTimes(1);
+    const after=await first.read();
+    expect(after.pending).toHaveLength(before.pending.length+1);
+    expect(after.data.plants['new-local'].commonName).toBe('new-local');
+  });
+
+  it('blocks an authorization-epoch change during the second journal read',async()=>{
+    const {first,rows,before}=await setup();
+    let authorized=true,count=0;
+    const inspected:CloudJournalReader={
+      readAll:async()=>{
+        count++;
+        if(count===2)authorized=false;
+        return rows.map(data=>({id:data.operationId,data}));
+      }
+    };
+    await expect(inspectObservationPreflight(first,inspected,source([]),
+      'alice',()=>authorized)).rejects.toMatchObject({reason:'identity-changed'});
+    expect(count).toBe(2);
+    expect(await first.read()).toEqual(before);
+  });
+
+  it('reads two exact bounded server journal snapshots on an unchanged remote history',async()=>{
+    const {first,rows,before}=await setup();
+    const scanned=vi.fn(async()=>rows.map(data=>({id:data.operationId,data})));
+    const result=await inspectObservationPreflight(first,{readAll:scanned},source([]),
+      'alice',()=>true,5);
+    expect(result).toMatchObject({status:'cross-check-only',compactionAuthorized:false});
+    expect(scanned).toHaveBeenNthCalledWith(1,'alice',5);
+    expect(scanned).toHaveBeenNthCalledWith(2,'alice',5);
+    expect(await first.read()).toEqual(before);
+  });
+
   it('never treats a zero-replica observation collection as a stable quorum',async()=>{
     const {first,rows,before}=await setup();
     const result=await inspectObservationPreflight(first,journal(rows),

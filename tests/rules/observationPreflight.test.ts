@@ -92,6 +92,50 @@ describe('M5b-3b complete server journal/observation preflight (CRITICAL)',()=>{
     expect(await repo.read()).toEqual(before);
   });
 
+  it('rejects a new receipt appended to Firestore after the observation server query',async()=>{
+    const {repo,before,firestore,journal}=await setup();
+    const baseReader=firestoreObservationReader(firestore);
+    const candidate='123e4567-e89b-42d3-a456-426614174000';
+    const replica=candidate===before.replicaId
+      ?'123e4567-e89b-42d3-a456-426614174001':candidate;
+    const duringObservation={
+      readAll:async(ownerUid:string,max:number)=>{
+        const previous=await baseReader.readAll(ownerUid,max);
+        await firestoreJournalPort(firestore).appendOnce({
+          protocol:1,ownerUid:'alice',replicaId:replica,
+          operationId:replica+':1',sequence:1,appliedAt:1001,
+          operation:{type:'plant.create',plant:{
+            id:'guava-late',commonName:'Guava tardiva',
+            origin:'seed',status:'active'
+          }}
+        });
+        return previous;
+      }
+    };
+    await expect(inspectObservationPreflight(repo,journal,duringObservation,
+      'alice',()=>true)).rejects.toMatchObject({reason:'remote-changed'});
+    expect(await repo.read()).toEqual(before);
+    expect(before.pending).toHaveLength(1);
+  });
+
+  it('blocks a grant revocation occurring after the observation scan',async()=>{
+    const {repo,before,firestore,journal}=await setup();
+    const baseReader=firestoreObservationReader(firestore);
+    const revokeAfterRead={
+      readAll:async(ownerUid:string,max:number)=>{
+        const rows=await baseReader.readAll(ownerUid,max);
+        await env.withSecurityRulesDisabled(async ctx=>{
+          await updateDoc(doc(ctx.firestore(),'piante_access/alice'),{enabled:false});
+        });
+        return rows;
+      }
+    };
+    await expect(inspectObservationPreflight(repo,journal,revokeAfterRead,
+      'alice',()=>true)).rejects.toMatchObject({reason:'remote-unavailable'});
+    expect(await repo.read()).toEqual(before);
+    expect(before.pending).toHaveLength(1);
+  });
+
   it('denies foreign and revoked access, and keeps all local pending intents',async()=>{
     const {repo,before,firestore,journal}=await setup();
     const ownReader=firestoreObservationReader(firestore);
