@@ -6,7 +6,7 @@ import { type LocalGardenRepository } from '../storage/localRepository';
 
 /** No remote observation can prove causal finality, even after this cross-check. */
 export class ObservationPreflightBlocked extends Error{
-  constructor(readonly reason:'prefix-ahead'|'digest-disagreement'){
+  constructor(readonly reason:'prefix-ahead'|'digest-disagreement'|'remote-changed'){
     super('Preflight osservazioni bloccato: '+reason);
     this.name='ObservationPreflightBlocked';
   }
@@ -24,7 +24,9 @@ export type ObservationPreflight={
 /**
  * Contrast advisory observations with a verified full *bounded* journal scan,
  * not just with other client-generated attestations. The two server queries
- * are NOT atomic and all results remain non-authoritative for GC/recovery.
+ * are NOT atomic; the journal is re-read afterward to reject observed
+ * changes DURING the audit window, but this cannot prevent later writes.
+ * All results remain non-authoritative for GC/recovery.
  */
 export async function inspectObservationPreflight(
   repository:LocalGardenRepository,journal:CloudJournalReader,
@@ -72,6 +74,16 @@ export async function inspectObservationPreflight(
       }
       matchingCurrentCount++;
     }
+  }
+  // A journal append/rewrite BETWEEN the two server collection reads
+  // invalidates the candidate. This is a second FULL server scan, not a
+  // transaction or proof that the remote history cannot change afterward.
+  // The extra read cost is acceptable only in this bounded laboratory path.
+  const rechecked=await inspectCheckpointCandidate(
+    repository,journal,ownerUid,isStillAuthorized,max
+  );
+  if(!sameObservation(candidate,rechecked)){
+    throw new ObservationPreflightBlocked('remote-changed');
   }
   if(!isStillAuthorized())throw new ReconciliationBlocked('identity-changed');
   const after=await repository.read();
