@@ -47,3 +47,22 @@ jobs:
         run: npm install --no-save --no-package-lock firebase@12.19.0 @firebase/rules-unit-testing@5.0.2 firebase-tools@15.30.1
       - name: Test real Firestore Rules against emulator
         run: npx --no-install firebase emulators:exec --config firebase.emulator.json --project demo-piante-rules --only firestore "node --test tests/emulator.test.mjs"
+
+  browser-responsive:
+    name: Responsive browser smoke
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned browser runner
+        run: npm install --no-save --no-package-lock playwright@1.62.1
+      - name: Check responsive layout in Chromium
+        run: node --test tests/browser.test.mjs
