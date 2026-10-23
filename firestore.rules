@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isApproved(uid) {
+      return signedIn() && request.auth.uid == uid &&
+        get(/databases/$(database)/documents/access_grants/$(uid)).data.enabled == true;
+    }
+    function isOwner(uid) {
+      return isApproved(uid);
+    }
+    function validUsername(name) {
+      return name is string &&
+        name.matches('^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$') &&
+        !name.matches('.*--.*') &&
+        !(name in ['app','login','privacy','impostazioni','assets','images','scripts','favicon','api','admin','www']);
+    }
+    function ownsHandle(username) {
+      return signedIn() && isApproved(request.auth.uid) &&
+        get(/databases/$(database)/documents/handles/$(username)).data.ownerUid == request.auth.uid;
+    }
+    function willOwnHandle(username) {
+      return signedIn() && isApproved(request.auth.uid) &&
+        getAfter(/databases/$(database)/documents/handles/$(username)).data.ownerUid == request.auth.uid;
+    }
+    function gardenIsVisible(username) {
+      return get(/databases/$(database)/documents/public_gardens/$(username)).data.visible == true;
+    }
+    function validPrivateProfile(data) {
+      return data.keys().hasAll(['username','displayName','about','visible']) &&
+        data.keys().hasOnly(['username','displayName','about','visible']) &&
+        validUsername(data.username) &&
+        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 80 &&
+        data.about is string && data.about.size() <= 600 &&
+        data.visible is bool;
+    }
+    function validPrivatePlant(data) {
+      return data.keys().hasAll([
+        'name','scientificName','description','imageUrl','tags','published','shareScientificName',
+        'shareDescription','shareTags','shareImage','createdAt','updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'name','scientificName','description','imageUrl','tags','published','shareScientificName',
+        'shareDescription','shareTags','shareImage','createdAt','updatedAt'
+      ]) &&
+      data.name is string && data.name.size() > 0 && data.name.size() <= 90 &&
+      data.scientificName is string && data.scientificName.size() <= 120 &&
+      data.description is string && data.description.size() <= 2000 &&
+      data.imageUrl is string && data.imageUrl.size() <= 500 &&
+      data.tags is list && data.tags.size() <= 12 &&
+      data.published is bool && data.shareScientificName is bool &&
+      data.shareDescription is bool && data.shareTags is bool && data.shareImage is bool &&
+      data.createdAt is number && data.updatedAt is number;
+    }
+    function validPublicProfile(data) {
+      return data.keys().hasAll(['displayName','about','visible','updatedAt']) &&
+        data.keys().hasOnly(['displayName','about','visible','updatedAt']) &&
+        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 80 &&
+        data.about is string && data.about.size() <= 600 &&
+        data.visible is bool && data.updatedAt is number;
+    }
+    function validPublicPlant(data) {
+      return data.keys().hasAll(['name','updatedAt']) &&
+        data.keys().hasOnly(['name','scientificName','description','tags','imageUrl','updatedAt']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 90 &&
+        data.updatedAt is number &&
+        data.get('scientificName','') is string && data.get('scientificName','').size() <= 120 &&
+        data.get('description','') is string && data.get('description','').size() <= 2000 &&
+        data.get('tags',[]) is list && data.get('tags',[]).size() <= 12 &&
+        data.get('imageUrl','') is string && data.get('imageUrl','').size() <= 500;
+    }
+    match /profiles/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create: if isOwner(uid) && validPrivateProfile(request.resource.data) &&
+        willOwnHandle(request.resource.data.username);
+      allow update: if isOwner(uid) &&
+        request.resource.data.username == resource.data.username &&
+        validPrivateProfile(request.resource.data);
+      allow delete: if false;
+
+      match /plants/{plantId} {
+        allow get, list: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validPrivatePlant(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
+      match /tags/{tagId} {
+        allow get, list: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          request.resource.data.keys().hasOnly(['name']) &&
+          request.resource.data.keys().hasAll(['name']) &&
+          request.resource.data.name is string &&
+          request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 32;
+        allow update, delete: if false;
+      }
+    }
+    match /handles/{username} {
+      allow get: if signedIn() && isApproved(request.auth.uid);
+      allow list: if false;
+      allow create: if signedIn() && isApproved(request.auth.uid) && validUsername(username) &&
+        request.resource.data.keys().hasOnly(['ownerUid']) &&
+        request.resource.data.keys().hasAll(['ownerUid']) &&
+        request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /public_gardens/{username} {
+      allow get: if resource.data.visible == true || ownsHandle(username);
+      allow list: if resource.data.visible == true;
+      allow create: if willOwnHandle(username) && validPublicProfile(request.resource.data);
+      allow update: if ownsHandle(username) && validPublicProfile(request.resource.data);
+      allow delete: if false;
+
+      match /plants/{plantId} {
+        allow get, list: if gardenIsVisible(username) || ownsHandle(username);
+        allow create, update: if ownsHandle(username) && validPublicPlant(request.resource.data);
+        allow delete: if ownsHandle(username);
+      }
+    }
+
+    // access_grants/{uid} is provisioned by a trusted administrator and is never client-writable.
+    // Default-deny also blocks the legacy namespace /users and unknown collections.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
