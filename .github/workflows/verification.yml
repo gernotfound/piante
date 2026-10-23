@@ -1,0 +1,29 @@
+name: Website verification
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  static-and-unit:
+    name: Static & unit checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check browser modules syntax
+        run: |
+          for module in web/firebase-config.mjs web/scripts/*.mjs; do node --check "$module"; done
+      - name: Validate static Hosting and tests
+        run: npm run verify
+      - name: Guard no accidental Firebase deploy
+        run: |
+          test ! -e .firebaserc.local
+          test ! -e web/sw.js

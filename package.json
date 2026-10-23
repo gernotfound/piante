@@ -1,0 +1,12 @@
+{
+  "name": "piante",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sito botanico responsive con archivio privato e vetrine pubbliche.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node scripts/verify-static.mjs && node --test tests/*.test.mjs"
+  },
+  "engines": {"node": ">=22"}
+}
