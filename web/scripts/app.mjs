@@ -10,7 +10,7 @@ const state = {
   user: null, firebase: null, store: null, profile: null,
   plants: [], tags: [], publicData: null, publicHandle: "",
   search: "", tag: "", pending: false, notice: "", routeCount: 0,
-  authReady: false
+  authReady: false, accessError: null
 };
 const h = value => e(value ?? "");
 const href = path => 'href="' + h(path) + '" data-nav';
@@ -45,7 +45,8 @@ function loading(title = "Sto aprendo il giardino…") {
 }
 function showError(title, message) {
   shell('<main class="wrap empty-page"><div class="overline">UN PICCOLO IMPREVISTO</div><h1>' + h(title) + '</h1><p>' + h(message) +
-    '</p><a class="button button-dark" ' + href("/") + '>Torna alla homepage <span aria-hidden="true">↗</span></a></main>');
+    '</p><a class="button button-dark" ' + href("/") + '>Torna alla homepage <span aria-hidden="true">↗</span></a>' +
+    (state.user ? '<button type="button" class="text-link" data-action="signout">Esci dall’account</button>' : "") + '</main>');
 }
 function home() {
   shell('<main><section class="hero wrap"><div class="hero-copy"><div class="overline"><span class="mini-line"></span> IL GIARDINO DIGITALE</div>' +
@@ -173,6 +174,7 @@ function plantDetail(garden, plant) {
 async function hydratePrivate() {
   if (!state.user || !state.store) return;
   const uid = state.user.uid;
+  state.accessError=null;
   const profile = await state.store.privateProfile(uid);
   if (state.user?.uid !== uid) return;
   state.profile = profile;
@@ -194,6 +196,7 @@ async function render() {
   if (protectedPath(path)) {
     if (!firebaseConfigured()) { showError("Configurazione mancante","Configura Firebase prima di accedere all'archivio."); return; }
     if (!state.user) { login(); return; }
+    if (state.accessError) { showError("Accesso non autorizzato",state.accessError); return; }
     if (!state.profile) { onboarding(); return; }
     if (path==="/app") { privateIndex(); return; }
     if (path==="/app/tags") { tagsPage(); return; }
@@ -243,7 +246,7 @@ document.addEventListener("click",event=>{
     if(current){const replacement=document.createElement("div");replacement.innerHTML=gallery(state.publicData);current.replaceWith(replacement.firstElementChild);}
   }return;}
   const action=event.target.closest("[data-action]")?.dataset.action;
-  if(action==="signout") safely(async()=>{await state.firebase.api.signOut(state.firebase.auth);state.profile=null;state.plants=[];navigate("/");});
+  if(action==="signout") safely(async()=>{await state.firebase.api.signOut(state.firebase.auth);state.profile=null;state.plants=[];state.accessError=null;navigate("/");});
   if(action==="optimize") safely(optimizePhoto);
   if(action==="delete-plant") safely(async()=>{
     const id=event.target.closest("[data-id]")?.dataset.id;
@@ -342,8 +345,8 @@ async function start() {
     state.firebase.api.onAuthStateChanged(state.firebase.auth,async user=>{
       state.user=user;state.authReady=true;
       if(user) {
-        try {await hydratePrivate();} catch(error){state.profile=null;state.notice="Non riesco a leggere il tuo archivio: "+error.message;}
-      } else {state.profile=null;state.plants=[];state.tags=[];}
+        try {await hydratePrivate();} catch(error){state.profile=null;state.accessError="Questo account non è autorizzato a usare Piante, oppure non è possibile leggere Firebase. Verifica il grant nella Console. Dettaglio: "+error.message;}
+      } else {state.profile=null;state.plants=[];state.tags=[];state.accessError=null;}
       render();
     },error=>{state.authReady=true;status(error.message,"error");render();});
   }catch(error){state.authReady=true;showError("Collegamento non disponibile",error.message);}

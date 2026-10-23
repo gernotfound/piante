@@ -14,13 +14,22 @@ test("Firestore Rules: proprietà, registrazione, isolamento e pubblicazione", a
   const alice=env.authenticatedContext("alice").firestore();
   const bob=env.authenticatedContext("bob").firestore();
   const anonymous=env.unauthenticatedContext().firestore();
+  const unapproved=env.authenticatedContext("unapproved").firestore();
   const username="giardino-alice";
 
   try {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const admin=ctx.firestore();
+      await admin.doc("access_grants/alice").set({enabled:true});
+      await admin.doc("access_grants/bob").set({enabled:true});
+    });
     await t.test("default deny per il vecchio namespace e per gli sconosciuti",async()=>{
       await assertFails(anonymous.doc("users/alice").get());
       await assertFails(alice.doc("users/alice").set({migrated:true}));
       await assertFails(alice.doc("admin/secrets").get());
+      await assertFails(unapproved.doc("profiles/unapproved").get());
+      await assertFails(unapproved.doc("handles/giardino-unapproved").set({ownerUid:"unapproved"}));
+      await assertFails(alice.doc("access_grants/alice").delete());
     });
     await t.test("registrazione atomica profilo e handle",async()=>{
       await assertSucceeds(alice.runTransaction(async tx=>{

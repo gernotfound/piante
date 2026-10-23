@@ -4,8 +4,12 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null;
     }
+    function isApproved(uid) {
+      return signedIn() && request.auth.uid == uid &&
+        get(/databases/$(database)/documents/access_grants/$(uid)).data.enabled == true;
+    }
     function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
+      return isApproved(uid);
     }
     function validUsername(name) {
       return name is string &&
@@ -14,11 +18,11 @@ service cloud.firestore {
         !(name in ['app','login','privacy','impostazioni','assets','images','scripts','favicon','api','admin','www']);
     }
     function ownsHandle(username) {
-      return signedIn() &&
+      return signedIn() && isApproved(request.auth.uid) &&
         get(/databases/$(database)/documents/handles/$(username)).data.ownerUid == request.auth.uid;
     }
     function willOwnHandle(username) {
-      return signedIn() &&
+      return signedIn() && isApproved(request.auth.uid) &&
         getAfter(/databases/$(database)/documents/handles/$(username)).data.ownerUid == request.auth.uid;
     }
     function gardenIsVisible(username) {
@@ -93,9 +97,9 @@ service cloud.firestore {
       }
     }
     match /handles/{username} {
-      allow get: if signedIn();
+      allow get: if signedIn() && isApproved(request.auth.uid);
       allow list: if false;
-      allow create: if signedIn() && validUsername(username) &&
+      allow create: if signedIn() && isApproved(request.auth.uid) && validUsername(username) &&
         request.resource.data.keys().hasOnly(['ownerUid']) &&
         request.resource.data.keys().hasAll(['ownerUid']) &&
         request.resource.data.ownerUid == request.auth.uid;
@@ -115,6 +119,7 @@ service cloud.firestore {
       }
     }
 
+    // access_grants/{uid} is provisioned by a trusted administrator and is never client-writable.
     // Default-deny also blocks the legacy namespace /users and unknown collections.
     match /{document=**} {
       allow read, write: if false;
