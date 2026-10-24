@@ -31,8 +31,8 @@ test("popup bloccato: redirect avviato, senza falso successo",async()=>{
 });
 test("cancellazione silenziosa; network dà messaggio dedicato",async()=>{
   assert.equal(await signInGoogle({},fakeApi("auth/popup-closed-by-user")),"cancelled");
-  await assert.rejects(signInGoogle({},fakeApi("auth/network-request-failed"))),/Connessione/);
+  await assert.rejects(signInGoogle({},fakeApi("auth/network-request-failed")) ,/Connessione/);
 });
 test("errore generico non espone dettagli sensibili",async()=>{
-  await assert.rejects(signInGoogle({},fakeApi("auth/invalid-api-key"))),/Accesso Google non riuscito/);
+  await assert.rejects(signInGoogle({},fakeApi("auth/invalid-api-key")) ,/Accesso Google non riuscito/);
 });
