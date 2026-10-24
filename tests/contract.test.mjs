@@ -32,3 +32,11 @@ test("contratti e istruzioni conservati nei file per agenti, non nel README",asy
   assert.match(agents,/\.agents\/rules\/firestore-and-publication\.md/);
   assert.match(agents,/\.agents\/rules\/verification-and-release\.md/);
 });
+
+test("preflight Hosting è manuale, senza deploy automatico",async()=>{
+  const manual=await readFile(new URL("../.github/workflows/hosting-readiness.yml",import.meta.url),"utf8");
+  assert.match(manual,/workflow_dispatch:/);
+  assert.match(manual,/permissions:\s*\n\s*contents: read/);
+  assert.doesNotMatch(manual,/firebase deploy|google-github-actions\/auth|GCP_ACCESS_TOKEN/);
+  assert.match(manual,/npm run check:hosting/);
+});

@@ -50,3 +50,8 @@ Nota storica: inventario iniziale del 23 ottobre 2026 per il riavvio **sito web 
 - Esaminati LogBook e i suoi contratti Google popup, Firebase Web, CI e sicurezza. Adottati classificazione popup/cancellazione/network, fallback redirect, session fences e convalida stretta progetto/origine.
 - Il nuovo bootstrap utilizza la configurazione pubblica fornita da Firebase Hosting sull'origine piante.web.app. I path riservati sono documentati ufficialmente: https://firebase.google.com/docs/hosting/reserved-urls . Nessuna API key/App ID o credenziale amministrativa è stata copiata da LogBook o da altri progetti.
 - Nessuna verifica della risposta reale dell'endpoint, nessun deploy, nessuna modifica Auth o Firestore effettuata in questa modifica GitHub.
+
+## Controllo di pubblicazione di sola lettura — 24 ottobre 2026
+- Preparati `scripts/hosting-readiness.mjs` e `.github/workflows/hosting-readiness.yml` per verificare da GitHub Actions lo stato pubblico del sito `piante.web.app` senza credenziali e senza deploy.
+- Da questa sessione il dominio non è stato accessibile tramite gli strumenti disponibili; questo **non** permette di dedurre che il sito sia inattivo. Nessun inventario privilegiato del provider è stato ottenuto.
+- Per il primo deploy deliberato seguire `docs/operations/firebase-release.md`. Le Rules live restano da verificare e sono indipendenti dalla CI su Emulator.

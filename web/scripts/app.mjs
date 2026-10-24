@@ -194,7 +194,6 @@ async function render() {
   const token=++state.routeCount;
   const path=currentPath();
   window.scrollTo({top:0,behavior:"instant"});
-  state.search=""; state.tag="";
   if (path==="/") { home(); return; }
   if (!state.authReady) { loading("Connessione al giardino…"); return; }
   if (path==="/login") { login(); return; }
@@ -233,7 +232,7 @@ async function render() {
     }
   } catch (error) { if(token===state.routeCount) showError("Impossibile caricare il giardino",error.message); }
 }
-function navigate(path) { if(location.pathname!==path) history.pushState({},"",path); render(); }
+function navigate(path) { if(location.pathname!==path) history.pushState({},"",path); state.search=""; state.tag=""; render(); }
 async function safely(action) {
   if (state.pending) return;
   state.pending=true;
@@ -341,7 +340,7 @@ async function optimizePhoto() {
     status("WebP generato ("+Math.round(blob.size/1024)+" KB). Caricalo in web/images/ su GitHub.","success");
   } finally {source.close();}
 }
-window.addEventListener("popstate",render);
+window.addEventListener("popstate",()=>{ state.search=""; state.tag=""; render(); });
 async function start() {
   home();
   try {

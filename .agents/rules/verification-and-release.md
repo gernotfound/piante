@@ -29,3 +29,9 @@ L'eliminazione completa delle identità e dei dati attraverso profili, handle, s
 
 ## Bootstrap Firebase dal dominio corretto
 Su `https://piante.web.app` usare solamente il JSON riservato `/__/firebase/init.json` con `projectId === pianta-db`; nessuna inizializzazione per altri progetti o in presenza di config parziali. L'endpoint è di Hosting, non delle Rules. Verificare `GET` e Content-Type **dal dominio reale** prima di qualunque deploy, senza stampare la API key nei log di CI. Mancata risposta / mismatch = accesso non disponibile (fail closed), non fallback a `pianta-db.web.app`.
+
+## Controllo pubblico di readiness (sola lettura)
+- Script: `npm run check:hosting`; workflow manuale `.github/workflows/hosting-readiness.yml`. Non richiede credenziali Firebase e NON distribuisce nulla.
+- Il controllo esamina soltanto homepage/headers, modulo JS pubblico e `/__/firebase/init.json` sul sito `https://piante.web.app`. Verifica l'identità del progetto ma non scrive o divulga i valori della configurazione Web.
+- Prima del primo deploy un FAIL è atteso; un PASS non certifica l'accesso Google né le Rules live.
+- Controllare i provider con accesso autorizzato prima di effettuare qualunque deploy; istruzioni in `docs/operations/firebase-release.md`.

@@ -35,3 +35,6 @@ Leggere `docs/firebase-configurazione.md`, verificarne lo stato provider, approv
 - Da `src/lib/firebase.ts`: validazione esplicita prima dell'inizializzazione, stesso origin Auth, nessuna persistenza Firestore IndexedDB aggiuntiva. Adattato in `web/scripts/firebase-web-config.mjs` e `web/scripts/firebase.mjs`.
 - Da `.agents/rules/ci-verification.md`: test sullo SHA esatto; nessun deploy quando CI è verde di per sé.
 - **Non riutilizzare** LogBook guest migrations, vault cifrato, journal offline, Vercel APIs, App Check senza provider verificato, Google password methods o database: rispondono a requisiti diversi e potrebbero aumentare costi e rischio.
+
+## Preflight pubblico a credenziali zero
+Il controllo `npm run check:hosting` e il workflow manuale `.github/workflows/hosting-readiness.yml` interrogano esclusivamente asset pubblici del sito `piante.web.app`: nessun Admin SDK, IAM, Web API key stampata o modifica del provider. I test del bootstrap continuano a usare mock; soltanto un read-back HTTP dal provider conferma la risposta effettiva. La release checklist è in `docs/operations/firebase-release.md`.
