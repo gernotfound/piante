@@ -42,13 +42,14 @@ service cloud.firestore {
         'shareDescription','shareTags','shareImage','createdAt','updatedAt'
       ]) &&
       data.keys().hasOnly([
-        'name','scientificName','description','imageUrl','tags','published','shareScientificName',
+        'name','scientificName','description','imageUrl','imageStored','tags','published','shareScientificName',
         'shareDescription','shareTags','shareImage','createdAt','updatedAt'
       ]) &&
       data.name is string && data.name.size() > 0 && data.name.size() <= 90 &&
       data.scientificName is string && data.scientificName.size() <= 120 &&
       data.description is string && data.description.size() <= 2000 &&
       data.imageUrl is string && data.imageUrl.size() <= 500 &&
+      data.get('imageStored',false) is bool &&
       data.tags is list && data.tags.size() <= 12 &&
       data.published is bool && data.shareScientificName is bool &&
       data.shareDescription is bool && data.shareTags is bool && data.shareImage is bool &&
@@ -63,13 +64,14 @@ service cloud.firestore {
     }
     function validPublicPlant(data) {
       return data.keys().hasAll(['name','updatedAt']) &&
-        data.keys().hasOnly(['name','scientificName','description','tags','imageUrl','updatedAt']) &&
+        data.keys().hasOnly(['name','scientificName','description','tags','imageUrl','imageStored','updatedAt']) &&
         data.name is string && data.name.size() > 0 && data.name.size() <= 90 &&
         data.updatedAt is number &&
         data.get('scientificName','') is string && data.get('scientificName','').size() <= 120 &&
         data.get('description','') is string && data.get('description','').size() <= 2000 &&
         data.get('tags',[]) is list && data.get('tags',[]).size() <= 12 &&
-        data.get('imageUrl','') is string && data.get('imageUrl','').size() <= 500;
+        data.get('imageUrl','') is string && data.get('imageUrl','').size() <= 500 &&
+        data.get('imageStored',false) is bool;
     }
     // Each public document must be the exact projection of its private source.
     // getAfter() checks the entire atomic batch/transaction, not only the prior state.
@@ -87,7 +89,10 @@ service cloud.firestore {
         (!pub.keys().hasAny(['tags']) || pub.tags == priv.tags) &&
         pub.keys().hasAny(['imageUrl']) ==
           (priv.shareImage && priv.imageUrl.size() > 0) &&
-        (!pub.keys().hasAny(['imageUrl']) || pub.imageUrl == priv.imageUrl);
+        (!pub.keys().hasAny(['imageUrl']) || pub.imageUrl == priv.imageUrl) &&
+        pub.keys().hasAny(['imageStored']) ==
+          (priv.shareImage && priv.get('imageStored',false) == true) &&
+        (!pub.keys().hasAny(['imageStored']) || pub.imageStored == true);
     }
     function publicProfileMatchesAfter(uid, username, data) {
       let publicDoc = getAfter(/databases/$(database)/documents/public_gardens/$(username));
@@ -103,6 +108,39 @@ service cloud.firestore {
         privateDoc.data.about == data.about &&
         privateDoc.data.visible == data.visible;
     }
+    function mediaPathFor(uid, plantId) {
+      let username = get(/databases/$(database)/documents/profiles/$(uid)).data.username;
+      return /databases/$(database)/documents/plant_media/$(username)/plants/$(plantId);
+    }
+    function privateMediaMatchesAfter(uid, plantId, data) {
+      let photo = mediaPathFor(uid,plantId);
+      return data.get('imageStored',false) == true ? existsAfter(photo) : !existsAfter(photo);
+    }
+    function validPhoto(data) {
+      return data.keys().hasAll(['bytes','mime','width','height','size','updatedAt']) &&
+        data.keys().hasOnly(['bytes','mime','width','height','size','updatedAt']) &&
+        data.bytes is bytes && data.bytes.size() > 0 && data.bytes.size() <= 122880 &&
+        data.size is int && data.size == data.bytes.size() &&
+        data.mime == 'image/webp' &&
+        data.width is int && data.width > 0 && data.width <= 1080 &&
+        data.height is int && data.height > 0 && data.height <= 1080 &&
+        data.updatedAt is number;
+    }
+    function mediaOwnerWrite(username, plantId) {
+      let p = /databases/$(database)/documents/profiles/$(request.auth.uid)/plants/$(plantId);
+      return ownsHandle(username) && existsAfter(p) &&
+        getAfter(p).data.get('imageStored',false) == true;
+    }
+    function mediaOwnerDelete(username, plantId) {
+      let p = /databases/$(database)/documents/profiles/$(request.auth.uid)/plants/$(plantId);
+      return ownsHandle(username) &&
+        (!existsAfter(p) || getAfter(p).data.get('imageStored',false) == false);
+    }
+    function photoIsPublic(username, plantId) {
+      let p = /databases/$(database)/documents/public_gardens/$(username)/plants/$(plantId);
+      return gardenIsVisible(username) && exists(p) &&
+        get(p).data.get('imageStored',false) == true;
+    }
     function publicPlantMatchesAfter(uid, plantId, data) {
       let username = get(/databases/$(database)/documents/profiles/$(uid)).data.username;
       let publicPath = /databases/$(database)/documents/public_gardens/$(username)/plants/$(plantId);
@@ -112,12 +150,15 @@ service cloud.firestore {
     }
     function canRemovePrivatePlant(uid, plantId) {
       let username = get(/databases/$(database)/documents/profiles/$(uid)).data.username;
-      return !existsAfter(/databases/$(database)/documents/public_gardens/$(username)/plants/$(plantId));
+      return !existsAfter(/databases/$(database)/documents/public_gardens/$(username)/plants/$(plantId)) &&
+        !existsAfter(mediaPathFor(uid,plantId));
     }
     function canWritePublicPlant(username, plantId, pub) {
       let privatePath = /databases/$(database)/documents/profiles/$(request.auth.uid)/plants/$(plantId);
       return ownsHandle(username) && existsAfter(privatePath) &&
-        matchesPublicPlant(pub, getAfter(privatePath).data);
+        matchesPublicPlant(pub, getAfter(privatePath).data) &&
+        (pub.get('imageStored',false) == false ||
+          existsAfter(/databases/$(database)/documents/plant_media/$(username)/plants/$(plantId)));
     }
     function canRemovePublicPlant(username, plantId) {
       let privatePath = /databases/$(database)/documents/profiles/$(request.auth.uid)/plants/$(plantId);
@@ -139,10 +180,12 @@ service cloud.firestore {
       match /plants/{plantId} {
         allow get, list: if isOwner(uid);
         allow create: if isOwner(uid) && exists(/databases/$(database)/documents/profiles/$(uid)) &&
-          validPrivatePlant(request.resource.data) && publicPlantMatchesAfter(uid, plantId, request.resource.data);
+          validPrivatePlant(request.resource.data) && publicPlantMatchesAfter(uid, plantId, request.resource.data) &&
+          privateMediaMatchesAfter(uid, plantId, request.resource.data);
         allow update: if isOwner(uid) && validPrivatePlant(request.resource.data) &&
           request.resource.data.createdAt == resource.data.createdAt &&
-          publicPlantMatchesAfter(uid, plantId, request.resource.data);
+          publicPlantMatchesAfter(uid, plantId, request.resource.data) &&
+          privateMediaMatchesAfter(uid, plantId, request.resource.data);
         allow delete: if isOwner(uid) && canRemovePrivatePlant(uid, plantId);
       }
       match /tags/{tagId} {
@@ -178,6 +221,19 @@ service cloud.firestore {
         allow get, list: if gardenIsVisible(username) || ownsHandle(username);
         allow create, update: if canWritePublicPlant(username, plantId, request.resource.data);
         allow delete: if canRemovePublicPlant(username, plantId);
+      }
+    }
+
+    match /plant_media/{username} {
+      allow read, write: if false;
+      match /plants/{plantId} {
+        // Single binary document per plant. Owners may access private photos;
+        // visitors only when both garden and photo are explicitly public.
+        allow get: if ownsHandle(username) || photoIsPublic(username,plantId);
+        allow list: if false;
+        allow create, update: if mediaOwnerWrite(username,plantId) &&
+          validPhoto(request.resource.data);
+        allow delete: if mediaOwnerDelete(username,plantId);
       }
     }
 

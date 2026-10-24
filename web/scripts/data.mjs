@@ -11,6 +11,7 @@ export function makeDataClient({db, api}) {
   const publicRoot = handle => doc(db, "public_gardens", handle);
   const publicPlant = (handle, id) => doc(db, "public_gardens", handle, "plants", id);
   const handleRef = handle => doc(db, "handles", handle);
+  const photoRef = (handle,id) => doc(db,"plant_media",handle,"plants",id);
   const fromSnap = snap => ({id:snap.id,...snap.data()});
 
   return {
@@ -58,9 +59,23 @@ export function makeDataClient({db, api}) {
       await setDoc(doc(db,"profiles",uid,"tags",id),{name});
       return {id,name};
     },
-    async savePlant(uid, username, id, plant) {
+    async savePlant(uid, username, id, plant, photo=null) {
       const batch = writeBatch(db);
       batch.set(doc(db,"profiles",uid,"plants",id),plant);
+      if (photo === "remove") {
+        batch.delete(photoRef(username,id));
+      } else if (photo) {
+        if (!plant.imageStored || photo.size > 122880 || photo.size < 1)
+          throw new Error("La fotografia non rispetta il limite di caricamento.");
+        batch.set(photoRef(username,id),{
+          bytes:api.Bytes.fromUint8Array(photo.bytes),
+          mime:"image/webp",
+          width:photo.width,
+          height:photo.height,
+          size:photo.size,
+          updatedAt:Date.now()
+        });
+      }
       const publicData = toPublicPlant(plant);
       if (publicData) batch.set(publicPlant(username,id),publicData);
       else batch.delete(publicPlant(username,id));
@@ -70,7 +85,15 @@ export function makeDataClient({db, api}) {
       const batch = writeBatch(db);
       batch.delete(doc(db,"profiles",uid,"plants",id));
       batch.delete(publicPlant(username,id));
+      batch.delete(photoRef(username,id));
       await batch.commit();
+    },
+    async plantPhoto(username,id) {
+      const snapshot=await getDoc(photoRef(username,id));
+      if (!snapshot.exists()) return null;
+      const photo=snapshot.data();
+      if (photo.mime !== "image/webp" || !photo.bytes || photo.size > 122880) return null;
+      return photo.bytes.toUint8Array();
     },
     async publicGarden(username) {
       if (!validUsername(username)) return null;
