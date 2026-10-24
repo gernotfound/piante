@@ -8,12 +8,12 @@
 ## CI candidata
 - **Static & unit checks:** `npm run verify`, sintassi Node ES modules, Hosting target `piante`, assenza PWA e deploy automatici.
 - **Firestore Rules Emulator:** suite `tests/emulator.test.mjs` nel progetto demo; Java, Firebase CLI e SDK di test installati nel workflow. L'Emulator deve validare azioni consentite e negazioni; non è una prova delle Rules in produzione.
-- **Responsive browser smoke:** Chromium a 375/768/1440px, con config Firebase inattiva su localhost; i test Node coprono validazione e bootstrap JSON stesso-origin e errori login Google. Non dimostrano OAuth reale, dati reali o compatibilità Safari.
+- **Responsive browser smoke:** Chromium + WebKit a 320/375/768/1440px, con config Firebase inattiva su localhost; i test Node coprono validazione e bootstrap JSON stesso-origin e errori login Google. Non dimostrano OAuth reale, dati reali o compatibilità con ogni Safari/iPhone reale.
 - La vecchia `Canonical Verification` della PWA è stata rimossa durante il reset; **VERIFY** nella pagina GitHub che i required checks correnti siano appropriati. Evitare workflow che dichiarino verde uno SHA differente dal candidato.
 
 ## Comandi di lavoro
 - Node.js 22+, `npm run verify` per test unitari e controlli statici; `node --check web/scripts/*.mjs` (espandere in shell) per sintassi.
-- Smoke UI in Chromium e Rules Emulator eseguiti nella GitHub Actions `.github/workflows/verification.yml`.
+- Smoke UI in Chromium/WebKit e Rules Emulator eseguiti nella GitHub Actions `.github/workflows/verification.yml`.
 - Per anteprima statica senza Auth: `python3 -m http.server 8080 --directory web`, poi `http://localhost:8080`. Questo non implica accesso reale Firebase.
 
 ## Pubblicazione (non ancora autorizzata)
