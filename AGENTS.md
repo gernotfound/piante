@@ -31,7 +31,7 @@ Leggere l'unione dei documenti quando un task attraversa più confini. Non consi
 - **MUST:** dati, token, email, UID e segreti personali non vanno nei file di un repository pubblico.
 - **MUST:** immagini inserite in `web/images` sono pubbliche per URL e per cronologia Git, anche quando la scheda è privata. Non usarle come archivio fotografico protetto.
 - **MUST:** non modificare o cancellare dati Firestore/Auth live, Rules live, origini OAuth, IAM, Hosting o servizi condivisi soltanto a seguito di un refactoring GitHub.
-- **VERIFY:** le Rules versionate non sono necessariamente quelle distribuite. Firebase Auth, Firestore e Google OAuth live non sono stati collaudati durante l'implementazione della v1.
+- **VERIFY:** le Rules versionate non sono necessariamente quelle distribuite. Firebase Auth, Firestore e Google OAuth live non sono stati collaudati durante l'implementazione della v1. L'auto-config Web stessa-origin da Firebase Hosting è **solo codice candidato**: finché non si verifica l'endpoint live non equivale a login funzionante.
 
 ## Operatività e verifica
 - Classificare **CRITICAL** Auth, Rules, proiezioni pubblico/privato, media e dati utente. Verificare casi positivi/negativi, concorrenza, rollback e failure path.
@@ -45,3 +45,6 @@ Leggere l'unione dei documenti quando un task attraversa più confini. Non consi
 - **GITHUB-OBSERVED:** codice frontend statico e test Node, browser Chromium e Firestore Emulator in GitHub; il repository contiene codice e Rules candidate.
 - **NOT-VERIFIED:** configurazione dell'app Web Firebase, OAuth reale, Rules attive, Hosting runtime e piano effettivo. `web/firebase-config.mjs` non ha ancora API key Web/App ID.
 - Nessun account reale, dato o servizio Firebase è stato modificato per la preparazione di questa revisione.
+
+## Riutilizzo selettivo da LogBook (24/10/2026)
+Esaminati `src/lib/firebase.ts`, `src/contexts/auth/googlePopup.ts`, `src/contexts/auth/useGoogleAuthActions.ts`, `.agents/rules/firebase-config.md`, `.agents/rules/design-system.md`, workflow di deploy WIF e contract CI di `gernotfound/logbook`. Riutilizzati **i principi**, non importata la PWA: validazione di progetto/Origin prima di Firebase, fallback popup→redirect, cancellazioni e network error distinti, fences di sessione contro completamenti tardivi e verifiche CI. Vedi `.agents/rules/firebase-services.md`. Rifiutate come fuori scope architettura IndexedDB/offline, backend Vercel, guest migration e account deletion complessa senza un trusted backend Spark.

@@ -17,4 +17,4 @@ Obiettivo: **vetrina botanica personale**, non un negozio. Riferimenti esaminati
 - Contatti non implementati: in futuro consentire ai proprietari una scelta consapevole del canale pubblico e difese antispam.
 
 ## Limiti verificabili
-Questa release non ha un test reale di accessibilità su mobile, una prova end-to-end Firebase o metriche Core Web Vitals. Il layout è progettato responsive nel CSS, non ancora certificato su dispositivi.
+Questa release non ha un test reale di accessibilità su mobile, una prova end-to-end Firebase o metriche Core Web Vitals. Il layout è progettato responsive nel CSS ed è controllato tramite smoke test in Chromium e WebKit a 320, 375, 768 e 1440 px; non è ancora certificato su dispositivi reali.

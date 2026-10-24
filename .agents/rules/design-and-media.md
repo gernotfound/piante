@@ -4,7 +4,7 @@
 - Sito **non-PWA** con CSS nativo, HTML semantico ed ES modules. Nessun Service Worker, install prompt o journal locale.
 - Lo stile è una **vetrina botanica personale**, non un e-commerce: colore verde bosco `#183e32`, avorio `#f8f7f2`, salvia `#879f82`, serif nei titoli e sans-serif di sistema per controlli.
 - Riferimenti di ricerca e razionale in [`docs/design.md`](../../docs/design.md). Non duplicare layout o asset protetti di terzi.
-- Desktop: griglia pubblica a tre colonne; smartphone due colonne, form a colonna singola e filtri orizzontali; test a 375, 768 e 1440 px. Il test Chromium è uno smoke test, non un audit completo WCAG o test device.
+- Desktop: griglia pubblica a tre colonne; smartphone due colonne, form a colonna singola e filtri orizzontali; test a 320, 375, 768 e 1440 px su Chromium e WebKit. Sono smoke test, non un audit WCAG o una certificazione su dispositivi reali.
 - Gli elementi interattivi devono restare tastiera-accessibili, con focus visibile, testo alternativo e preferenze reduced-motion.
 
 ## Fotografie (Spark)

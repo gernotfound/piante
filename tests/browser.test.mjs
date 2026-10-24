@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 
 test("homepage e login si adattano a smartphone, tablet e desktop",async()=>{
   const server=spawn("python3",["-m","http.server","8765","--bind","127.0.0.1","--directory","web"],{stdio:"ignore"});
@@ -13,8 +13,12 @@ test("homepage e login si adattano a smartphone, tablet e desktop",async()=>{
       catch { await new Promise(resolve=>setTimeout(resolve,150)); }
     }
     assert.ok(ready,"Il server statico non è partito.");
-    browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
-    for(const [width,height] of [[375,812],[768,1024],[1440,900]]){
+    for (const [browserName, engine] of [["Chromium",chromium],["WebKit",webkit]]) {
+      browser=await engine.launch({
+        headless:true,
+        ...(browserName==="Chromium" ? {args:["--no-sandbox"]} : {})
+      });
+      for(const [width,height] of [[320,720],[375,812],[768,1024],[1440,900]]){
       const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
       try {
         const errors=[];
@@ -34,8 +38,11 @@ test("homepage e login si adattano a smartphone, tablet e desktop",async()=>{
         await page.waitForURL("**/login");
         assert.match(await page.locator("h2").first().innerText(),/Bentornato/i);
         assert.equal(await page.locator("#google-login").isDisabled(),true,"Login senza config deve restare disabilitato.");
-        assert.deepEqual(errors,[],"Errore JavaScript su "+width+"px");
+        assert.deepEqual(errors,[],"Errore JavaScript su "+browserName+" "+width+"px");
       } finally { await page.close(); }
+      }
+      await browser.close();
+      browser=null;
     }
   } finally {
     if(browser)await browser.close();

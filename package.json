@@ -5,8 +5,10 @@
   "type": "module",
   "description": "Sito botanico responsive con archivio privato e vetrine pubbliche.",
   "scripts": {
-    "test": "node --test tests/domain.test.mjs tests/contract.test.mjs",
+    "test": "node --test tests/domain.test.mjs tests/contract.test.mjs tests/firebase-web-config.test.mjs tests/google-auth.test.mjs",
     "verify": "node scripts/verify-static.mjs && npm test"
   },
-  "engines": {"node": ">=22"}
+  "engines": {
+    "node": ">=22"
+  }
 }

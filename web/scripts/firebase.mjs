@@ -1,13 +1,14 @@
-import { firebaseConfig } from "../firebase-config.mjs";
+import { resolveFirebaseWebConfig } from "./firebase-web-config.mjs";
 
-export function firebaseConfigured() {
-  return Boolean(firebaseConfig.apiKey && firebaseConfig.appId &&
-    firebaseConfig.projectId === "pianta-db" && firebaseConfig.authDomain === "piante.web.app");
-}
 let clientPromise;
+
+/**
+ * Use the same-origin Hosting config only when the project and Auth domain
+ * have been validated. An unavailable or malformed config fails closed.
+ */
 export function loadFirebase() {
-  if (!firebaseConfigured()) throw new Error("Firebase non è ancora configurato. Consultare AGENTS.md e .agents/rules/firebase-services.md.");
   if (!clientPromise) clientPromise = (async () => {
+    const firebaseConfig = await resolveFirebaseWebConfig();
     const base = "https://www.gstatic.com/firebasejs/12.19.0/";
     const [app, auth, firestore] = await Promise.all([
       import(base + "firebase-app.js"),
@@ -17,7 +18,14 @@ export function loadFirebase() {
     const firebaseApp = app.initializeApp(firebaseConfig);
     const firebaseAuth = auth.getAuth(firebaseApp);
     firebaseAuth.languageCode = "it";
-    return { auth:firebaseAuth, db:firestore.getFirestore(firebaseApp), api:{...auth,...firestore} };
-  })().catch(error => { clientPromise = null; throw error; });
+    return {
+      auth: firebaseAuth,
+      db: firestore.getFirestore(firebaseApp),
+      api: { ...auth, ...firestore }
+    };
+  })().catch(error => {
+    clientPromise = null;
+    throw error;
+  });
   return clientPromise;
 }
