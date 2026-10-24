@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Sito botanico responsive con archivio privato e vetrine pubbliche.",
   "scripts": {
-    "test": "node --test tests/domain.test.mjs tests/contract.test.mjs tests/firebase-web-config.test.mjs tests/google-auth.test.mjs tests/hosting-readiness.test.mjs tests/photo.test.mjs",
+    "test": "node --test tests/domain.test.mjs tests/contract.test.mjs tests/firebase-web-config.test.mjs tests/google-auth.test.mjs tests/hosting-readiness.test.mjs tests/photo.test.mjs tests/firestore-release-gate.test.mjs",
     "verify": "node scripts/verify-static.mjs && npm test",
     "check:hosting": "node scripts/hosting-readiness.mjs"
   },

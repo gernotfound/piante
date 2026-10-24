@@ -61,3 +61,10 @@ Esaminati `src/lib/firebase.ts`, `src/contexts/auth/googlePopup.ts`, `src/contex
 - Pianta e media vengono sincronizzate in batch; vetrina pubblica, scheda e campo condiviso `imageStored` governano la lettura anonima. Nel pannello privato la foto è consultabile solo dall'account con grant. Test su Emulator obbligatorio prima del deploy Rules.
 - Firestore Spark: **1 GiB archivio, 50.000 letture/giorno, 10 GiB trasferiti/mese** nell'unico DB gratuito; immagini pesanti o tanti visitatori possono esaurire la quota senza diventare un servizio Storage gratuito illimitato.
 - Il codice in GitHub non significa che le nuove Rules siano live. Nessuna modifica a provider e nessun deploy autorizzato da solo.
+
+## Firebase Rules: deploy governato da GitHub (preparazione 24/10/2026)
+- Il file principale `firebase.json` rimane **Hosting-only**. Il workflow **manuale** `.github/workflows/firebase-firestore-rules.yml` usa `firebase.rules-deploy.json` per pubblicare esclusivamente `firestore.rules`, mai Hosting o indici. Non eseguirlo senza autorizzazione alla sostituzione completa delle Rules live.
+- L'audit usa Firebase Rules REST + WIF Google Cloud e stampa il ruleset live e la sua identità. Il deploy richiede explicit `DEPLOY_PIANTA_DB_RULES`, expected live ruleset esatto e, se il nuovo schema revoca `/users`, `RETIRE_LEGACY_USERS_ACCESS` in un altro input. Richiede CI verde exact SHA, Emulator, controllo anti-drift e read-back post-deploy.
+- Snapshot del ruleset **fornito dall'utente** (non letto dal provider) in `docs/operations/firestore-rules-legacy-20261024.rules`. I `users/{uid}` esistenti non sono migrati; sostituire le Rules può bloccare il sito precedente ma non elimina dati. Il cutover va coordinato con Hosting/Auth/grant.
+- Servono un nuovo WIF provider/account IAM su **pianta-db** separati da LogBook, variabili GitHub e protezione dell'environment `firestore-production`. Nessun ruolo o account live è stato creato dal repository.
+- Procedure e variabili esatte in `docs/operations/firestore-rules-github-deploy.md`. Non ricreare un README.

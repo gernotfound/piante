@@ -1,0 +1,134 @@
+name: Firebase Firestore Rules — controlled
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Audit live Rules or explicitly deploy"
+        type: choice
+        default: audit
+        required: true
+        options: [audit, deploy]
+      expected_live_ruleset:
+        description: "Required for deploy: projects/pianta-db/rulesets/... from audit"
+        type: string
+        required: false
+      confirmation:
+        description: "For deploy type DEPLOY_PIANTA_DB_RULES"
+        type: string
+        required: false
+      legacy_cutover_confirmation:
+        description: "If /users access will be removed type RETIRE_LEGACY_USERS_ACCESS"
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: piante-firestore-rules-production
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: inputs.operation == 'audit'
+    name: Read live Firestore Rules — no mutation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      DEPLOY_ACCOUNT: ${{ vars.GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Check exact current main and WIF variables
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          test -n "$WIF_PROVIDER" && test -n "$DEPLOY_ACCOUNT"
+      - name: Authenticate with dedicated Piante WIF identity
+        id: gcp_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: pianta-db
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - name: Inspect deployed ruleset without changes
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.gcp_auth.outputs.access_token }}
+        run: node scripts/firestore-release-gate.mjs audit
+
+  deploy:
+    if: inputs.operation == 'deploy'
+    name: Controlled deployment — Firestore Rules only
+    environment: firestore-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      checks: read
+      id-token: write
+    env:
+      WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      DEPLOY_ACCOUNT: ${{ vars.GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT }}
+      EXPECTED_LIVE_RULESET: ${{ inputs.expected_live_ruleset }}
+      DEPLOY_CONFIRMATION: ${{ inputs.confirmation }}
+      LEGACY_CUTOVER_CONFIRMATION: ${{ inputs.legacy_cutover_confirmation }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Exact main, explicit confirmation, separate config
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          test "$DEPLOY_CONFIRMATION" = "DEPLOY_PIANTA_DB_RULES"
+          test -n "$EXPECTED_LIVE_RULESET"
+          test -n "$WIF_PROVIDER" && test -n "$DEPLOY_ACCOUNT"
+          node -e "const c=require('./firebase.rules-deploy.json');if(c.firestore?.rules!=='firestore.rules'||Object.keys(c).length!==1)process.exit(1)"
+      - name: Require green exact-SHA GitHub CI
+        env:
+          GH_CHECKS_TOKEN: ${{ github.token }}
+        run: node scripts/verify-main-checks.mjs
+      - name: Install pinned Firestore Emulator and CLI
+        run: npm install --no-save --no-package-lock firebase@12.19.0 @firebase/rules-unit-testing@5.0.2 firebase-tools@15.30.2
+      - name: Re-run Firestore Rules Emulator before any mutation
+        run: npx --no-install firebase emulators:exec --config firebase.emulator.json --project demo-piante-rules --only firestore "node --test tests/emulator.test.mjs"
+      - name: Authenticate with dedicated Piante WIF identity
+        id: gcp_auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: pianta-db
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - name: Compare live release to audited ID and check cutover confirmation
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.gcp_auth.outputs.access_token }}
+        run: node scripts/firestore-release-gate.mjs preflight
+      - name: Check main has not moved
+        run: test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+      - name: Deploy only Firestore Rules (not Hosting or indexes)
+        run: npx --no-install firebase deploy --config firebase.rules-deploy.json --only firestore:rules --project pianta-db --non-interactive
+      - name: Read-back verify the deployed rules match the exact commit
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.gcp_auth.outputs.access_token }}
+        run: node scripts/firestore-release-gate.mjs verify

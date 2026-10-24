@@ -40,3 +40,10 @@ Su `https://piante.web.app` usare solamente il JSON riservato `/__/firebase/init
 - La suite Node `tests/photo.test.mjs` controlla input, limiti, compressione progressiva e fallback browser. La suite Firestore Emulator deve provare upload privato, lettura anonima negata, pubblicazione selettiva, revoca, file malformato e delete atomica.
 - Le Action `actions/checkout@v7` e `actions/setup-node@v7` adottano il runtime Node 24 per eliminare il vecchio avviso di deprecazione. Il progetto/test runner usa ancora Node 22 esplicitamente.
 - `scripts/hosting-readiness.mjs` distingue timeout, DNS, errori rete/TLS e codice HTTP senza stampare segreti. Un workflow di preflight negativo **non autorizza un deploy**.
+
+## Nuova procedura di deploy Rules via GitHub
+- Il workflow `Firebase Firestore Rules — controlled` è **esclusivamente manuale** ed è separato da Hosting, CI e dalla pipeline LogBook. Il commit non produce alcun deploy.
+- Test Unit: `tests/firestore-release-gate.test.mjs`; test Rules reali: `tests/emulator.test.mjs`.
+- L'audit legge `projects/pianta-db/releases/cloud.firestore` e il ruleset sorgente via WIF; non è inferito da GitHub. Il deploy fallisce se il live ruleset è cambiato dopo l'audit, se le tre CI non sono verdi o se mancano le frasi esplicite (incluso cutover `/users`).
+- Il branch `main` corrente deve essere identico al checkout prima e subito prima della mutazione. `firebase.rules-deploy.json` è l'unica configurazione usata con `--only firestore:rules`; `firebase.json` resta Hosting-only.
+- Dopo il deploy è obbligatorio read-back e prova utenti/anonimi sul provider. La configurazione Environment `firestore-production` con required reviewers e WIF/GCP IAM sono **passaggi esterni ancora da eseguire**; seguire `docs/operations/firestore-rules-github-deploy.md`.
