@@ -11,12 +11,15 @@ const root = document.querySelector("#app");
 const photoUrls = new Map();
 const photoPromises = new Map();
 let photoObserver;
+let photoEpoch=0;
 function forgetPhoto(handle,id) {
+  photoEpoch++;
   const key=handle+"/"+id;
   if(photoUrls.has(key))URL.revokeObjectURL(photoUrls.get(key));
   photoUrls.delete(key);photoPromises.delete(key);
 }
 function forgetAllPhotos() {
+  photoEpoch++;
   for(const url of photoUrls.values())URL.revokeObjectURL(url);
   photoUrls.clear();photoPromises.clear();
 }
@@ -24,6 +27,7 @@ async function showStoredPhoto(image) {
   const handle=image.dataset.photoHandle,id=image.dataset.photoId;
   if(!handle||!id||!state.store||!image.isConnected)return;
   const key=handle+"/"+id;
+  const epoch=photoEpoch;
   try {
     if(!photoUrls.has(key)) {
       if(!photoPromises.has(key))photoPromises.set(key,(async()=>{
@@ -31,9 +35,13 @@ async function showStoredPhoto(image) {
         return bytes?.length ? URL.createObjectURL(new Blob([bytes],{type:"image/webp"})) : null;
       })().finally(()=>photoPromises.delete(key)));
       const photoUrl=await photoPromises.get(key);
+      if(epoch!==photoEpoch) {
+        if(photoUrl)URL.revokeObjectURL(photoUrl);
+        return;
+      }
       if(photoUrl&&!photoUrls.has(key))photoUrls.set(key,photoUrl);
     }
-    if(image.isConnected&&photoUrls.has(key))image.src=photoUrls.get(key);
+    if(epoch===photoEpoch&&image.isConnected&&photoUrls.has(key))image.src=photoUrls.get(key);
   } catch { /* Security Rules intentionally hide unshared images. */ }
 }
 function wirePhotos() {
@@ -322,6 +330,12 @@ document.addEventListener("input",event=>{
   }
 });
 document.addEventListener("change",event=>{
+  if(event.target.id==="photo-file") {
+    const file=event.target.files?.[0];
+    const info=document.querySelector("#photo-status");
+    if(info)info.textContent=file ? file.name+" — verrà ottimizzata e caricata quando salvi." : "Nessun nuovo file selezionato.";
+    return;
+  }
   if(event.target.id==="plant-tag"){state.tag=event.target.value;privateIndex();}
 });
 document.addEventListener("submit",event=>{
@@ -351,6 +365,10 @@ document.addEventListener("submit",event=>{
       const original=state.plants.find(p=>p.id===id) || null;
       const file=form.querySelector("#photo-file")?.files?.[0] || null;
       if(file && fd.has("removePhoto"))throw new Error("Scegli se sostituire o rimuovere la foto.");
+      if(file) {
+        const info=document.querySelector("#photo-status");
+        if(info)info.textContent="Ottimizzazione WebP in corso…";
+      }
       const photo=file ? await compressPhoto(file) : (fd.has("removePhoto") ? "remove" : null);
       const plant=makePrivatePlant({
         name:fd.get("name"),scientificName:fd.get("scientificName"),description:fd.get("description"),

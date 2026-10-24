@@ -32,3 +32,14 @@ Le Security Rules candidate `firestore.rules` non sono ancora live. Il loro depl
 Su smartphone e PC: login Google, autorizzazione test account, creazione username, scheda privata, assegnazione tag, selezione dei soli campi pubblicabili, vetrina anonima, ricerca/tag, ritiro visibilità e logout. In un secondo browser non autenticato verificare che la vetrina nascosta non sia consultabile. Il browser non può proteggere immagini servite staticamente da `web/images`, anche se la scheda viene nascosta.
 
 Rieseguire il workflow pubblico e registrare in `docs/firebase-configurazione.md` la data di verifica, l'evidenza osservata e gli eventuali limiti, senza riportare segreti o dati personali. 
+
+## 6. Foto dall'account — verifica prima del rilascio
+
+Il nuovo modulo upload WebP usa i **documenti Firestore**, non Firebase Storage. Nel pannello prova con una foto JPEG/PNG e verifica:
+- Compressione massima 120KiB, nessuna esposizione dell'originale (o di EXIF), uso di `Bytes`.
+- Scheda privata con foto non leggibile da un altro account né in navigazione anonima.
+- Solo il proprietario può selezionare pubblicazione e visibilità foto; il pubblico non riceve `bytes` nella scheda di testo ma carica separatamente il documento media quando l'immagine entra nel viewport.
+- Revoca del flag foto e del flag vetrina con test anonimo in un altro browser; sostituzione e cancellazione della scheda eliminano la media, senza residui in Firestore.
+- Monitoraggio quote Firestore Spark. Con ~120KiB per foto, molte visite alla galleria consumano traffico; questa soluzione è per piccole collezioni, non un servizio fotografico commerciale.
+
+L'Emulator testa le **Rules candidate**; nessuna modifica live è stata eseguita. I passaggi di deploy rimangono separati e subordinati all'inventario dei servizi esistenti.

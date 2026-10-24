@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { inspectHostingSite } from "../scripts/hosting-readiness.mjs";
+import { inspectHostingSite, describeNetworkFailure } from "../scripts/hosting-readiness.mjs";
 import { FIREBASE_SITE_ORIGIN } from "../web/scripts/firebase-web-config.mjs";
 const publicConfig={projectId:"pianta-db",authDomain:"pianta-db.firebaseapp.com",apiKey:"web-public-not-secret",appId:"1:123:web:456"};
 function fixture({project="pianta-db",oldPage=false,missingHeader=false,badJson=false}={}){
@@ -49,4 +49,11 @@ test("errore di rete non rivela dettagli né dichiara readiness",async()=>{
   assert.equal(report.ready,false);
   assert.ok(report.checks.every(c=>!c.ok));
   assert.doesNotMatch(JSON.stringify(report),/secret-id/);
+});
+
+test("diagnostica di rete distinguibile senza stampare dettagli privati",()=>{
+  assert.equal(describeNetworkFailure({message:"HTTP 404"}),"HTTP 404");
+  assert.equal(describeNetworkFailure({name:"TimeoutError"}),"Timeout di rete");
+  assert.equal(describeNetworkFailure({cause:{code:"ENOTFOUND"}}),"DNS non risolto");
+  assert.equal(describeNetworkFailure({message:"apiKey=SECRET, fetch failed"}),"Connessione HTTP non disponibile");
 });

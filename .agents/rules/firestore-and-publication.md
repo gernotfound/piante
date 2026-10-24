@@ -31,3 +31,10 @@
 
 ## Evidenza necessaria
 Eseguire `tests/emulator.test.mjs` con l'Emulator **reale**; includere proprietario, anonimo, cross-user, grant assente/revocato, collisioni handle, create/update/delete atomiche, pubblicazione con flags spenti, scheda privata non pubblicata, profilo visibile/nascosto. Controllare lo SHA testato e non equiparare emulator e provider live.
+
+## Media WebP in Firestore — sicurezza CRITICAL
+- Documento singolo `plant_media/{username}/plants/{plantId}`: `bytes` tipo Firestore Bytes, `mime=image/webp`, `size == bytes.size()`, `width`/`height` entro 1080 e `updatedAt`. Nessun indice/list access per la raccolta media: `allow list: if false`.
+- Il proprietario con grant può leggere media privati; la lettura anonima richiede contemporaneamente `public_gardens/{username}.visible == true` e un documento pianta pubblico che abbia `imageStored == true`.
+- Creazione o rimozione della media richiedono la scheda privata associata e coerente nello **stesso batch**. `privateMediaMatchesAfter` vieta dangling media; `canWritePublicPlant` non consente pubblicare una foto assente; la rimozione avviene con il documento. Testare questi vincoli in Emulator.
+- I nuovi documenti privati usano `imageStored: bool`; assenza del campo viene trattata come false per compatibilità con le schede di prova create prima della funzione. Il documento pubblico include `imageStored` soltanto se `shareImage` e `published` sono veri.
+- Non interpretare WebP/blob URL di un client come un contenuto verificato server-side: le Rules vincolano solo tipo binario, metadati, byte e proprietario. La conversione su canvas eseguita dal client consente di generare il contenuto previsto ma un client malevolo potrebbe inviare byte invalidi nei propri documenti. Non usarli mai come HTML/eseguibili.

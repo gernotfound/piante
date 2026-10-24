@@ -13,8 +13,11 @@ Obiettivo: **vetrina botanica personale**, non un negozio. Riferimenti esaminati
 - Vetrina con ricerca, tag pill, schede fotografiche e vista dettaglio; nessuna etichetta prezzo/acquisto.
 - Su desktop griglia 3 colonne; su mobile 2, senza sidebar obbligatoria. Formulari su una colonna sotto 760 px.
 - Non inventare foto/collezioni: prima della pubblicazione si mostra lo stato vuoto del giardino.
-- Immagini iniziali solo WebP locali o URL HTTPS; WebP locale ottimizzato da canvas massimo 1400 px, qualità ~78. Poiché statiche, le foto caricate sul repository pubblico **non sono private**.
+- Foto nuove caricate dal pannello, ottimizzate in WebP massimo 1080px e 120KiB, conservate in Firestore con visibilità esplicita. Eventuali URL HTTPS/asset statici precedenti restano pubblici per URL.
 - Contatti non implementati: in futuro consentire ai proprietari una scelta consapevole del canale pubblico e difese antispam.
 
 ## Limiti verificabili
 Questa release non ha un test reale di accessibilità su mobile, una prova end-to-end Firebase o metriche Core Web Vitals. Il layout è progettato responsive nel CSS ed è controllato tramite smoke test in Chromium e WebKit a 320, 375, 768 e 1440 px; non è ancora certificato su dispositivi reali.
+
+## Media caricate dal profilo — v1
+Il form della pianta accetta ora una foto caricata dal dispositivo e la ottimizza automaticamente in WebP prima del salvataggio. Niente caricamento manuale dei file su GitHub per le nuove foto. La fotografia può rimanere privata anche quando la pianta è in collezione; nella vetrina appare solo se selezionata e il giardino è visibile. La galleria mostra un placeholder SVG finché la foto Firestore non è stata recuperata vicino al viewport. Limiti: 1 foto per pianta, 1080px e 120KiB, budget Spark.

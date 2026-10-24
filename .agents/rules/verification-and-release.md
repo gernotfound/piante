@@ -35,3 +35,8 @@ Su `https://piante.web.app` usare solamente il JSON riservato `/__/firebase/init
 - Il controllo esamina soltanto homepage/headers, modulo JS pubblico e `/__/firebase/init.json` sul sito `https://piante.web.app`. Verifica l'identità del progetto ma non scrive o divulga i valori della configurazione Web.
 - Prima del primo deploy un FAIL è atteso; un PASS non certifica l'accesso Google né le Rules live.
 - Controllare i provider con accesso autorizzato prima di effettuare qualunque deploy; istruzioni in `docs/operations/firebase-release.md`.
+
+## Test immagini e aggiornamento Actions
+- La suite Node `tests/photo.test.mjs` controlla input, limiti, compressione progressiva e fallback browser. La suite Firestore Emulator deve provare upload privato, lettura anonima negata, pubblicazione selettiva, revoca, file malformato e delete atomica.
+- Le Action `actions/checkout@v7` e `actions/setup-node@v7` adottano il runtime Node 24 per eliminare il vecchio avviso di deprecazione. Il progetto/test runner usa ancora Node 22 esplicitamente.
+- `scripts/hosting-readiness.mjs` distingue timeout, DNS, errori rete/TLS e codice HTTP senza stampare segreti. Un workflow di preflight negativo **non autorizza un deploy**.
