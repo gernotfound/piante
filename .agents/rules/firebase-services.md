@@ -8,7 +8,10 @@
 ## Auth e Web App
 - Solo **Google OAuth** nell'interfaccia `/login`. Secondo la Console storica era abilitato anche Email/Password: non disabilitarlo senza inventario delle altre applicazioni e dei client ancora in uso.
 - Verificare in Firebase Console: registrazione della Web App, API key pubblica e App ID, Project ID, Auth Domain, domini autorizzati, origin JS e redirect `https://piante.web.app/__/auth/handler`.
-- La Web config pubblica appartiene a `web/firebase-config.mjs` (appId/apiKey attualmente vuoti): non sostituirla con credenziali admin. Modificare i valori solo dopo conferma della Web App corretta e dell'effettivo dominio OAuth.
+- `web/firebase-config.mjs` conserva i placeholder vuoti per sviluppo locale. Nella **sola origine** `https://piante.web.app` l'app prova a leggere la configurazione pubblica dal percorso riservato Hosting `/__/firebase/init.json` (Firebase Hosting, non una API privata); prima dell'uso valida `projectId == pianta-db`, `apiKey`, `appId` e `authDomain` contro un elenco chiuso.
+- `authDomain` runtime è intenzionalmente `piante.web.app`, per usare gli handler OAuth same-origin. Questo deve essere verificato nella Console: le impostazioni OAuth non sono state lette né cambiate.
+- In locale (o su altro dominio) se la configurazione Web non è completa il login resta disabilitato. Il bootstrap non deve ripiegare su altre app Firebase, non deve mescolare configurazioni parziali, e non deve inizializzare Firebase prima della verifica.
+- I valori Web API key / App ID sono **pubblici** per definizione, non service-account secret. Non salvare mai credenziali Admin SDK o token. Firebase Hosting reserve: https://firebase.google.com/docs/hosting/reserved-urls
 - È possibile autenticarsi con Google e **non** essere autorizzati. Solo un grant amministrativo `access_grants/{uid} = {enabled:true}` concede accesso privato tramite le Rules. Non creare un'interfaccia che permetta all'utente di autoconcedersi permessi.
 - L'autorizzazione viene accertata dalle Rules server-side e non da un flag frontend. In caso di errore/revoca la UI non deve esporre nuovi dati o dichiarare riuscite mutazioni negate.
 
@@ -26,3 +29,9 @@
 
 ## Check di rilascio
 Leggere `docs/firebase-configurazione.md`, verificarne lo stato provider, approvare la migrazione delle Rules e le eventuali cancellazioni irreversibili come interventi **separati**, poi provare login reale, owner, pubblico anonimo, revoca e foto. Registrare data, prova e limiti senza scrivere nuovi passaggi nel README.
+
+## Pratiche riutilizzate da LogBook (analisi del 24/10/2026)
+- Da `src/contexts/auth/googlePopup.ts`: distinguere popup bloccato (fallback redirect), annullato (non è errore) e rete indisponibile (messaggio dedicato). Adattato in `web/scripts/google-auth.mjs` senza guest/login email/PWA.
+- Da `src/lib/firebase.ts`: validazione esplicita prima dell'inizializzazione, stesso origin Auth, nessuna persistenza Firestore IndexedDB aggiuntiva. Adattato in `web/scripts/firebase-web-config.mjs` e `web/scripts/firebase.mjs`.
+- Da `.agents/rules/ci-verification.md`: test sullo SHA esatto; nessun deploy quando CI è verde di per sé.
+- **Non riutilizzare** LogBook guest migrations, vault cifrato, journal offline, Vercel APIs, App Check senza provider verificato, Google password methods o database: rispondono a requisiti diversi e potrebbero aumentare costi e rischio.

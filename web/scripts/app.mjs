@@ -2,7 +2,8 @@ import {
   escapeHtml as e, usernameValue, validUsername, cleanProfile,
   cleanText, makePrivatePlant, filterPlants, allTags
 } from "./domain.mjs";
-import { firebaseConfigured, loadFirebase } from "./firebase.mjs";
+import { loadFirebase } from "./firebase.mjs";
+import { signInGoogle } from "./google-auth.mjs";
 import { makeDataClient } from "./data.mjs";
 
 const root = document.querySelector("#app");
@@ -10,7 +11,7 @@ const state = {
   user: null, firebase: null, store: null, profile: null,
   plants: [], tags: [], publicData: null, publicHandle: "",
   search: "", tag: "", pending: false, notice: "", routeCount: 0,
-  authReady: false, accessError: null
+  authReady: false, authLoading: false, authEpoch: 0, accessError: null, setupError: ""
 };
 const h = value => e(value ?? "");
 const href = path => 'href="' + h(path) + '" data-nav';
@@ -61,12 +62,12 @@ function home() {
     '<section class="wrap closing-section"><span class="overline">UN PICCOLO MONDO PERSONALE</span><h2>La bellezza è <em>nelle cose che crescono.</em></h2><a ' + href("/login") + ' class="text-link">Apri il tuo spazio <span aria-hidden="true">↗</span></a></section></main>',"home-site");
 }
 function login() {
-  const available = firebaseConfigured();
+  const available = Boolean(state.firebase);
   shell('<main class="wrap auth-layout"><div class="auth-aside"><div class="overline">IL TUO ANGOLO VERDE</div><h1>Un posto per <em>le tue piante.</em></h1><p>Accedi per aggiornare il tuo archivio botanico e scegliere che cosa condividere.</p><div class="auth-art">✳</div></div>' +
     '<section class="auth-panel"><span class="form-eyebrow">AREA RISERVATA</span><h2>Bentornato nel<br>tuo giardino.</h2><p>Per ora puoi entrare esclusivamente con il tuo account Google.</p>' +
     (state.user ? '<a class="button button-dark full" ' + href("/app") + '>Continua nel tuo archivio →</a>' :
       '<button type="button" id="google-login" class="button button-dark full" ' + (available ? "" : "disabled") + '>Accedi con Google <span aria-hidden="true">↗</span></button>') +
-    (!available ? '<p class="setup-warning">Accesso non ancora attivato: manca la configurazione Firebase Web. Nessun account o dato è stato modificato.</p>' : '') +
+    (!available ? '<p class="setup-warning">Accesso non attivo in questa anteprima. La configurazione Web Firebase viene verificata sul sito Hosting.</p>' : '') +
     '<p class="privacy-line">Le tue schede restano private finché non decidi di pubblicarle.</p></section></main>',"auth-site");
 }
 function sideNav(active) {
@@ -171,19 +172,23 @@ function plantDetail(garden, plant) {
     (plant.description?'<div class="detail-description"><h2>La sua storia</h2><p>' + h(plant.description) + '</p></div>':'<p class="detail-description">Una delle piante di questa collezione.</p>') +
     '<a class="text-link" ' + href("/" + garden.username) + '>Esplora il resto del giardino ↗</a></section></div></main>',"public-site");
 }
-async function hydratePrivate() {
+async function hydratePrivate(epoch = state.authEpoch) {
   if (!state.user || !state.store) return;
   const uid = state.user.uid;
-  state.accessError=null;
+  const current = () => state.user?.uid === uid && state.authEpoch === epoch;
   const profile = await state.store.privateProfile(uid);
-  if (state.user?.uid !== uid) return;
-  state.profile = profile;
+  if (!current()) return;
   if (profile) {
     const [plants,tags] = await Promise.all([state.store.privatePlants(uid),state.store.privateTags(uid)]);
-    if (state.user?.uid !== uid) return;
+    if (!current()) return;
+    state.profile = profile;
     state.plants = plants;
     state.tags = tags;
-  } else { state.plants=[]; state.tags=[]; }
+  } else {
+    state.profile = null;
+    state.plants = [];
+    state.tags = [];
+  }
 }
 async function render() {
   const token=++state.routeCount;
@@ -191,12 +196,13 @@ async function render() {
   window.scrollTo({top:0,behavior:"instant"});
   state.search=""; state.tag="";
   if (path==="/") { home(); return; }
+  if (!state.authReady) { loading("Connessione al giardino…"); return; }
   if (path==="/login") { login(); return; }
-  if (!state.authReady && firebaseConfigured()) { loading(); return; }
   if (protectedPath(path)) {
-    if (!firebaseConfigured()) { showError("Configurazione mancante","Configura Firebase prima di accedere all'archivio."); return; }
+    if (!state.firebase) { showError("Firebase non disponibile",state.setupError || "Configurazione non verificata."); return; }
     if (!state.user) { login(); return; }
     if (state.accessError) { showError("Accesso non autorizzato",state.accessError); return; }
+    if (state.authLoading) { loading("Controllo l’accesso al tuo archivio…"); return; }
     if (!state.profile) { onboarding(); return; }
     if (path==="/app") { privateIndex(); return; }
     if (path==="/app/tags") { tagsPage(); return; }
@@ -207,7 +213,7 @@ async function render() {
   }
   const sections=path.split("/").filter(Boolean);
   const handle=sections[0];
-  if (!validUsername(handle) || sections.length>2 || !firebaseConfigured()) {
+  if (!validUsername(handle) || sections.length>2 || !state.firebase) {
     showError("Giardino non disponibile","La pagina non esiste oppure la connessione Firebase non è ancora configurata."); return;
   }
   loading("Sto sfogliando la collezione…");
@@ -338,26 +344,55 @@ async function optimizePhoto() {
 window.addEventListener("popstate",render);
 async function start() {
   home();
-  if(!firebaseConfigured()) {state.authReady=true;render();return;}
   try {
-    state.firebase=await loadFirebase();
-    state.store=makeDataClient(state.firebase);
-    state.firebase.api.onAuthStateChanged(state.firebase.auth,async user=>{
-      state.user=user;state.authReady=true;
-      if(user) {
-        try {await hydratePrivate();} catch(error){state.profile=null;state.accessError="Questo account non è autorizzato a usare Piante, oppure non è possibile leggere Firebase. Verifica il grant nella Console. Dettaglio: "+error.message;}
-      } else {state.profile=null;state.plants=[];state.tags=[];state.accessError=null;}
+    state.firebase = await loadFirebase();
+    state.store = makeDataClient(state.firebase);
+    state.firebase.api.onAuthStateChanged(state.firebase.auth, async user => {
+      const epoch = ++state.authEpoch;
+      state.user = user;
+      state.authReady = true;
+      state.authLoading = Boolean(user);
+      // Clear old owner's data synchronously before any asynchronous reads.
+      state.profile = null;
+      state.plants = [];
+      state.tags = [];
+      state.accessError = null;
       render();
-    },error=>{state.authReady=true;status(error.message,"error");render();});
-  }catch(error){state.authReady=true;showError("Collegamento non disponibile",error.message);}
+      if (user) {
+        try {
+          await hydratePrivate(epoch);
+        } catch (error) {
+          if (state.authEpoch === epoch) {
+            state.profile = null;
+            state.plants = [];
+            state.tags = [];
+            state.accessError = "L’account non è autorizzato, oppure la lettura privata non è disponibile.";
+          }
+        }
+      }
+      if (state.authEpoch === epoch) {
+        state.authLoading = false;
+        render();
+      }
+    }, error => {
+      state.authReady = true;
+      state.authLoading = false;
+      state.setupError = "Non è stato possibile verificare la sessione.";
+      render();
+    });
+  } catch (error) {
+    state.authReady = true;
+    state.authLoading = false;
+    state.setupError = error?.message || "Configurazione Firebase Web non valida.";
+    render();
+  }
 }
-document.addEventListener("click",event=>{
-  if(event.target.closest("#google-login")){
-    safely(async()=>{
-      if(!state.firebase)throw new Error("Autenticazione non disponibile.");
-      const provider=new state.firebase.api.GoogleAuthProvider();
-      await state.firebase.api.signInWithPopup(state.firebase.auth,provider);
-      navigate("/app");
+document.addEventListener("click",event => {
+  if (event.target.closest("#google-login")) {
+    safely(async () => {
+      if (!state.firebase) throw new Error("Autenticazione non disponibile.");
+      const result = await signInGoogle(state.firebase.auth, state.firebase.api);
+      if (result === "signed_in") navigate("/app");
     });
   }
 });

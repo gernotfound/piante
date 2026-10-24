@@ -40,8 +40,13 @@ Nota storica: inventario iniziale del 23 ottobre 2026 per il riavvio **sito web 
 
 ## Stato d'implementazione confermato su GitHub al 24 ottobre 2026
 
-- `web/firebase-config.mjs` contiene ancora `apiKey` e `appId` vuoti. Il login Google in produzione non può essere dichiarato operativo.
+- `web/firebase-config.mjs` contiene ancora `apiKey` e `appId` vuoti per lo sviluppo locale. La nuova implementazione prova un *bootstrap automatico solo su* `https://piante.web.app` attraverso `/__/firebase/init.json`, con project ID rigidamente verificato. Questa capacità non è stata provata live: l'accesso Google non può ancora essere dichiarato operativo.
 - `firestore.rules` è una candidata non distribuita; il codice `firebase.json` contiene volutamente soltanto Hosting.
 - Il modello privato è riservato agli UID con `access_grants/{uid}.enabled == true`; il grant richiede un amministratore affidabile. Provider Auth Email/Password e Google, domini autorizzati e Rules live restano da verificare.
 - Nessuna migrazione o cancellazione dati da vecchia Pianta, nessun deployment e nessun piano Blaze attivato durante lo sviluppo.
 - I contratti operativi correnti sono in `AGENTS.md` e `.agents/rules/`. README intenzionalmente assente.
+
+## 24 ottobre 2026 — revisione di LogBook e pre-bootstrap (solo codice)
+- Esaminati LogBook e i suoi contratti Google popup, Firebase Web, CI e sicurezza. Adottati classificazione popup/cancellazione/network, fallback redirect, session fences e convalida stretta progetto/origine.
+- Il nuovo bootstrap utilizza la configurazione pubblica fornita da Firebase Hosting sull'origine piante.web.app. I path riservati sono documentati ufficialmente: https://firebase.google.com/docs/hosting/reserved-urls . Nessuna API key/App ID o credenziale amministrativa è stata copiata da LogBook o da altri progetti.
+- Nessuna verifica della risposta reale dell'endpoint, nessun deploy, nessuna modifica Auth o Firestore effettuata in questa modifica GitHub.
