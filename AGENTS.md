@@ -1,13 +1,47 @@
-# Piante — regole tecniche del nuovo sito
+# Piante — contratto operativo per agenti
 
-- Il repository contiene un sito **responsive** statico, NON una PWA. Non introdurre Service Worker, manifest installabile, journal offline o migrazioni dal progetto storico.
-- Fonte di verità esterna: `docs/firebase-configurazione.md`; verificare dal provider prima di cambiare Firebase live. Project ID `pianta-db`, site `piante`. Nessuna modifica a LogBook o ad altri progetti.
-- Il dominio `/login` usa **solo Google OAuth** nell'interfaccia; questo non disabilita automaticamente Email/Password nel provider.
-- Per creare o leggere dati privati, Firestore richiede un grant amministrativo `access_grants/{uid}.enabled === true`. L'accesso con Google da solo non concede autorizzazione. I grant sono default-deny e non scrivibili dal client.
-- I profili `profiles/{uid}` sono privati. Le proiezioni `public_gardens/{username}` non devono contenere appunti o metadati personali non esplicitamente scelti. Un profilo pubblicato si può rendere invisibile in blocco.
-- Le Rules Firestore in repository sono solo una candidata: NON distribuirle prima di audit live ed Emulator tests reali. I test Node statici non attestano l'isolamento Firestore.
-- App Web priva di `apiKey` o `appId`: lasciare disabilitato il login finché non si ottiene la configurazione pubblica Web App dal provider. Mai committare service account, segreti e token.
-- Firebase Storage richiede Blaze. Non attivare Blaze o fornitori terzi senza autorizzazione. Le immagini in `web/images` sono pubbliche e non devono essere confuse con allegati privati; la visibilità di Firestore non ne protegge gli URL.
-- Fare modifiche su branch dedicato, con PR e controlli CI sullo SHA candidato. Prima di fare merge o deploy verificare la reale condizione del branch, i required checks e i contratti.
-- Per un rilascio pubblico manca ancora il lifecycle di cancellazione account; non aprire account multipli liberamente senza definire questa protezione, antiabuso, modalità di recupero, quote e cancellazione media.
-- L'interfaccia è ottimizzata mobile-first, tastiera/focus, contrasto e riduzione movimento. Verificare sul browser reale, non presumerne la correttezza da CSS e test statici.
+Ambito: repository pubblico `gernotfound/piante`, **sito web** responsive, non PWA. I documenti operativi e la documentazione di configurazione vivono qui e in `.agents/rules/`, **non nel README**. Il README non va ricreato, riempito o usato come diario di progetto.
+
+## Convenzioni
+- **MUST**: vincolo di prodotto o di sicurezza.
+- **VERIFY**: condizione da osservare in codice, test o provider prima di dichiararla vera.
+- **NOTE**: informazione storica, non prova dello stato live.
+
+Prima di intervenire: controllare l'HEAD di `main`, questo file, le regole pertinenti, il codice, i chiamanti, i test e il workflow. Se documentazione e runtime divergono, verificarli e correggere entrambi. Non modificare `gernotfound/logbook`: è un riferimento per le **convenzioni**, non una dipendenza né un archivio da importare.
+
+## Quali regole leggere
+- **Dati, pubblicazione, sicurezza Firestore:** [`.agents/rules/firestore-and-publication.md`](.agents/rules/firestore-and-publication.md).
+- **Firebase, login Google, console/provider, accessi:** [`.agents/rules/firebase-services.md`](.agents/rules/firebase-services.md), poi [`docs/firebase-configurazione.md`](docs/firebase-configurazione.md).
+- **UI responsive, foto e quote del piano gratuito:** [`.agents/rules/design-and-media.md`](.agents/rules/design-and-media.md), [`docs/design.md`](docs/design.md).
+- **Test, branch, deploy, rollout e rollback:** [`.agents/rules/verification-and-release.md`](.agents/rules/verification-and-release.md).
+
+Leggere l'unione dei documenti quando un task attraversa più confini. Non considerare i contratti una prova automatica della loro implementazione.
+
+## Product scope
+- **MUST:** sito web con homepage pubblica `/`, login Google `/login`, archivio privato `/app`, vetrina `/:username`, scheda `/:username/:plantSlug`.
+- **MUST:** i tag sono creati dal proprietario, possono essere assegnati alle piante e sono usati come filtri pubblici *soltanto se pubblicati*.
+- **MUST:** ogni pianta nasce privata; la vetrina e ogni singola proiezione pubblica richiedono opt-in. Nessun carrello, pagamento, prezzo o contatto pubblico automatico.
+- **MUST:** nessuna PWA, Service Worker, manifest installabile, migrazione dati da `pianta`, integrazione Vercel o blocco offline-first.
+- **SHOULD:** semplice HTML/CSS/ES modules con dipendenze limitate; mantenere layout accessibile su smartphone/desktop, tastiera, riduzione del movimento e immagini leggere.
+
+## Sicurezza e dati
+- **MUST:** `profiles/{uid}` è privato. `public_gardens/{username}` è una proiezione separata, composta solo dai campi esplicitamente condivisi; la visibilità è disattivabile senza cancellare dati.
+- **MUST:** le scritture private/pubbliche correlate sono atomiche e soggette a Security Rules server-side. Non introdurre operazioni che creino una vista pubblica divergente.
+- **MUST:** l'identificazione con Google non autorizza da sola a gestire dati: serve il grant amministrativo `access_grants/{uid}.enabled == true`. Il browser non può creare questi grant.
+- **MUST:** dati, token, email, UID e segreti personali non vanno nei file di un repository pubblico.
+- **MUST:** immagini inserite in `web/images` sono pubbliche per URL e per cronologia Git, anche quando la scheda è privata. Non usarle come archivio fotografico protetto.
+- **MUST:** non modificare o cancellare dati Firestore/Auth live, Rules live, origini OAuth, IAM, Hosting o servizi condivisi soltanto a seguito di un refactoring GitHub.
+- **VERIFY:** le Rules versionate non sono necessariamente quelle distribuite. Firebase Auth, Firestore e Google OAuth live non sono stati collaudati durante l'implementazione della v1.
+
+## Operatività e verifica
+- Classificare **CRITICAL** Auth, Rules, proiezioni pubblico/privato, media e dati utente. Verificare casi positivi/negativi, concorrenza, rollback e failure path.
+- Usare branch dedicato, PR e controlli GitHub sull'esatto commit candidato, poi verificare `main` dopo il merge. Nessun bypass del controllo richiesto.
+- I controlli locali e la CI Emulator/Chromium non dimostrano un deploy Firebase, l'OAuth live o l'assenza di regressioni in produzione.
+- Il repository ha un `firebase.json` per Hosting statico. **Non** contiene una sezione Firestore: evitare il deploy automatico delle Rules candidate durante un futuro deploy Hosting.
+- Per il rilascio servono inventario Firebase live, Web App config pubblica verificata, grant per l'account di test, audit Rules live, test browser reali con backend, piano di cancellazione account e autorizzazione per le modifiche esterne necessarie. Non attivare costi/Blaze.
+- Documentare in `docs/firebase-configurazione.md` stato, data, evidenza e limiti di ogni verifica provider.
+
+## Stato osservato al 24/10/2026
+- **GITHUB-OBSERVED:** codice frontend statico e test Node, browser Chromium e Firestore Emulator in GitHub; il repository contiene codice e Rules candidate.
+- **NOT-VERIFIED:** configurazione dell'app Web Firebase, OAuth reale, Rules attive, Hosting runtime e piano effettivo. `web/firebase-config.mjs` non ha ancora API key Web/App ID.
+- Nessun account reale, dato o servizio Firebase è stato modificato per la preparazione di questa revisione.

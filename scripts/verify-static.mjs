@@ -1,7 +1,13 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat, access } from "node:fs/promises";
 import { join } from "node:path";
 
 const root = new URL("../", import.meta.url);
+try {
+  await access(new URL("../README.md",import.meta.url));
+  throw new Error("Il progetto usa AGENTS.md; non aggiungere README.md.");
+} catch(error) {
+  if(error.code !== "ENOENT") throw error;
+}
 const paths = [];
 async function walk(dir, parent="") {
   for (const entry of await readdir(new URL(dir, root), {withFileTypes:true})) {

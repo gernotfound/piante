@@ -71,20 +71,79 @@ service cloud.firestore {
         data.get('tags',[]) is list && data.get('tags',[]).size() <= 12 &&
         data.get('imageUrl','') is string && data.get('imageUrl','').size() <= 500;
     }
+    // Each public document must be the exact projection of its private source.
+    // getAfter() checks the entire atomic batch/transaction, not only the prior state.
+    function matchesPublicPlant(pub, priv) {
+      return validPublicPlant(pub) && priv.published == true &&
+        pub.name == priv.name && pub.updatedAt == priv.updatedAt &&
+        pub.keys().hasAny(['scientificName']) ==
+          (priv.shareScientificName && priv.scientificName.size() > 0) &&
+        (!pub.keys().hasAny(['scientificName']) || pub.scientificName == priv.scientificName) &&
+        pub.keys().hasAny(['description']) ==
+          (priv.shareDescription && priv.description.size() > 0) &&
+        (!pub.keys().hasAny(['description']) || pub.description == priv.description) &&
+        pub.keys().hasAny(['tags']) ==
+          (priv.shareTags && priv.tags.size() > 0) &&
+        (!pub.keys().hasAny(['tags']) || pub.tags == priv.tags) &&
+        pub.keys().hasAny(['imageUrl']) ==
+          (priv.shareImage && priv.imageUrl.size() > 0) &&
+        (!pub.keys().hasAny(['imageUrl']) || pub.imageUrl == priv.imageUrl);
+    }
+    function publicProfileMatchesAfter(uid, username, data) {
+      let publicDoc = getAfter(/databases/$(database)/documents/public_gardens/$(username));
+      return publicDoc != null &&
+        publicDoc.data.displayName == data.displayName &&
+        publicDoc.data.about == data.about &&
+        publicDoc.data.visible == data.visible;
+    }
+    function privateProfileMatchesAfter(uid, username, data) {
+      let privateDoc = getAfter(/databases/$(database)/documents/profiles/$(uid));
+      return privateDoc != null && privateDoc.data.username == username &&
+        privateDoc.data.displayName == data.displayName &&
+        privateDoc.data.about == data.about &&
+        privateDoc.data.visible == data.visible;
+    }
+    function publicPlantMatchesAfter(uid, plantId, data) {
+      let username = get(/databases/$(database)/documents/profiles/$(uid)).data.username;
+      let publicPath = /databases/$(database)/documents/public_gardens/$(username)/plants/$(plantId);
+      return data.published == true
+        ? existsAfter(publicPath) && matchesPublicPlant(getAfter(publicPath).data, data)
+        : !existsAfter(publicPath);
+    }
+    function canRemovePrivatePlant(uid, plantId) {
+      let username = get(/databases/$(database)/documents/profiles/$(uid)).data.username;
+      return !existsAfter(/databases/$(database)/documents/public_gardens/$(username)/plants/$(plantId));
+    }
+    function canWritePublicPlant(username, plantId, pub) {
+      let privatePath = /databases/$(database)/documents/profiles/$(request.auth.uid)/plants/$(plantId);
+      return ownsHandle(username) && existsAfter(privatePath) &&
+        matchesPublicPlant(pub, getAfter(privatePath).data);
+    }
+    function canRemovePublicPlant(username, plantId) {
+      let privatePath = /databases/$(database)/documents/profiles/$(request.auth.uid)/plants/$(plantId);
+      return ownsHandle(username) &&
+        (!existsAfter(privatePath) || getAfter(privatePath).data.published == false);
+    }
     match /profiles/{uid} {
       allow get: if isOwner(uid);
       allow list: if false;
       allow create: if isOwner(uid) && validPrivateProfile(request.resource.data) &&
-        willOwnHandle(request.resource.data.username);
+        willOwnHandle(request.resource.data.username) &&
+        publicProfileMatchesAfter(uid, request.resource.data.username, request.resource.data);
       allow update: if isOwner(uid) &&
         request.resource.data.username == resource.data.username &&
-        validPrivateProfile(request.resource.data);
+        validPrivateProfile(request.resource.data) &&
+        publicProfileMatchesAfter(uid, request.resource.data.username, request.resource.data);
       allow delete: if false;
 
       match /plants/{plantId} {
         allow get, list: if isOwner(uid);
-        allow create, update: if isOwner(uid) && validPrivatePlant(request.resource.data);
-        allow delete: if isOwner(uid);
+        allow create: if isOwner(uid) && exists(/databases/$(database)/documents/profiles/$(uid)) &&
+          validPrivatePlant(request.resource.data) && publicPlantMatchesAfter(uid, plantId, request.resource.data);
+        allow update: if isOwner(uid) && validPrivatePlant(request.resource.data) &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          publicPlantMatchesAfter(uid, plantId, request.resource.data);
+        allow delete: if isOwner(uid) && canRemovePrivatePlant(uid, plantId);
       }
       match /tags/{tagId} {
         allow get, list: if isOwner(uid);
@@ -102,20 +161,23 @@ service cloud.firestore {
       allow create: if signedIn() && isApproved(request.auth.uid) && validUsername(username) &&
         request.resource.data.keys().hasOnly(['ownerUid']) &&
         request.resource.data.keys().hasAll(['ownerUid']) &&
-        request.resource.data.ownerUid == request.auth.uid;
+        request.resource.data.ownerUid == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.username == username;
       allow update, delete: if false;
     }
     match /public_gardens/{username} {
       allow get: if resource.data.visible == true || ownsHandle(username);
       allow list: if resource.data.visible == true;
-      allow create: if willOwnHandle(username) && validPublicProfile(request.resource.data);
-      allow update: if ownsHandle(username) && validPublicProfile(request.resource.data);
+      allow create: if willOwnHandle(username) && validPublicProfile(request.resource.data) &&
+        privateProfileMatchesAfter(request.auth.uid, username, request.resource.data);
+      allow update: if ownsHandle(username) && validPublicProfile(request.resource.data) &&
+        privateProfileMatchesAfter(request.auth.uid, username, request.resource.data);
       allow delete: if false;
 
       match /plants/{plantId} {
         allow get, list: if gardenIsVisible(username) || ownsHandle(username);
-        allow create, update: if ownsHandle(username) && validPublicPlant(request.resource.data);
-        allow delete: if ownsHandle(username);
+        allow create, update: if canWritePublicPlant(username, plantId, request.resource.data);
+        allow delete: if canRemovePublicPlant(username, plantId);
       }
     }
 

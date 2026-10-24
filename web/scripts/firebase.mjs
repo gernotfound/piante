@@ -6,7 +6,7 @@ export function firebaseConfigured() {
 }
 let clientPromise;
 export function loadFirebase() {
-  if (!firebaseConfigured()) throw new Error("Firebase non è ancora configurato. Consultare README.md.");
+  if (!firebaseConfigured()) throw new Error("Firebase non è ancora configurato. Consultare AGENTS.md e .agents/rules/firebase-services.md.");
   if (!clientPromise) clientPromise = (async () => {
     const base = "https://www.gstatic.com/firebasejs/12.19.0/";
     const [app, auth, firestore] = await Promise.all([
