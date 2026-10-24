@@ -48,3 +48,9 @@ Leggere l'unione dei documenti quando un task attraversa più confini. Non consi
 
 ## Riutilizzo selettivo da LogBook (24/10/2026)
 Esaminati `src/lib/firebase.ts`, `src/contexts/auth/googlePopup.ts`, `src/contexts/auth/useGoogleAuthActions.ts`, `.agents/rules/firebase-config.md`, `.agents/rules/design-system.md`, workflow di deploy WIF e contract CI di `gernotfound/logbook`. Riutilizzati **i principi**, non importata la PWA: validazione di progetto/Origin prima di Firebase, fallback popup→redirect, cancellazioni e network error distinti, fences di sessione contro completamenti tardivi e verifiche CI. Vedi `.agents/rules/firebase-services.md`. Rifiutate come fuori scope architettura IndexedDB/offline, backend Vercel, guest migration e account deletion complessa senza un trusted backend Spark.
+
+## Preflight Hosting in GitHub — fase di rilascio
+- Il workflow manuale read-only `.github/workflows/hosting-readiness.yml` lancia `scripts/hosting-readiness.mjs` solo da `main`, senza token Firebase, e osserva soltanto HTML, CSP, modulo JS e il JSON Web Firebase pubblico sul dominio Piante.
+- `npm run check:hosting` non distribuisce niente. FAIL prima del deploy significa soltanto che il sito pubblico non è verificato; PASS non certifica Auth/Firestore live.
+- Checklist per audit Console, rollback e Hosting-only deploy: `docs/operations/firebase-release.md`. Non inserire segreti o UID in questi documenti.
+- Bugfix UI: i filtri/ricerca non vanno azzerati dai rerender di stato; si azzerano quando cambia la rotta.
