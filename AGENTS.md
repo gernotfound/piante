@@ -29,7 +29,7 @@ Leggere l'unione dei documenti quando un task attraversa più confini. Non consi
 - **MUST:** le scritture private/pubbliche correlate sono atomiche e soggette a Security Rules server-side. Non introdurre operazioni che creino una vista pubblica divergente.
 - **MUST:** l'identificazione con Google non autorizza da sola a gestire dati: serve il grant amministrativo `access_grants/{uid}.enabled == true`. Il browser non può creare questi grant.
 - **MUST:** dati, token, email, UID e segreti personali non vanno nei file di un repository pubblico.
-- **MUST:** immagini inserite in `web/images` sono pubbliche per URL e per cronologia Git, anche quando la scheda è privata. Non usarle come archivio fotografico protetto.
+- **MUST:** le nuove immagini sono caricate dal pannello, compresse in WebP a max 120 KiB, salvate in `plant_media/{username}/plants/{plantId}` in Firestore e protette da Rules. Letture pubbliche solo quando la vetrina è visibile e la singola foto è condivisa. I legacy asset in `web/images` o URL HTTPS esterni sono invece pubblicamente accessibili per URL, indipendentemente dalla scheda.
 - **MUST:** non modificare o cancellare dati Firestore/Auth live, Rules live, origini OAuth, IAM, Hosting o servizi condivisi soltanto a seguito di un refactoring GitHub.
 - **VERIFY:** le Rules versionate non sono necessariamente quelle distribuite. Firebase Auth, Firestore e Google OAuth live non sono stati collaudati durante l'implementazione della v1. L'auto-config Web stessa-origin da Firebase Hosting è **solo codice candidato**: finché non si verifica l'endpoint live non equivale a login funzionante.
 
@@ -54,3 +54,10 @@ Esaminati `src/lib/firebase.ts`, `src/contexts/auth/googlePopup.ts`, `src/contex
 - `npm run check:hosting` non distribuisce niente. FAIL prima del deploy significa soltanto che il sito pubblico non è verificato; PASS non certifica Auth/Firestore live.
 - Checklist per audit Console, rollback e Hosting-only deploy: `docs/operations/firebase-release.md`. Non inserire segreti o UID in questi documenti.
 - Bugfix UI: i filtri/ricerca non vanno azzerati dai rerender di stato; si azzerano quando cambia la rotta.
+
+## Foto dall'account — nuovo contratto (24/10/2026)
+- Una foto ottimizzata per pianta nella prima implementazione; il salvataggio avviene direttamente dal browser nel documento binario Firestore, **non** nel repository GitHub e **non** in Firebase Storage.
+- Compressione senza EXIF con canvas WebP: lato max 1080 px, byte massimi 122880. Dimensione/codifica sono ricontrollate dalle Rules; immagini più grandi o formati non ammessi vengono rifiutati.
+- Pianta e media vengono sincronizzate in batch; vetrina pubblica, scheda e campo condiviso `imageStored` governano la lettura anonima. Nel pannello privato la foto è consultabile solo dall'account con grant. Test su Emulator obbligatorio prima del deploy Rules.
+- Firestore Spark: **1 GiB archivio, 50.000 letture/giorno, 10 GiB trasferiti/mese** nell'unico DB gratuito; immagini pesanti o tanti visitatori possono esaurire la quota senza diventare un servizio Storage gratuito illimitato.
+- Il codice in GitHub non significa che le nuove Rules siano live. Nessuna modifica a provider e nessun deploy autorizzato da solo.

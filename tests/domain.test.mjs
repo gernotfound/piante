@@ -44,3 +44,13 @@ test("escaping HTML e campi profilo", () => {
   assert.throws(() => cleanProfile({displayName:""}),/nome/);
   assert.equal(cleanProfile({displayName:"Giardino",about:"Ciao",visible:false}).visible,false);
 });
+
+test("foto salvata come byte non appare nella proiezione finché non si condivide",()=>{
+  const plant=makePrivatePlant({name:"Papaya",imageStored:true,published:false,shareImage:true});
+  assert.equal(plant.imageStored,true);
+  assert.equal(toPublicPlant(plant),null);
+  const share=toPublicPlant({...plant,published:true});
+  assert.equal(share.imageStored,true);
+  const hide=toPublicPlant({...plant,published:true,shareImage:false});
+  assert.equal("imageStored" in hide,false);
+});

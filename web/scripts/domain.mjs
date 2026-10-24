@@ -38,6 +38,7 @@ export function makePrivatePlant(input, previous = null) {
     scientificName: cleanText(input.scientificName, 120),
     description: cleanText(input.description, 2000),
     imageUrl: imageUrl(candidate),
+    imageStored: input.imageStored === true,
     tags: cleanTags(input.tags),
     published: input.published === true,
     shareScientificName: input.shareScientificName === true,
@@ -55,6 +56,7 @@ export function toPublicPlant(plant) {
   if (plant.shareDescription && plant.description) doc.description = cleanText(plant.description, 2000);
   if (plant.shareTags && plant.tags?.length) doc.tags = cleanTags(plant.tags);
   if (plant.shareImage && imageUrl(plant.imageUrl)) doc.imageUrl = imageUrl(plant.imageUrl);
+  if (plant.shareImage && plant.imageStored === true) doc.imageStored = true;
   return doc;
 }
 export function filterPlants(plants, query = "", tag = "") {

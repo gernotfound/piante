@@ -209,6 +209,8 @@ p { line-height: 1.7; }
 .image-helper p { font-size: 11px; color: #68826e; margin: 5px 0 0; }
 .upload-label { padding: 10px 13px; border: 1px solid #becfbd; font-size: 11px; cursor: pointer; }
 .upload-label input { display: block; max-width: 165px; margin-top: 6px; font-size: 10px; }
+#photo-status { font-size: 11px; color: #52745a; line-height: 1.5; max-width: 240px; overflow-wrap: anywhere; }
+#photo-file { max-width: min(100%,220px); }
 .small-form { padding: 30px; background: #e9eee6; }
 .input-action { margin-top: 12px; display: flex; gap: 10px; }
 .input-action input { flex: 1; }

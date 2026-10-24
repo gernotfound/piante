@@ -1,4 +1,5 @@
 import test from "node:test";
+import { Bytes } from "firebase/firestore";
 import { readFile } from "node:fs/promises";
 import {
   initializeTestEnvironment, assertSucceeds, assertFails
@@ -113,6 +114,49 @@ test("Firestore Rules: proprietà, registrazione, isolamento e pubblicazione", a
       deactivate.update(pub,{visible:false});
       await assertSucceeds(deactivate.commit());
       await assertFails(anonymous.doc("public_gardens/"+username).get());
+    });
+    await t.test("foto WebP private: caricamento, pubblicazione e rimozione atomici",async()=>{
+      const media=alice.doc("plant_media/"+username+"/plants/avocado-123");
+      const privatePlant=alice.doc("profiles/alice/plants/avocado-123");
+      const publicPlant=alice.doc("public_gardens/"+username+"/plants/avocado-123");
+      const bytes=Bytes.fromUint8Array(new Uint8Array(128).fill(42));
+      const photo={bytes,mime:"image/webp",width:500,height:350,size:128,updatedAt:127};
+      await assertFails(anonymous.doc("plant_media/"+username+"/plants/avocado-123").get());
+      await assertFails(bob.doc("plant_media/"+username+"/plants/avocado-123").get());
+      await assertFails(media.set(photo));
+      await assertFails(privatePlant.update({imageStored:true,updatedAt:126}));
+      const initial=alice.batch();
+      initial.update(privatePlant,{imageStored:true,updatedAt:126});
+      initial.set(media,photo);
+      await assertSucceeds(initial.commit());
+      await assertSucceeds(media.get());
+      await assertFails(anonymous.doc("plant_media/"+username+"/plants/avocado-123").get());
+      await assertFails(media.set({...photo,mime:"text/html"}));
+      await assertFails(media.set({...photo,size:127}));
+      await assertFails(media.delete());
+      const publish=alice.batch();
+      publish.update(privatePlant,{published:true,shareImage:true,updatedAt:127});
+      publish.set(publicPlant,{name:"Avocado",tags:["Esotica"],imageStored:true,updatedAt:127});
+      await assertSucceeds(publish.commit());
+      await assertFails(anonymous.doc("plant_media/"+username+"/plants/avocado-123").get());
+      const show=alice.batch();
+      show.update(alice.doc("profiles/alice"),{visible:true});
+      show.update(alice.doc("public_gardens/"+username),{visible:true});
+      await assertSucceeds(show.commit());
+      await assertSucceeds(anonymous.doc("plant_media/"+username+"/plants/avocado-123").get());
+      await assertFails(bob.doc("plant_media/"+username+"/plants/avocado-123").delete());
+      await assertFails(publicPlant.update({imageStored:false}));
+      await assertFails(media.delete());
+      const retract=alice.batch();
+      retract.update(privatePlant,{imageStored:false,updatedAt:128});
+      retract.set(publicPlant,{name:"Avocado",tags:["Esotica"],updatedAt:128});
+      retract.delete(media);
+      await assertSucceeds(retract.commit());
+      await assertFails(anonymous.doc("plant_media/"+username+"/plants/avocado-123").get());
+      const hide=alice.batch();
+      hide.update(alice.doc("profiles/alice"),{visible:false});
+      hide.update(alice.doc("public_gardens/"+username),{visible:false});
+      await assertSucceeds(hide.commit());
     });
     await t.test("revoca del grant senza eliminazione dei dati",async()=>{
       await env.withSecurityRulesDisabled(async ctx=>{

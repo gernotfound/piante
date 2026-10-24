@@ -5,8 +5,57 @@ import {
 import { loadFirebase } from "./firebase.mjs";
 import { signInGoogle } from "./google-auth.mjs";
 import { makeDataClient } from "./data.mjs";
+import { compressPhoto } from "./photo.mjs";
 
 const root = document.querySelector("#app");
+const photoUrls = new Map();
+const photoPromises = new Map();
+let photoObserver;
+let photoEpoch=0;
+function forgetPhoto(handle,id) {
+  photoEpoch++;
+  const key=handle+"/"+id;
+  if(photoUrls.has(key))URL.revokeObjectURL(photoUrls.get(key));
+  photoUrls.delete(key);photoPromises.delete(key);
+}
+function forgetAllPhotos() {
+  photoEpoch++;
+  for(const url of photoUrls.values())URL.revokeObjectURL(url);
+  photoUrls.clear();photoPromises.clear();
+}
+async function showStoredPhoto(image) {
+  const handle=image.dataset.photoHandle,id=image.dataset.photoId;
+  if(!handle||!id||!state.store||!image.isConnected)return;
+  const key=handle+"/"+id;
+  const epoch=photoEpoch;
+  try {
+    if(!photoUrls.has(key)) {
+      if(!photoPromises.has(key))photoPromises.set(key,(async()=>{
+        const bytes=await state.store.plantPhoto(handle,id);
+        return bytes?.length ? URL.createObjectURL(new Blob([bytes],{type:"image/webp"})) : null;
+      })().finally(()=>photoPromises.delete(key)));
+      const photoUrl=await photoPromises.get(key);
+      if(epoch!==photoEpoch) {
+        if(photoUrl)URL.revokeObjectURL(photoUrl);
+        return;
+      }
+      if(photoUrl&&!photoUrls.has(key))photoUrls.set(key,photoUrl);
+    }
+    if(epoch===photoEpoch&&image.isConnected&&photoUrls.has(key))image.src=photoUrls.get(key);
+  } catch { /* Security Rules intentionally hide unshared images. */ }
+}
+function wirePhotos() {
+  const pending=[...root.querySelectorAll("img[data-photo-id]:not([data-photo-wired])")];
+  if(!pending.length)return;
+  if("IntersectionObserver" in window && !photoObserver)photoObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries)if(entry.isIntersecting){photoObserver.unobserve(entry.target);void showStoredPhoto(entry.target);}
+  },{rootMargin:"250px"});
+  for(const image of pending){
+    image.dataset.photoWired="true";
+    if(photoObserver)photoObserver.observe(image);
+    else void showStoredPhoto(image);
+  }
+}
 const state = {
   user: null, firebase: null, store: null, profile: null,
   plants: [], tags: [], publicData: null, publicHandle: "",
@@ -40,6 +89,7 @@ function footer() {
 function shell(body, extraClass = "") {
   root.innerHTML = '<div class="site ' + extraClass + '">' + header() + '<div id="notice" class="notice" hidden role="status" aria-live="polite"></div>' + body + footer() + '</div>';
   if (state.notice) status(state.notice);
+  queueMicrotask(wirePhotos);
 }
 function loading(title = "Sto aprendo il giardino…") {
   shell('<main class="wrap loading-page"><div class="loading-leaf" aria-hidden="true">✳</div><h1>' + h(title) + '</h1></main>');
@@ -79,13 +129,15 @@ function sideNav(active) {
 function appShell(active, content) {
   shell('<main class="wrap app-layout">' + sideNav(active) + '<div class="app-main">' + content + '</div></main>',"private-site");
 }
-function plantArt(plant, first = false) {
-  const src = plant.imageUrl || "";
-  return '<div class="plant-visual">' + (src ? '<img src="' + h(src) + '" alt="' + h(plant.name) + '" loading="' + (first?"eager":"lazy") + '" decoding="async" width="560" height="680">' :
+function plantArt(plant, first = false, handle = "") {
+  const stored=plant.imageStored===true;
+  const src=stored?"/assets/botanical-plate.svg":(plant.imageUrl||"");
+  const attrs=stored?' data-photo-handle="' + h(handle) + '" data-photo-id="' + h(plant.id) + '"':"";
+  return '<div class="plant-visual">' + (src ? '<img src="' + h(src) + '"' + attrs + ' alt="' + h(plant.name) + '" loading="' + (first?"eager":"lazy") + '" decoding="async" width="560" height="680">' :
     '<div class="plant-placeholder"><img src="/assets/botanical-plate.svg" width="320" height="400" alt="" loading="lazy"></div>') + '</div>';
 }
 function plantCard(plant, username, first = false) {
-  return '<a class="plant-card" ' + href("/" + username + "/" + plant.id) + '>' + plantArt(plant,first) +
+  return '<a class="plant-card" ' + href("/" + username + "/" + plant.id) + '>' + plantArt(plant,first,username) +
     '<div class="plant-card-content"><div class="card-topline"><span>COLLEZIONE BOTANICA</span><span aria-hidden="true">↗</span></div><h3>' + h(plant.name) + '</h3>' +
     (plant.scientificName ? '<p class="latin">' + h(plant.scientificName) + '</p>' : '') +
     (plant.tags?.length ? '<div class="tag-row">' + withTags(plant.tags) + '</div>' : '') + '</div></a>';
@@ -97,7 +149,7 @@ function privateIndex() {
     '<div class="toolbar"><label class="search-field"><span class="visually-hidden">Cerca una pianta</span><input id="plant-search" type="search" placeholder="Cerca tra le tue piante…" value="' + h(state.search) + '"></label>' +
     '<select id="plant-tag" aria-label="Filtra per tag"><option value="">Tutti i tag</option>' + state.tags.map(t=>'<option value="' + h(t.name) + '"' + (state.tag===t.name?" selected":"") + '>' + h(t.name) + '</option>').join("") + '</select></div>' +
     (plants.length?'<div class="private-plants">' + plants.map(p=>'<a class="private-plant" ' + href("/app/plants/"+p.id) + '>' +
-      '<div class="private-thumb">' + (p.imageUrl ? '<img alt="" src="' + h(p.imageUrl) + '" loading="lazy">' : '✳') + '</div><div><h3>' + h(p.name) + '</h3><p>' + h(p.scientificName || "Scheda botanica") + '</p></div><span class="visibility-pill ' + (p.published?"is-public":"") + '">' + (p.published?"Selezionata":"Privata") + '</span><span aria-hidden="true">↗</span></a>').join("") + '</div>' :
+      '<div class="private-thumb">' + (p.imageStored ? '<img alt="" src="/assets/botanical-plate.svg" data-photo-handle="' + h(state.profile.username) + '" data-photo-id="' + h(p.id) + '" loading="lazy">' : p.imageUrl ? '<img alt="" src="' + h(p.imageUrl) + '" loading="lazy">' : '✳') + '</div><div><h3>' + h(p.name) + '</h3><p>' + h(p.scientificName || "Scheda botanica") + '</p></div><span class="visibility-pill ' + (p.published?"is-public":"") + '">' + (p.published?"Selezionata":"Privata") + '</span><span aria-hidden="true">↗</span></a>').join("") + '</div>' :
       '<div class="empty-collection"><span class="empty-asterisk">✳</span><h3>' + (state.plants.length?"Nessun risultato":"Il tuo giardino comincia qui.") + '</h3><p>' + (state.plants.length?"Prova un altro filtro.":"Aggiungi la prima pianta per iniziare la collezione.") + '</p></div>') +
     '<p class="helper-note">Una scheda selezionata diventa visibile ai visitatori solo se hai attivato anche la vetrina nelle impostazioni.</p>');
 }
@@ -120,14 +172,14 @@ function settingsPage() {
 function plantEditor(id) {
   const original=state.plants.find(p=>p.id===id);
   if(id!=="new"&&!original){showError("Pianta non trovata","Questa scheda non esiste nel tuo archivio.");return;}
-  const p=original || {name:"",scientificName:"",description:"",imageUrl:"",tags:[],published:false,shareScientificName:false,shareDescription:false,shareTags:false,shareImage:false};
+  const p=original || {name:"",scientificName:"",description:"",imageUrl:"",imageStored:false,tags:[],published:false,shareScientificName:false,shareDescription:false,shareTags:false,shareImage:false};
   const check=(key,label,description)=>'<label class="check-row"><input type="checkbox" name="' + key + '" ' + (p[key]?"checked":"") + '><span><strong>' + label + '</strong><small>' + description + '</small></span></label>';
   appShell("plants",'<div class="editor-top"><a ' + href("/app") + ' class="back-link">← Torna alle mie piante</a><div class="overline">SCHEDA BOTANICA</div><h1>' + (original?"Modifica":"Nuova") + ' <em>pianta.</em></h1><p>Prima registra i dati per te, poi scegli cosa rendere pubblico.</p></div>' +
     '<form id="plant-form" data-id="' + h(id) + '" class="editor-form"><div class="form-grid"><label>Nome della pianta *<input name="name" required maxlength="90" value="' + h(p.name) + '" placeholder="Es. Avocado"></label>' +
     '<label>Nome scientifico<input name="scientificName" maxlength="120" value="' + h(p.scientificName) + '" placeholder="Es. Persea americana"></label></div>' +
     '<label>Appunti / descrizione<textarea name="description" rows="5" maxlength="2000" placeholder="Annotazioni sulla tua pianta…">' + h(p.description) + '</textarea></label>' +
-    '<label>Foto — URL HTTPS o percorso /images/<input name="imageUrl" maxlength="500" value="' + h(p.imageUrl) + '" placeholder="/images/avocado.webp"></label>' +
-    '<div class="image-helper"><div><strong>Hai una foto da ottimizzare?</strong><p>Selezionala e scarica una versione WebP leggera. Poi aggiungila alla cartella web/images su GitHub e inserisci il relativo percorso qui sopra.</p></div><label class="upload-label">Scegli una foto<input type="file" id="photo-file" accept="image/*"></label><button type="button" data-action="optimize" class="text-link">Scarica WebP ↗</button></div>' +
+    '<div class="image-helper"><div><strong>Fotografia della pianta</strong><p>La foto verrà ottimizzata automaticamente in WebP (massimo 120 KB) quando salvi la scheda. È privata finché non condividi esplicitamente la pianta e la fotografia.</p></div><label class="upload-label">Scegli una foto<input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp,image/avif"></label><span id="photo-status" role="status" aria-live="polite">' + (p.imageStored?"Foto caricata. Puoi sostituirla.":"Nessuna foto caricata.") + '</span></div>' +
+    (p.imageStored ? '<label class="check-row"><input type="checkbox" name="removePhoto"><span><strong>Rimuovi la fotografia</strong><small>Elimina la copia caricata quando salvi.</small></span></label>' : '') +
     '<fieldset class="tags-field"><legend>Tag della pianta</legend><div class="selectable-tags">' + (state.tags.length?state.tags.map(t=>'<label class="tag-checkbox"><input type="checkbox" name="tag" value="' + h(t.name) + '" ' + (p.tags.includes(t.name)?"checked":"") + '><span>' + h(t.name) + '</span></label>').join(""):'<p>Non ci sono tag. <a ' + href("/app/tags") + '>Creane uno qui.</a></p>') + '</div></fieldset>' +
     '<section class="publish-section"><div class="overline">CONTROLLO PUBBLICAZIONE</div><h2>Cosa vuoi <em>mostrare?</em></h2>' +
     check("published","Seleziona per la vetrina","La scheda verrà pubblicata soltanto quando anche il profilo è visibile.") +
@@ -166,7 +218,7 @@ function publicPage(garden) {
 }
 function plantDetail(garden, plant) {
   shell('<main class="wrap detail-page"><a class="back-link" ' + href("/" + garden.username) + '>← Tutte le piante di ' + h(garden.displayName) + '</a>' +
-    '<div class="detail-grid">' + plantArt(plant,true) + '<section class="detail-content"><div class="overline">SCHEDA DEL GIARDINO · ' + h(garden.username.toUpperCase()) + '</div><h1>' + h(plant.name) + '</h1>' +
+    '<div class="detail-grid">' + plantArt(plant,true,garden.username) + '<section class="detail-content"><div class="overline">SCHEDA DEL GIARDINO · ' + h(garden.username.toUpperCase()) + '</div><h1>' + h(plant.name) + '</h1>' +
     (plant.scientificName?'<p class="detail-latin">' + h(plant.scientificName) + '</p>':'') +
     (plant.tags?.length?'<div class="tag-row">' + withTags(plant.tags) + '</div>':'') +
     (plant.description?'<div class="detail-description"><h2>La sua storia</h2><p>' + h(plant.description) + '</p></div>':'<p class="detail-description">Una delle piante di questa collezione.</p>') +
@@ -248,15 +300,15 @@ document.addEventListener("click",event=>{
   const tagButton=event.target.closest("[data-filter]");
   if(tagButton){state.tag=tagButton.dataset.filter || "";if(state.publicData) {
     const current=document.querySelector(".gallery-section");
-    if(current){const replacement=document.createElement("div");replacement.innerHTML=gallery(state.publicData);current.replaceWith(replacement.firstElementChild);}
+    if(current){const replacement=document.createElement("div");replacement.innerHTML=gallery(state.publicData);current.replaceWith(replacement.firstElementChild);queueMicrotask(wirePhotos);}
   }return;}
   const action=event.target.closest("[data-action]")?.dataset.action;
-  if(action==="signout") safely(async()=>{await state.firebase.api.signOut(state.firebase.auth);state.profile=null;state.plants=[];state.accessError=null;navigate("/");});
-  if(action==="optimize") safely(optimizePhoto);
+  if(action==="signout") safely(async()=>{forgetAllPhotos();await state.firebase.api.signOut(state.firebase.auth);state.profile=null;state.plants=[];state.accessError=null;navigate("/");});
   if(action==="delete-plant") safely(async()=>{
     const id=event.target.closest("[data-id]")?.dataset.id;
     if(!id || !confirm("Eliminare definitivamente questa scheda dall'archivio e dalla vetrina?"))return;
     await state.store.removePlant(state.user.uid,state.profile.username,id);
+    forgetPhoto(state.profile.username,id);
     await hydratePrivate();state.publicData=null;navigate("/app");
   });
 });
@@ -268,7 +320,7 @@ document.addEventListener("input",event=>{
     if(cards){const view=document.createElement("div");view.innerHTML=gallery(state.publicData);
       const next=view.firstElementChild;
       const newSearch=next.querySelector("#public-search");
-      cards.replaceWith(next);newSearch?.focus();newSearch?.setSelectionRange(state.search.length,state.search.length);
+      cards.replaceWith(next);queueMicrotask(wirePhotos);newSearch?.focus();newSearch?.setSelectionRange(state.search.length,state.search.length);
     }
   }
   if(event.target.id==="plant-search") {
@@ -278,6 +330,12 @@ document.addEventListener("input",event=>{
   }
 });
 document.addEventListener("change",event=>{
+  if(event.target.id==="photo-file") {
+    const file=event.target.files?.[0];
+    const info=document.querySelector("#photo-status");
+    if(info)info.textContent=file ? file.name+" — verrà ottimizzata e caricata quando salvi." : "Nessun nuovo file selezionato.";
+    return;
+  }
   if(event.target.id==="plant-tag"){state.tag=event.target.value;privateIndex();}
 });
 document.addEventListener("submit",event=>{
@@ -305,41 +363,28 @@ document.addEventListener("submit",event=>{
     if(form.id==="plant-form"){
       const id=form.dataset.id;
       const original=state.plants.find(p=>p.id===id) || null;
+      const file=form.querySelector("#photo-file")?.files?.[0] || null;
+      if(file && fd.has("removePhoto"))throw new Error("Scegli se sostituire o rimuovere la foto.");
+      if(file) {
+        const info=document.querySelector("#photo-status");
+        if(info)info.textContent="Ottimizzazione WebP in corso…";
+      }
+      const photo=file ? await compressPhoto(file) : (fd.has("removePhoto") ? "remove" : null);
       const plant=makePrivatePlant({
         name:fd.get("name"),scientificName:fd.get("scientificName"),description:fd.get("description"),
-        imageUrl:fd.get("imageUrl"),tags:fd.getAll("tag"),
-        published:fd.has("published"),shareScientificName:fd.has("shareScientificName"),
-        shareDescription:fd.has("shareDescription"),shareTags:fd.has("shareTags"),shareImage:fd.has("shareImage")
+        imageUrl:file || photo==="remove" ? "" : (original?.imageUrl || ""),
+        imageStored:file ? true : photo==="remove" ? false : original?.imageStored===true,
+        tags:fd.getAll("tag"),published:fd.has("published"),
+        shareScientificName:fd.has("shareScientificName"),shareDescription:fd.has("shareDescription"),
+        shareTags:fd.has("shareTags"),shareImage:fd.has("shareImage")
       },original);
       const newId=id==="new" ? (cleanText(plant.name.toLocaleLowerCase("it").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""),48).replace(/-$/,"") || "pianta") + "-" + crypto.randomUUID().slice(0,8) : id;
-      await state.store.savePlant(state.user.uid,state.profile.username,newId,plant);
+      await state.store.savePlant(state.user.uid,state.profile.username,newId,plant,photo);
+      forgetPhoto(state.profile.username,newId);
       await hydratePrivate();state.publicData=null;navigate("/app");status("Scheda salvata.","success");
     }
   });
 });
-async function optimizePhoto() {
-  const file=document.querySelector("#photo-file")?.files?.[0];
-  if(!file)throw new Error("Seleziona prima una fotografia.");
-  if(!file.type.startsWith("image/"))throw new Error("Il file selezionato non è un'immagine.");
-  if(file.size>30*1024*1024)throw new Error("La fotografia supera il limite locale di 30 MB.");
-  const source=await createImageBitmap(file);
-  try {
-    const maxSide=1400;
-    const ratio=Math.min(1,maxSide/Math.max(source.width,source.height));
-    const canvas=document.createElement("canvas");
-    canvas.width=Math.round(source.width*ratio);canvas.height=Math.round(source.height*ratio);
-    const ctx=canvas.getContext("2d");
-    if(!ctx)throw new Error("Questo browser non può convertire l'immagine.");
-    ctx.drawImage(source,0,0,canvas.width,canvas.height);
-    const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",0.78));
-    if(!blob || blob.type!=="image/webp")throw new Error("WebP non è disponibile su questo browser.");
-    const link=document.createElement("a");
-    const name=file.name.replace(/\.[^.]+$/,"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9-]+/g,"-").slice(0,50) || "pianta";
-    link.href=URL.createObjectURL(blob);link.download=name+".webp";
-    link.click();setTimeout(()=>URL.revokeObjectURL(link.href),600);
-    status("WebP generato ("+Math.round(blob.size/1024)+" KB). Caricalo in web/images/ su GitHub.","success");
-  } finally {source.close();}
-}
 window.addEventListener("popstate",()=>{ state.search=""; state.tag=""; render(); });
 async function start() {
   home();
@@ -348,6 +393,7 @@ async function start() {
     state.store = makeDataClient(state.firebase);
     state.firebase.api.onAuthStateChanged(state.firebase.auth, async user => {
       const epoch = ++state.authEpoch;
+      if(state.user?.uid!==user?.uid)forgetAllPhotos();
       state.user = user;
       state.authReady = true;
       state.authLoading = Boolean(user);

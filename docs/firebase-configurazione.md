@@ -24,7 +24,7 @@ Nota storica: inventario iniziale del 23 ottobre 2026 per il riavvio **sito web 
 - Le Rules osservate/riferite dall'utente riguardavano il precedente namespace `users/{uid}`. Le Rules di laboratorio PWA non erano distribuite. **Le Rules live non sono state lette né modificate** con questa operazione.
 - Il codice contiene ora `profiles/{uid}`, `access_grants/{uid}`, `handles/{username}` e `public_gardens/{username}`. La pubblicazione è esplicita e usa batch atomici. Le Rules candidate sono sottoposte a test Firebase Emulator nella CI; **non** sono state pubblicate sul provider live.
 - Restrizioni API key per referrer/API, IAM, App Check, indici e autorizzazioni effettive: **da verificare dal provider**.
-- Firebase Storage non è integrato nel nuovo sito: il piano Spark non consente più l'accesso a Cloud Storage dal 3 febbraio 2026. Le fotografie destinate alla pubblicazione sono convertite in WebP localmente e possono essere caricate **manualmente** come asset Hosting pubblici; non sono protette dalle Rules Firestore.
+- Firebase Storage non è integrato perché richiede Blaze. Il nuovo caricamento foto ottimizza WebP nel browser e salva un documento binario in Firestore, con controllo delle letture pubbliche nelle **Rules candidate non ancora distribuite**. Eventuali asset statici legacy rimangono pubblici per URL.
 - Firebase Analytics e Cloud Functions: non integrate nel vecchio repository; nessuna nuova attivazione o costo autorizzati.
 
 ## Confini di questa pulizia
@@ -55,3 +55,10 @@ Nota storica: inventario iniziale del 23 ottobre 2026 per il riavvio **sito web 
 - Preparati `scripts/hosting-readiness.mjs` e `.github/workflows/hosting-readiness.yml` per verificare da GitHub Actions lo stato pubblico del sito `piante.web.app` senza credenziali e senza deploy.
 - Da questa sessione il dominio non è stato accessibile tramite gli strumenti disponibili; questo **non** permette di dedurre che il sito sia inattivo. Nessun inventario privilegiato del provider è stato ottenuto.
 - Per il primo deploy deliberato seguire `docs/operations/firebase-release.md`. Le Rules live restano da verificare e sono indipendenti dalla CI su Emulator.
+
+## Upload WebP automatico — implementazione candidata del 24 ottobre 2026
+- L'interfaccia non richiede più download WebP e upload manuale su GitHub: selezione, ottimizzazione e salvataggio sono integrati nella scheda privata.
+- Le immagini sono conservate nei documenti binari `plant_media/{username}/plants/{plantId}`, soggetti alle Rules candidate `firestore.rules`. Il proprietario e i visitatori ricevono autorizzazioni diverse; le copie già scaricate non possono essere richiamate indietro.
+- Limiti progettuali: 1 foto per pianta, 120 KiB WebP, 1080px max; dati Spark 1GiB, letture 50k/giorno, traffico 10GiB/mese. Non destinato a gallerie massive.
+- **ATTENZIONE:** Firestore live non è stato verificato. Le nuove Rules devono essere distribuite solo dopo audit della Console e conferma che non interrompano client esistenti. Nessuna quota Blaze/Storage attivata.
+- Il precedente workflow 40080413124 ha restituito quattro BLOCK (homepage, header, init.json, modulo JS). Il vecchio log nascondeva il motivo del fallimento della richiesta; la nuova versione distingue rete, DNS, timeout, TLS e stato HTTP. Node 20 deprecated veniva dalle Action GitHub v4, aggiornate alle v7.
