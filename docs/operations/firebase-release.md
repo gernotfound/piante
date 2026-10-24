@@ -43,3 +43,6 @@ Il nuovo modulo upload WebP usa i **documenti Firestore**, non Firebase Storage.
 - Monitoraggio quote Firestore Spark. Con ~120KiB per foto, molte visite alla galleria consumano traffico; questa soluzione è per piccole collezioni, non un servizio fotografico commerciale.
 
 L'Emulator testa le **Rules candidate**; nessuna modifica live è stata eseguita. I passaggi di deploy rimangono separati e subordinati all'inventario dei servizi esistenti.
+
+## 7. Aggiornare le Rules direttamente da GitHub
+La nuova procedura senza chiavi service-account JSON è documentata in [`firestore-rules-github-deploy.md`](firestore-rules-github-deploy.md). Prima fare audit live e verificare `/users`, poi configurare WIF e usare l'environment `firestore-production` per il primo cutover consapevole. Il deploy resta indipendente da Hosting e non avviene automaticamente dopo merge.

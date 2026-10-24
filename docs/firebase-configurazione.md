@@ -62,3 +62,9 @@ Nota storica: inventario iniziale del 23 ottobre 2026 per il riavvio **sito web 
 - Limiti progettuali: 1 foto per pianta, 120 KiB WebP, 1080px max; dati Spark 1GiB, letture 50k/giorno, traffico 10GiB/mese. Non destinato a gallerie massive.
 - **ATTENZIONE:** Firestore live non è stato verificato. Le nuove Rules devono essere distribuite solo dopo audit della Console e conferma che non interrompano client esistenti. Nessuna quota Blaze/Storage attivata.
 - Il precedente workflow 40080413124 ha restituito quattro BLOCK (homepage, header, init.json, modulo JS). Il vecchio log nascondeva il motivo del fallimento della richiesta; la nuova versione distingue rete, DNS, timeout, TLS e stato HTTP. Node 20 deprecated veniva dalle Action GitHub v4, aggiornate alle v7.
+
+## GitHub → Firestore Rules (24/10/2026, solo predisposizione)
+- Il proprietario ha trasmesso il ruleset Console legacy su `users` (snapshot versionato), non una risposta API autentificata; quindi è **USER-PROVIDED**, non **PROVIDER-OBSERVED**.
+- Preparati workflow manuale, IAM/WIF checklist, audit dello stato live e deploy con consenso separato al blocco vecchio namespace. Target dichiarato `pianta-db`, DB `(default)`.
+- Il workflow potrà prendere il controllo del ruleset solo **dopo** configurazione di WIF, service account dedicato, variabili GitHub, ambiente con revisori e audit via API. Non sono stati distribuiti file né modificate Rules/Auth/Hosting live in questa fase.
+- La scelta attuale di lasciare `firebase.json` Hosting-only è preservata. La configurazione Rules separata è `firebase.rules-deploy.json`, invocata esplicitamente dall'unico workflow autorizzato.

@@ -38,3 +38,10 @@ Leggere `docs/firebase-configurazione.md`, verificarne lo stato provider, approv
 
 ## Preflight pubblico a credenziali zero
 Il controllo `npm run check:hosting` e il workflow manuale `.github/workflows/hosting-readiness.yml` interrogano esclusivamente asset pubblici del sito `piante.web.app`: nessun Admin SDK, IAM, Web API key stampata o modifica del provider. I test del bootstrap continuano a usare mock; soltanto un read-back HTTP dal provider conferma la risposta effettiva. La release checklist è in `docs/operations/firebase-release.md`.
+
+## Workflow Rules Production — preparato, NON attivato nel provider
+- `.github/workflows/firebase-firestore-rules.yml` è solo `workflow_dispatch`: audit (read-only) e deploy con environment, due frasi distinte e verifica del ruleset live prima/dopo. Non avvia deploy su push, PR o CI verde.
+- Riutilizza **il disegno** di LogBook `firebase-firestore-production.yml`: WIF senza chiavi permanenti, service account Firestore distinto, exact SHA, test Emulator e read-back Firebase Rules REST. Non copiare service account, WIF provider, indici o configurazione di LogBook.
+- La copia `docs/operations/firestore-rules-legacy-20261024.rules` riflette esclusivamente il testo fornito dal proprietario. La sua corrispondenza col provider live va confermata dall'audit WIF. Il nuovo ruleset bloccherebbe l'accesso a `/users`, non ne cancellerebbe i dati.
+- IAM minimo consigliato `roles/firebaserules.admin` per il deployer dedicato Piante; `roles/iam.workloadIdentityUser` sul service account limitato al principal GitHub `gernotfound/piante`, non al pool intero. La configurazione WIF richiede azione esplicita nel progetto Google Cloud.
+- Procedura: `docs/operations/firestore-rules-github-deploy.md`.
