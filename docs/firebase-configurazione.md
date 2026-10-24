@@ -1,13 +1,13 @@
 # Firebase — configurazione nota e verifiche aperte
 
-Aggiornato il 23 ottobre 2026 per il riavvio **sito web Piante (non PWA)**. Questo documento conserva le informazioni di configurazione utili; **non** afferma che il provider Firebase sia stato verificato o modificato. Non contiene segreti.
+Nota storica: inventario iniziale del 23 ottobre 2026 per il riavvio **sito web Piante (non PWA)**. Stato tecnico del repository aggiornato il 24 ottobre 2026. Questo documento conserva le informazioni di configurazione utili; **non** afferma che il provider Firebase sia stato verificato o modificato. Non contiene segreti.
 
 ## Identificativi e Hosting
 - Progetto Firebase/GCP: `pianta-db` (presente anche in `.firebaserc`).
 - Firebase Hosting site ID previsto: `piante`.
 - Dominio desiderato: `https://piante.web.app`.
 - Piano desiderato: Spark; piano effettivo e quote non verificati via provider.
-- La vecchia `firebase.json` della PWA, con rewrite a `/index.html`, regole CSP e cache per `sw.js` e manifest, è stata rimossa dal nuovo repository: **non era una configurazione verificata per il nuovo sito**. Ricreare la configurazione di Hosting durante l'implementazione.
+- La vecchia `firebase.json` della PWA è stata rimossa. **L'attuale `firebase.json` è stato ricreato per il nuovo sito**, configura soltanto Firebase Hosting statico con `public=web`, sito `piante` e rewrite SPA. Questa configurazione GitHub **non è prova di deploy o di configurazione provider live**.
 - Nessun deployment Firebase eseguito da questa pulizia.
 
 ## Autenticazione e OAuth
@@ -22,18 +22,26 @@ Aggiornato il 23 ottobre 2026 per il riavvio **sito web Piante (non PWA)**. Ques
 - Cloud Firestore: database `(default)`, regione `europe-west12` secondo screenshot del 21 ottobre 2026; non verificato via provider.
 - Nel database erano visibili documenti nel namespace precedente `users`, con sottocollezioni `plants` e `images`. Nessun dato di Pianta verrà importato nel nuovo sito.
 - Le Rules osservate/riferite dall'utente riguardavano il precedente namespace `users/{uid}`. Le Rules di laboratorio PWA non erano distribuite. **Le Rules live non sono state lette né modificate** con questa operazione.
-- Futuro modello: documenti privati accessibili solo al proprietario e documenti pubblici separati, con pubblicazione esplicita dei soli campi selezionati. Validare le Security Rules tramite Emulator prima di qualsiasi deploy.
+- Il codice contiene ora `profiles/{uid}`, `access_grants/{uid}`, `handles/{username}` e `public_gardens/{username}`. La pubblicazione è esplicita e usa batch atomici. Le Rules candidate sono sottoposte a test Firebase Emulator nella CI; **non** sono state pubblicate sul provider live.
 - Restrizioni API key per referrer/API, IAM, App Check, indici e autorizzazioni effettive: **da verificare dal provider**.
-- Firebase Storage: non integrato nel vecchio prodotto, futura gestione delle fotografie da progettare e verificare.
+- Firebase Storage non è integrato nel nuovo sito: il piano Spark non consente più l'accesso a Cloud Storage dal 3 febbraio 2026. Le fotografie destinate alla pubblicazione sono convertite in WebP localmente e possono essere caricate **manualmente** come asset Hosting pubblici; non sono protette dalle Rules Firestore.
 - Firebase Analytics e Cloud Functions: non integrate nel vecchio repository; nessuna nuova attivazione o costo autorizzati.
 
 ## Confini di questa pulizia
 - Eliminato soltanto il codice/versionamento della vecchia PWA nel repository `gernotfound/piante`.
 - Non cancellati dati Firestore, account Firebase Auth, regole pubblicate, configurazioni OAuth, risorse Hosting o Storage.
 - La configurazione precedente rimane recuperabile nella **cronologia Git** prima del commit di reset (HEAD precedente: `d385e6c6dda0bea18f5a53c54a2516e20789becf`).
-- Il nuovo sito avrà percorsi `/login`, `/app`, `/:username` e `/:username/:plantSlug`; routing e distribuzione sono ancora da implementare.
+- Il routing client `/login`, `/app`, `/:username` e `/:username/:plantSlug` è stato implementato nel repository. Mancano ancora configurazione Web Firebase, audit provider, browser test con Auth reale e distribuzione Hosting.
 
 ## Evidenze
 - `GITHUB-OBSERVED`: repository, `.firebaserc`, vecchi file di configurazione e registro esterno fino al 23 ottobre 2026.
 - `USER-SCREENSHOT` / `USER-REPORTED`: configurazione Firebase descritta nelle chat del progetto il 8 e 21 ottobre 2026.
-- `PROVIDER-OBSERVED`: **nessuna verifica live Firebase eseguita** in questo reset.
+- `PROVIDER-OBSERVED`: **nessuna verifica live Firebase compiuta** da questa implementazione. L'accesso ai provider live non è stato verificato; non dedurre che il sito pubblico utilizzi il codice corrente.
+
+## Stato d'implementazione confermato su GitHub al 24 ottobre 2026
+
+- `web/firebase-config.mjs` contiene ancora `apiKey` e `appId` vuoti. Il login Google in produzione non può essere dichiarato operativo.
+- `firestore.rules` è una candidata non distribuita; il codice `firebase.json` contiene volutamente soltanto Hosting.
+- Il modello privato è riservato agli UID con `access_grants/{uid}.enabled == true`; il grant richiede un amministratore affidabile. Provider Auth Email/Password e Google, domini autorizzati e Rules live restano da verificare.
+- Nessuna migrazione o cancellazione dati da vecchia Pianta, nessun deployment e nessun piano Blaze attivato durante lo sviluppo.
+- I contratti operativi correnti sono in `AGENTS.md` e `.agents/rules/`. README intenzionalmente assente.

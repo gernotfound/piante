@@ -24,3 +24,11 @@ test("nessuna persistenza PWA di tipo Service Worker",async()=>{
   assert.ok(!index.includes('rel="manifest"'));
   assert.match(index,/name="viewport"/);
 });
+
+test("contratti e istruzioni conservati nei file per agenti, non nel README",async()=>{
+  const { access } = await import("node:fs/promises");
+  await assert.rejects(access(new URL("../README.md",import.meta.url)),{code:"ENOENT"});
+  const agents=await readFile(new URL("../AGENTS.md",import.meta.url),"utf8");
+  assert.match(agents,/\.agents\/rules\/firestore-and-publication\.md/);
+  assert.match(agents,/\.agents\/rules\/verification-and-release\.md/);
+});
