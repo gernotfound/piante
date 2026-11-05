@@ -9,7 +9,7 @@
 - MUST: distinguere stato dichiarato dal proprietario, configurazione GitHub e riscontro live nel provider. Nessuno dei tre prova automaticamente gli altri.
 - MUST: ogni cambiamento di provider aggiornare il [registro operativo](../../docs/operations/external-services-register.md), con data, fonte e stato, senza esporre credenziali.
 - MUST: trattare il repository come pubblico. Non inserire chiavi JSON, private key, token, sessioni, password, UID Firebase reali o email personali in Git, issue, PR o log non necessari.
-- MUST: usare un'identità GitHub→GCP dedicata a Hosting, senza Firebase Admin generalista. Il service account può ricevere `roles/firebasehosting.admin` e `roles/serviceusage.apiKeysViewer`; non ruoli di Firestore, Storage o Authentication per il semplice deploy live.
+- MUST: usare un'identità GitHub→GCP dedicata a Hosting, senza Firebase Admin generalista. Il service account può ricevere `roles/firebasehosting.admin`, `roles/serviceusage.apiKeysViewer` e `roles/serviceusage.serviceUsageViewer` (lettura stato API richiesta dalla Firebase CLI); non ruoli di Firestore, Storage o Authentication per il semplice deploy live.
 - SHOULD: configurare GitHub con Workload Identity Federation (GitHub OIDC), senza secret di lunga durata. Il provider deve limitare l'impersonazione all'identità immutabile del repository `gernotfound/piante` e al ref `refs/heads/main`; l'account deve concedere `roles/iam.workloadIdentityUser` al principal appropriato, non all'intero pool indistinto.
 - MUST: non creare chiavi di servizio senza necessità verificata e approvazione; le variabili GitHub per WIF contengono identificativi non segreti.
 - MUST: non cambiare il piano Spark in Blaze, non attivare API a pagamento o nuovi servizi senza autorizzazione specifica.
