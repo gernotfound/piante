@@ -206,6 +206,7 @@ function adminTabs() {
     <a class="admin-tab ${state.route === "/admin" ? "active" : ""}" href="/admin" data-nav>Panoramica</a>
     <a class="admin-tab ${state.route.startsWith("/admin/piante") ? "active" : ""}" href="/admin/piante" data-nav>Inventario</a>
     <a class="admin-tab ${state.route.includes("/impostazioni") ? "active" : ""}" href="/admin/impostazioni" data-nav>Impostazioni accesso</a>
+    <button class="admin-tab" style="border:0;background:transparent;margin-left:auto" type="button" data-action="logout">Esci</button>
   </nav></div>`;
 }
 function adminFrame(content, title, intro) {
@@ -320,7 +321,7 @@ async function startFirebase() {
     firebase = { ...authMod, ...dbMod, auth: authMod.getAuth(app), db: dbMod.getFirestore(app) };
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
       state.catalog = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => a.name.localeCompare(b.name, "it"));
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
       state.dbError = ""; render();
     }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; render(); });
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
@@ -339,7 +340,7 @@ async function startFirebase() {
             state.username = profile.exists() ? profile.data().username || "" : "";
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
               state.inventory = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-                .sort((a, b) => a.name.localeCompare(b.name, "it")); render();
+                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it")); render();
             }, () => { state.error = "Impossibile leggere l'inventario privato."; render(); });
           } else {
             state.error = "Questo account non è autorizzato a gestire il sito.";
@@ -459,6 +460,11 @@ document.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-action]");
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
     await deletePlant(action.dataset.id);
+  }
+  if (action?.dataset.action === "logout" && firebase) {
+    await firebase.signOut(firebase.auth);
+    state.flash = "Hai effettuato la disconnessione.";
+    go("/login");
   }
 });
 document.addEventListener("submit", async (event) => {
