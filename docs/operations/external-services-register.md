@@ -26,7 +26,7 @@
 | Firebase Hosting | Site ID `piantee`, URL `https://piantee.web.app` | USER-REPORTED | Site visibile nella console; nessun deploy del codice candidato verificato |
 | Firebase Storage | Non utilizzato dal frontend | VERIFIED-REPO | Immagini salvate come link HTTPS, nessuna funzionalità upload |
 | Google Cloud IAM | `github-piante-hosting-675@piante-a617e.iam.gserviceaccount.com` | USER-REPORTED | Il proprietario ha confermato il 2026-11-05 il completamento della creazione e l'assegnazione dei ruoli Hosting Admin + API Keys Viewer; assegnazioni IAM non ancora lette direttamente dalla console/API |
-| Workload Identity Federation | Pool `github-piante` / provider OIDC `github-actions` | USER-REPORTED / VERIFY-LIVE | Proprietario conferma il salvataggio il 2026-11-05; mapping e condizione suggeriti in chat, non ancora riletti dalla console. Binding IAM verso il service account ancora da configurare |
+| Workload Identity Federation | Pool `github-piante` / provider OIDC `github-actions` | USER-REPORTED / VERIFY-LIVE | Proprietario conferma la creazione del pool/provider e il salvataggio del binding di impersonificazione sul service account Hosting; la schermata successiva propone di scaricare la configurazione ADC. Condizione, mapping, ruolo IAM effettivo non verificati via API; variabili GitHub da configurare |
 | GitHub Actions WIF variables | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` | PENDING | Nomi previsti dal workflow; valori reali da impostare in GitHub |
 | Deploy Production | `main` → test → `piantee` live | VERIFIED-REPO / PENDING | Workflow candidato versionato; il primo deploy reale e lo smoke sono ancora da eseguire |
 
@@ -45,7 +45,7 @@ Il progetto `gernotfound/logbook` è stato studiato **solo come riferimento meto
 ## Punti aperti
 
 1. Verificare direttamente nella console le assegnazioni IAM dell'account di servizio `github-piante-hosting-675` (creazione e ruoli confermati dal proprietario, non letti via API).
-2. Verificare i mapping e la condition del provider WIF creato, poi configurare il binding `roles/iam.workloadIdentityUser` sul service account, limitato al repository, e le due variabili GitHub.
+2. Verificare mapping e condizione del provider WIF e il binding IAM di impersonificazione confermato dal proprietario; configurare le due variabili GitHub. La finestra Google Cloud 'Configura la tua applicazione' offre un download facoltativo della configurazione ADC: il workflow Google Auth la genera automaticamente.
 3. Verificare che la PR #1 sia integrabile e i test sull'esatto SHA finale siano verdi; effettuare il merge solo quando autorizzato e il deployer pronto.
 4. Verificare il primo deploy Hosting e i comportamenti runtime (login proprietario, CRUD privato, pubblicazione, catalogo anonimo) senza operazioni distruttive.
 5. Ricontrollare l'eventuale documento errato `siteOwner/uid` creato durante i primi passaggi; non eliminare senza verificarne identità e contenuto.
