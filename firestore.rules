@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // L'account proprietario è stabilito dalla console, mai dal client pubblico.
+    function isOwner() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/siteOwner/primary)
+        && get(/databases/$(database)/documents/siteOwner/primary).data.uid == request.auth.uid;
+    }
+
+    match /siteOwner/{id} {
+      allow get: if isOwner();
+      allow list, create, update, delete: if false;
+    }
+
+    match /privatePlants/{plantId} {
+      allow read, write: if isOwner();
+    }
+
+    match /catalog/{plantId} {
+      allow read: if true;
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly([
+          'name', 'scientificName', 'category', 'variety', 'description',
+          'light', 'water', 'origin', 'imageUrl', 'availability', 'price'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 3000;
+      allow delete: if isOwner();
+    }
+
+    match /adminProfiles/{uid} {
+      allow get, create, update: if isOwner() && request.auth.uid == uid;
+      allow list, delete: if false;
+    }
+
+    match /loginAliases/{username} {
+      // L'alias è consultabile soltanto per ID esatto per risolvere la email.
+      // Non contiene password né autorizzazioni.
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isOwner()
+        && username.matches('^[a-z0-9._-]{3,32}$')
+        && request.resource.data.keys().hasOnly(['email'])
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
