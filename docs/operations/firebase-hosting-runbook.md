@@ -17,7 +17,7 @@ Il proprietario ha indicato l'account di servizio:
 
 `github-piante-hosting-675@piante-a617e.iam.gserviceaccount.com`
 
-Durante la creazione, nel passaggio **Autorizzazioni (facoltativo)** assegnare **Firebase Hosting Admin** (`roles/firebasehosting.admin`) e **API Keys Viewer** (`roles/serviceusage.apiKeysViewer`); non usare Owner, Editor, Cloud Run Admin o Firebase Auth Admin. La sezione di autorizzazione di terze entità può restare vuota; l'impersonazione GitHub sarà configurata dopo la creazione.
+Durante la creazione, nel passaggio **Autorizzazioni (facoltativo)** assegnare **Firebase Hosting Admin** (`roles/firebasehosting.admin`), **API Keys Viewer** (`roles/serviceusage.apiKeysViewer`) e **Service Usage Viewer** (`roles/serviceusage.serviceUsageViewer`); non usare Owner, Editor, Cloud Run Admin o Firebase Auth Admin. La sezione di autorizzazione di terze entità può restare vuota; l'impersonazione GitHub sarà configurata dopo la creazione.
 
 Non creare chiavi JSON permanenti: la versione preferita usa Workload Identity Federation (WIF).
 
@@ -51,6 +51,15 @@ Nessun `FIREBASE_SERVICE_ACCOUNT` JSON è richiesto dal workflow WIF. Non carica
 6. Eseguire smoke non distruttivi: Home e catalogo da browser anonimo, login proprietario, inventario riservato, logout, URL di una pianta. Per la scrittura usarne una sintetica soltanto se esplicitamente autorizzato; non modificare dati reali per diagnosticare.
 
 ## Diagnosi e rollback
+
+### Prima esecuzione — 2026-11-05
+
+- La PR #1 è stata integrata in `main` (SHA `1eea9fe3608944106dcbfc7e2dc56cec72567c70`).
+- Il workflow run [#42100963907](https://github.com/gernotfound/piante/actions/runs/42100963907) ha superato test, controllo variabili, autenticazione WIF e verifica del commit.
+- La Firebase CLI ha risposto **HTTP 403** alla richiesta Service Usage `GET .../services/firebasehosting.googleapis.com`. Non è stata pubblicata una release del candidato tramite quel run.
+- Causa immediata: assenza del permesso `serviceusage.services.get` sul service account deployer; il ruolo minimo predefinito pertinente è `roles/serviceusage.serviceUsageViewer`.
+- Prossima azione: aggiungere il ruolo in IAM al service account di deploy, confermarlo e riavviare il workflow senza bypassare i test. Non assegnare Editor/Owner o Service Usage Admin.
+
 
 - CI test falliti: correggere il codice o le Rules, non ignorare i test.
 - GitHub senza permesso OIDC: verificare `id-token: write`, issuer, attributi, condition, binding del service account e repository variables.

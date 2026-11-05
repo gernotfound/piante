@@ -32,7 +32,7 @@ Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza
 
 La configurazione passo per passo, le autorizzazioni minime, i controlli e il rollback sono nel [runbook Firebase Hosting](docs/operations/firebase-hosting-runbook.md). Le conferme e le verifiche mancanti sono nel [registro dei servizi esterni](docs/operations/external-services-register.md).
 
-**Stato attuale:** la prima versione è ancora nella PR #1 in bozza; non risulta alcun deploy del codice candidato verificato. La creazione del service account è stata avviata dal proprietario; la federazione GitHub OIDC è da completare. Non integrare in `main` finché la configurazione non è pronta.
+**Stato al 2026-11-05:** la prima versione è stata integrata in `main` con la PR #1. L'autenticazione GitHub→Google Cloud tramite WIF è riuscita, ma il primo deploy live ([Actions #42100963907](https://github.com/gernotfound/piante/actions/runs/42100963907)) si è fermato su una lettura Service Usage con HTTP 403. Per completare il rilascio serve aggiungere il ruolo minimo **Service Usage Viewer** al service account Hosting e ripetere il workflow. Non risulta ancora una release del codice candidato verificata sul sito.
 
 ## Foto e piano gratuito
 

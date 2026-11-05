@@ -14,7 +14,7 @@
 | Servizio | Identificatore pubblico / funzione | Stato al 2026-11-05 | Fonte e limite |
 |---|---|---|---|
 | GitHub | `gernotfound/piante`, default `main` | VERIFIED-REPO | Repo e PR #1 letti dal connettore; il codice candidato è su `feat/vivaio-site-initial` |
-| PR sito | [#1](https://github.com/gernotfound/piante/pull/1) | VERIFIED-REPO | PR draft aperta e non integrata alla data della rilevazione |
+| PR sito | [#1](https://github.com/gernotfound/piante/pull/1) | VERIFIED-REPO | Squash merge in `main` `1eea9fe3608944106dcbfc7e2dc56cec72567c70` il 2026-11-05 |
 | Firebase/GCP | Progetto `piante-a617e`, numero `401886801214` | USER-REPORTED + VERIFIED-REPO | Dati del proprietario; il project ID coincide con Web SDK e `.firebaserc` |
 | Firebase piano | Spark | USER-REPORTED | Screenshot console precedente; non dimostra quote o stato fatturazione odierno |
 | Firebase Web App | `src/config.js` | VERIFIED-REPO | Configurazione Web pubblica presente; non dà privilegi amministrativi |
@@ -26,15 +26,16 @@
 | Firebase Hosting | Site ID `piantee`, URL `https://piantee.web.app` | USER-REPORTED | Site visibile nella console; nessun deploy del codice candidato verificato |
 | Firebase Storage | Non utilizzato dal frontend | VERIFIED-REPO | Immagini salvate come link HTTPS, nessuna funzionalità upload |
 | Google Cloud IAM | `github-piante-hosting-675@piante-a617e.iam.gserviceaccount.com` | USER-REPORTED | Il proprietario ha confermato il 2026-11-05 il completamento della creazione e l'assegnazione dei ruoli Hosting Admin + API Keys Viewer; assegnazioni IAM non ancora lette direttamente dalla console/API |
-| Workload Identity Federation | Pool `github-piante` / provider OIDC `github-actions` | USER-REPORTED / VERIFY-LIVE | Proprietario conferma la creazione del pool/provider e il salvataggio del binding di impersonificazione sul service account Hosting; la schermata successiva propone di scaricare la configurazione ADC. Condizione, mapping, ruolo IAM effettivo non verificati via API; variabili GitHub da configurare |
-| GitHub Actions WIF variables | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` | USER-REPORTED / VERIFY-LIVE | Screenshot del 2026-11-05 mostra le due repository variables presenti; valori completi e credenziali WIF non ancora verificati mediante esecuzione del deploy |
-| Deploy Production | `main` → test → `piantee` live | VERIFIED-REPO / PENDING | Workflow candidato versionato; il primo deploy reale e lo smoke sono ancora da eseguire |
+| Workload Identity Federation | Pool `github-piante` / provider OIDC `github-actions` | VERIFIED-CI per autenticazione / VERIFY-LIVE per IAM | La GitHub Action `google-github-actions/auth@v3` è riuscita nel run #42100963907. Mapping, condizione e binding precisi restano da rileggere via API/console; non è stata utilizzata chiave JSON |
+| GitHub Actions WIF variables | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` | VERIFIED-CI | Run GitHub Actions #42100963907 ha superato il controllo variabili e autenticato il service account via WIF; non sono stati copiati valori riservati |
+| Deploy Production | `main` → test → `piantee` live | FAILED-CI / PENDING | Run #42100963907: test e WIF riusciti; deploy negato da Service Usage HTTP 403 (`serviceusage.services.get` sul servizio `firebasehosting.googleapis.com`). Nessuna release del candidato attestata. Azione: aggiungere Service Usage Viewer e riprovare |
 
 ## IAM e scelta di sicurezza
 
 La configurazione desiderata per il deploy di Hosting è un service account **dedicato** con soltanto:
 - `roles/firebasehosting.admin` (pubblicazione su Hosting);
-- `roles/serviceusage.apiKeysViewer` (verifica API keys dalla Firebase CLI).
+- `roles/serviceusage.apiKeysViewer` (verifica API keys dalla Firebase CLI);
+- `roles/serviceusage.serviceUsageViewer` (lettura stato API, necessaria per `serviceusage.services.get` nella CLI).
 
 GitHub deve impersonare il service account tramite WIF, limitando l'issuer GitHub al repository e al branch attendibili. Non usare credenziali JSON persistenti. NON concedere ruoli Firestore/Authentication/Storage/Cloud Run al deployer per comodità.
 
@@ -46,11 +47,11 @@ Il progetto `gernotfound/logbook` è stato studiato **solo come riferimento meto
 
 1. Verificare direttamente nella console le assegnazioni IAM dell'account di servizio `github-piante-hosting-675` (creazione e ruoli confermati dal proprietario, non letti via API).
 2. Verificare mapping, condizione del provider WIF e binding IAM di impersonificazione confermati dal proprietario; le due variabili di repository GitHub sono state visualizzate nello screenshot ma la corretta autenticazione sarà verificabile solo in GitHub Actions. La configurazione ADC viene generata automaticamente dal workflow.
-3. Verificare che la PR #1 sia integrabile e i test sull'esatto SHA finale siano verdi; effettuare il merge solo quando autorizzato e il deployer pronto.
+3. **Completato:** PR #1 integrata in `main`; controlli sul candidato eseguiti. **Blocco attuale:** il proprietario deve aggiungere `roles/serviceusage.serviceUsageViewer` al deployer perché il run #42100963907 ha fallito al primo controllo Service Usage.
 4. Verificare il primo deploy Hosting e i comportamenti runtime (login proprietario, CRUD privato, pubblicazione, catalogo anonimo) senza operazioni distruttive.
 5. Ricontrollare l'eventuale documento errato `siteOwner/uid` creato durante i primi passaggi; non eliminare senza verificarne identità e contenuto.
 
-**Non verificato:** disponibilità attuale delle API Google Cloud, stato IAM effettivo, fatturazione, Secrets/Variables GitHub, stato delle release Firebase Hosting e login reale.
+**Non verificato:** binding IAM completi nel provider, fatturazione/quote, stato release Firebase Hosting e login reale. Le due variabili GitHub risultano operative nel run; il deploy è bloccato sul permesso Service Usage.
 
 ## Modifiche alla configurazione
 
