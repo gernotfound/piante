@@ -37,7 +37,7 @@
         ]
       }
     ],
-    "site": "piantee"
+    "target": "piantee"
   },
   "firestore": {
     "rules": "firestore.rules"
