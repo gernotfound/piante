@@ -1,0 +1,86 @@
+name: Deploy in produzione su piantee.web.app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: hosting-production-piantee
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://piantee.web.app
+    steps:
+      - name: Checkout commit da pubblicare
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Configura Java per l'emulatore Firestore
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Installa dipendenze di verifica
+        run: npm install --no-audit --no-fund
+
+      - name: Verifica sintassi
+        run: npm run check
+
+      - name: Esegui test unitari
+        run: npm test
+
+      - name: Verifica regole Firestore sull'emulatore
+        run: npm run test:rules
+
+      - name: Controlla la configurazione Workload Identity Federation
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$WIF_PROVIDER" || -z "$DEPLOY_SERVICE_ACCOUNT" ]]; then
+            echo "::error::Configurare GCP_WORKLOAD_IDENTITY_PROVIDER e GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT nelle repository variables."
+            exit 1
+          fi
+
+      - name: Autentica GitHub a Google Cloud senza chiavi JSON
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: piante-a617e
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Rifiuta un commit superato dal branch main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags origin main --depth=1
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]]; then
+            echo "::error::main è avanzato: non distribuire una release obsoleta."
+            exit 1
+          fi
+
+      - name: Pubblica solo il sito piantee sul canale live
+        run: npx firebase deploy --only hosting:piantee --project piante-a617e --non-interactive -m "GitHub ${GITHUB_SHA}"
+
+      - name: Verifica raggiungibilità HTTP del sito live
+        run: curl --fail --location --silent --show-error --retry 3 --max-time 20 --output /dev/null https://piantee.web.app/

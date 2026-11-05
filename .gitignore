@@ -1,0 +1,10 @@
+node_modules/
+.firebase/
+firebase-debug.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Credenziali temporanee google-github-actions/auth (mai versionarle)
+gha-creds-*.json
