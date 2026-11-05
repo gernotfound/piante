@@ -1,10 +1,12 @@
-// Copiare i valori da Firebase Console > Impostazioni progetto > Le tue app > Configurazione SDK.
-// La configurazione dell'app Web NON è una credenziale segreta; non inserire password o chiavi di servizio.
+// Configurazione pubblica dell'app Web Firebase "piante".
+// NON salvare qui credenziali amministrative, password o chiavi di servizio.
 export const firebaseConfig = {
-  apiKey: "INSERISCI_API_KEY",
+  apiKey: "AIzaSyBL_AcrAZvyShaTeNTgC80t8mc1UBzBbrs",
   authDomain: "piante-a617e.firebaseapp.com",
   projectId: "piante-a617e",
-  appId: "INSERISCI_APP_ID"
+  storageBucket: "piante-a617e.firebasestorage.app",
+  messagingSenderId: "401886801214",
+  appId: "1:401886801214:web:506eacd21c2e40ad52d06f"
 };
 
 export const firebaseConfigured =
