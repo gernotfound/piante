@@ -2,6 +2,8 @@
 
 Sito statico responsive (HTML, CSS, JavaScript modulari) ospitato su **Firebase Hosting**. **Cloud Firestore** contiene dati pubblici e privati separati, mentre **Firebase Authentication** gestisce le password. Non è necessario attivare un server o un piano a pagamento.
 
+Per lavorare nel repository leggere [AGENTS.md](AGENTS.md); per lo stato delle configurazioni live seguire [registro servizi esterni](docs/operations/external-services-register.md) e [runbook Hosting](docs/operations/firebase-hosting-runbook.md). La documentazione distingue configurazione versionata, dichiarazioni del proprietario e verifiche live.
+
 ## Sezioni
 
 - **Home:** presentazione e anteprima delle piante pubblicate.
@@ -22,41 +24,15 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 
 > La configurazione Firebase è già presente in `src/config.js`. Il documento `siteOwner/primary` e le regole Firestore sono stati configurati tramite console dall'utente; il funzionamento sul progetto reale deve ancora essere verificato con accesso e operazioni nel browser.
 
-## Pubblicazione diretta automatica — `piantee.web.app`
+## Pubblicazione automatica diretta — `piantee.web.app`
 
-Il sito Hosting `piantee` risulta creato nella console Firebase e il dominio è stato autorizzato in Authentication. Il target `piantee` è definito in `.firebaserc` e referenziato in `firebase.json`, separato dall'ID progetto Firebase `piante-a617e`.
+Il workflow `.github/workflows/deploy-production.yml` avvia la pubblicazione soltanto su `main`, dopo test di sintassi, unitari e Rules sull'emulatore. Pubblica **solo il target Hosting `piantee`**, non Firestore Rules o dati. Non crea anteprime.
 
-Il workflow `.github/workflows/deploy-production.yml` esegue **solo** su push al branch `main` (o avvio manuale `workflow_dispatch`). Prima del deploy sul canale `live` esegue controllo di sintassi, test unitari e test regole Firestore via emulatore. Non crea canali di anteprima. Un commit su un branch di lavoro **non** viene pubblicato; diventa operativo dopo il merge su `main`.
+Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza chiavi JSON permanenti. La sua configurazione reale è esterna a Git: account di servizio dedicato, pool/provider GitHub OIDC e binding di impersonazione. Il workflow richiede due repository variables GitHub: `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT`. Se mancano, non pubblica.
 
-### Credenziale richiesta — configurazione una tantum
+La configurazione passo per passo, le autorizzazioni minime, i controlli e il rollback sono nel [runbook Firebase Hosting](docs/operations/firebase-hosting-runbook.md). Le conferme e le verifiche mancanti sono nel [registro dei servizi esterni](docs/operations/external-services-register.md).
 
-Il deploy richiede che GitHub sia autorizzato a pubblicare nel progetto Google Cloud/Firebase. Creare un account di servizio dedicato in Google Cloud IAM con i ruoli:
-- **Firebase Hosting Admin** (`roles/firebasehosting.admin`)
-- **API Keys Viewer** (`roles/serviceusage.apiKeysViewer`), richiesto dalla Firebase CLI.
-
-La configurazione corrente è esclusivamente Hosting statico, senza preview channel, Cloud Run o Cloud Functions; per questo non sono necessari i ruoli di amministrazione Firebase Authentication o Cloud Run Viewer. Non assegnare il ruolo Owner/Editor al service account.
-
-Generare una **chiave JSON** per questo account di servizio e inserirne **l'intero contenuto** come secret GitHub di repository con nome esatto `FIREBASE_SERVICE_ACCOUNT` in **Settings > Secrets and variables > Actions > New repository secret**. **Non inserire mai la chiave nel codice, in un issue, in un commit o in chat**. La chiave deve restare privata; se esposta, revocarla immediatamente in Google Cloud. Un'alternativa più avanzata che evita chiavi permanenti è la federazione OIDC/Workload Identity Federation.
-
-Senza il secret, il workflow fallisce deliberatamente prima del deploy. Il collegamento del solo SDK Firebase Web (`apiKey`/`appId`) non autorizza a pubblicare su Hosting.
-
-### Prima attivazione
-
-1. Controllare la correttezza del documento Firestore `siteOwner/primary`, delle regole già pubblicate e della configurazione Firebase Authentication; non pubblicare automaticamente le regole dal workflow.
-2. Configurare il secret GitHub `FIREBASE_SERVICE_ACCOUNT` con account dedicato e permessi minimi indicati sopra.
-3. Verificare `main` e le modifiche nella pull request; la PR resta **draft** finché non si decide di integrarla.
-4. Dopo l'integrazione su `main`, la prima esecuzione del workflow avvia il deploy **direttamente sul sito pubblico** `https://piantee.web.app` (senza preview). Aprire **GitHub > Actions > Deploy in produzione su piantee.web.app** per verificare l'esito.
-5. Accedere con email/password, verificare autorizzazioni, consultazione catalogo e un salvataggio di prova; prima del rilascio non è stata eseguita alcuna verifica nel browser sul Firebase reale.
-
-Per i successivi aggiornamenti: basta inserire il codice verificato su `main`; GitHub Actions ricontrolla e distribuisce in produzione. Se i test falliscono, il sito online non viene sostituito. Il rollback del solo Hosting è disponibile dalla Firebase Console in caso di regressioni visibili sul sito.
-
-Per un deploy manuale di emergenza, usando la stessa configurazione del repository in un ambiente già autenticato con privilegi di deploy:
-
-```sh
-npx firebase deploy --only hosting:piantee --project piante-a617e
-```
-
-Il comando agisce soltanto sul sito Hosting `piantee`, non modifica le regole Firestore.
+**Stato attuale:** la prima versione è ancora nella PR #1 in bozza; non risulta alcun deploy del codice candidato verificato. La creazione del service account è stata avviata dal proprietario; la federazione GitHub OIDC è da completare. Non integrare in `main` finché la configurazione non è pronta.
 
 ## Foto e piano gratuito
 

@@ -1,0 +1,57 @@
+# Registro dei servizi esterni — Piante
+
+**Rilevazione:** 2026-11-05. **Scopo:** preservare decisioni e checkpoint su GitHub, Firebase e Google Cloud. Gli stati possono cambiare senza modifiche al repository. Non contengono credenziali né UID reali.
+
+## Legenda delle evidenze
+
+- **VERIFIED-REPO:** letto direttamente nei file/metadata GitHub; non certifica configurazione live.
+- **USER-REPORTED:** confermato dal proprietario tramite messaggi o screenshot; non verificato direttamente con API amministrative.
+- **PENDING:** da configurare o verificare; non presentare come completato.
+- **VERIFY-LIVE:** va ricontrollato nella console competente prima di intervenire.
+
+## Risorse attuali
+
+| Servizio | Identificatore pubblico / funzione | Stato al 2026-11-05 | Fonte e limite |
+|---|---|---|---|
+| GitHub | `gernotfound/piante`, default `main` | VERIFIED-REPO | Repo e PR #1 letti dal connettore; il codice candidato è su `feat/vivaio-site-initial` |
+| PR sito | [#1](https://github.com/gernotfound/piante/pull/1) | VERIFIED-REPO | PR draft aperta e non integrata alla data della rilevazione |
+| Firebase/GCP | Progetto `piante-a617e`, numero `401886801214` | USER-REPORTED + VERIFIED-REPO | Dati del proprietario; il project ID coincide con Web SDK e `.firebaserc` |
+| Firebase piano | Spark | USER-REPORTED | Screenshot console precedente; non dimostra quote o stato fatturazione odierno |
+| Firebase Web App | `src/config.js` | VERIFIED-REPO | Configurazione Web pubblica presente; non dà privilegi amministrativi |
+| Firebase Authentication | Provider email/password attivo e utente proprietario creato | USER-REPORTED | Non sono stati verificati login live, policy password o UID in console |
+| Authentication | Dominio autorizzato `piantee.web.app` | USER-REPORTED | Aggiunto dal proprietario, non letto via API |
+| Firestore | Database `(default)` | USER-REPORTED | Progetto e schermata condivisi dal proprietario |
+| Firestore proprietario | `siteOwner/primary` con campo `uid` stringa | USER-REPORTED | Creazione e salvataggio confermati; valore UID non conservato in documentazione |
+| Firestore Rules | Policy in `firestore.rules` | VERIFIED-REPO + USER-REPORTED | Il proprietario dichiara pubblicazione delle Rules; test Emulator precedentemente passati, nessun read-back amministrativo live |
+| Firebase Hosting | Site ID `piantee`, URL `https://piantee.web.app` | USER-REPORTED | Site visibile nella console; nessun deploy del codice candidato verificato |
+| Firebase Storage | Non utilizzato dal frontend | VERIFIED-REPO | Immagini salvate come link HTTPS, nessuna funzionalità upload |
+| Google Cloud IAM | `github-piante-hosting-675@piante-a617e.iam.gserviceaccount.com` | USER-REPORTED | Screenshot della creazione al passaggio **2 Autorizzazioni**; creazione finale e ruoli non ancora confermati |
+| Workload Identity Federation | Pool/provider GitHub OIDC per `gernotfound/piante` | PENDING | Configurazione non ancora eseguita/verificata |
+| GitHub Actions WIF variables | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` | PENDING | Nomi previsti dal workflow; valori reali da impostare in GitHub |
+| Deploy Production | `main` → test → `piantee` live | VERIFIED-REPO / PENDING | Workflow candidato versionato; il primo deploy reale e lo smoke sono ancora da eseguire |
+
+## IAM e scelta di sicurezza
+
+La configurazione desiderata per il deploy di Hosting è un service account **dedicato** con soltanto:
+- `roles/firebasehosting.admin` (pubblicazione su Hosting);
+- `roles/serviceusage.apiKeysViewer` (verifica API keys dalla Firebase CLI).
+
+GitHub deve impersonare il service account tramite WIF, limitando l'issuer GitHub al repository e al branch attendibili. Non usare credenziali JSON persistenti. NON concedere ruoli Firestore/Authentication/Storage/Cloud Run al deployer per comodità.
+
+Identità pubbliche utili alle condizioni WIF: GitHub repository `gernotfound/piante`, repository ID `1447170331`, owner ID `295053490` (metadati GitHub visti il 2026-11-05). Il deploy deve accettare soltanto `refs/heads/main`. Questi ID sono riferimenti di configurazione, non credenziali.
+
+Il progetto `gernotfound/logbook` è stato studiato **solo come riferimento metodologico** (AGENTS, regole specialistiche, indice, registro, WIF). Non condividere service account, pool, segreti o deployment fra i due repository.
+
+## Punti aperti
+
+1. Confermare nella console che il service account `github-piante-hosting-675` sia stato finalizzato e abbia i due ruoli previsti.
+2. Creare WIF pool/provider GitHub e binding `roles/iam.workloadIdentityUser` limitato al repository. Configurare le due variabili GitHub.
+3. Verificare che la PR #1 sia integrabile e i test sull'esatto SHA finale siano verdi; effettuare il merge solo quando autorizzato e il deployer pronto.
+4. Verificare il primo deploy Hosting e i comportamenti runtime (login proprietario, CRUD privato, pubblicazione, catalogo anonimo) senza operazioni distruttive.
+5. Ricontrollare l'eventuale documento errato `siteOwner/uid` creato durante i primi passaggi; non eliminare senza verificarne identità e contenuto.
+
+**Non verificato:** disponibilità attuale delle API Google Cloud, stato IAM effettivo, fatturazione, Secrets/Variables GitHub, stato delle release Firebase Hosting e login reale.
+
+## Modifiche alla configurazione
+
+Per ogni modifica aggiungere un checkpoint datato con **azione**, **provider**, **evidenza** (screenshot, run ID, URL o lettura API), **esito** e **verifiche residue**. Non scrivere valori privati né trattare un resoconto precedente come prova permanente.

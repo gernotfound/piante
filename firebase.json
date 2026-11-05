@@ -10,7 +10,11 @@
       "**/node_modules/**",
       "tests/**",
       "package.json",
-      "package-lock.json"
+      "package-lock.json",
+      "AGENTS.md",
+      "docs/**",
+      ".agents/**",
+      "gha-creds-*.json"
     ],
     "rewrites": [
       {
