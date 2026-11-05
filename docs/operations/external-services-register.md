@@ -25,7 +25,7 @@
 | Firestore Rules | Policy in `firestore.rules` | VERIFIED-REPO + USER-REPORTED | Il proprietario dichiara pubblicazione delle Rules; test Emulator precedentemente passati, nessun read-back amministrativo live |
 | Firebase Hosting | Site ID `piantee`, URL `https://piantee.web.app` | USER-REPORTED | Site visibile nella console; nessun deploy del codice candidato verificato |
 | Firebase Storage | Non utilizzato dal frontend | VERIFIED-REPO | Immagini salvate come link HTTPS, nessuna funzionalità upload |
-| Google Cloud IAM | `github-piante-hosting-675@piante-a617e.iam.gserviceaccount.com` | USER-REPORTED | Screenshot della creazione al passaggio **2 Autorizzazioni**; creazione finale e ruoli non ancora confermati |
+| Google Cloud IAM | `github-piante-hosting-675@piante-a617e.iam.gserviceaccount.com` | USER-REPORTED | Il proprietario ha confermato il 2026-11-05 il completamento della creazione e l'assegnazione dei ruoli Hosting Admin + API Keys Viewer; assegnazioni IAM non ancora lette direttamente dalla console/API |
 | Workload Identity Federation | Pool/provider GitHub OIDC per `gernotfound/piante` | PENDING | Configurazione non ancora eseguita/verificata |
 | GitHub Actions WIF variables | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` | PENDING | Nomi previsti dal workflow; valori reali da impostare in GitHub |
 | Deploy Production | `main` → test → `piantee` live | VERIFIED-REPO / PENDING | Workflow candidato versionato; il primo deploy reale e lo smoke sono ancora da eseguire |
@@ -44,7 +44,7 @@ Il progetto `gernotfound/logbook` è stato studiato **solo come riferimento meto
 
 ## Punti aperti
 
-1. Confermare nella console che il service account `github-piante-hosting-675` sia stato finalizzato e abbia i due ruoli previsti.
+1. Verificare direttamente nella console le assegnazioni IAM dell'account di servizio `github-piante-hosting-675` (creazione e ruoli confermati dal proprietario, non letti via API).
 2. Creare WIF pool/provider GitHub e binding `roles/iam.workloadIdentityUser` limitato al repository. Configurare le due variabili GitHub.
 3. Verificare che la PR #1 sia integrabile e i test sull'esatto SHA finale siano verdi; effettuare il merge solo quando autorizzato e il deployer pronto.
 4. Verificare il primo deploy Hosting e i comportamenti runtime (login proprietario, CRUD privato, pubblicazione, catalogo anonimo) senza operazioni distruttive.
