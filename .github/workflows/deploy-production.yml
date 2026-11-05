@@ -1,0 +1,64 @@
+name: Deploy in produzione su piantee.web.app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosting-production-piantee
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://piantee.web.app
+    steps:
+      - name: Recupera esattamente il commit da pubblicare
+        uses: actions/checkout@v4
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Configura Java per l'emulatore Firestore
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Installa dipendenze di verifica
+        run: npm install --no-audit --no-fund
+
+      - name: Verifica sintassi
+        run: npm run check
+
+      - name: Esegui test unitari
+        run: npm test
+
+      - name: Verifica regole Firestore nell'emulatore
+        run: npm run test:rules
+
+      - name: Controlla che la credenziale GitHub sia configurata
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Secret FIREBASE_SERVICE_ACCOUNT mancante. Configuralo nelle impostazioni GitHub prima del deploy."
+            exit 1
+          fi
+
+      - name: Pubblica SOLO il sito piantee nel canale live
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: piante-a617e
+          target: piantee
+          channelId: live
+          firebaseToolsVersion: 15.34.2
