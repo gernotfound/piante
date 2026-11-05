@@ -27,12 +27,12 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 Da un ambiente con Node.js e Firebase CLI installata:
 
 ```sh
+npm install
 npm run check
 npm test
-npm install -g firebase-tools
-firebase login
-firebase use piante-a617e
-firebase deploy --only hosting,firestore:rules
+npm run test:rules
+npx firebase login
+npx firebase deploy --only hosting,firestore:rules
 ```
 
 Questi comandi vanno eseguiti **dopo** aver creato l'account admin e verificato le regole. L'hosting Firebase fornirà un indirizzo simile a `https://piante-a617e.web.app`, se il sito è stato inizializzato correttamente e il nome è disponibile.
@@ -51,13 +51,15 @@ Su Spark, **Cloud Storage for Firebase non è accessibile**: dal 3 febbraio 2026
 - La risoluzione nome utente → email è pubblica per alias esatto; non consente elenchi, ma chi conosce un alias può risalire all'email associata. Per non esporla, puoi effettuare l'accesso soltanto con email e non creare un alias.
 - Le immagini esterne possono essere non disponibili o imporre limiti: il layout visualizza un segnaposto.
 - I campi `prezzo` e `disponibilità` sono informativi: il sito non gestisce pagamenti né ordini.
-- La CLI, la console, la verifica di regole sul database effettivo e i test end-to-end con Firebase Emulator sono ancora necessari prima di considerare pronto il rilascio in produzione.
+- La CLI, la configurazione della console, la verifica delle regole rispetto al database reale e i test end-to-end nel browser sono ancora necessari prima di considerare pronto il rilascio in produzione.
 
 ## Test
 
 ```sh
+npm install
 npm run check
 npm test
+npm run test:rules
 ```
 
-I test unitari coprono normalizzazione alias, URL immagini, escaping HTML, separazione delle note interne e validazione dei campi. Non sostituiscono i test di sicurezza Firestore sul database/emulatore.
+I test unitari coprono normalizzazione alias, URL immagini, escaping HTML, separazione delle note interne e validazione. I test Firestore con emulatore verificano accesso pubblico, account non proprietario, protezione UID, pubblicazione atomica, blocco dei campi interni e alias. La CI esegue entrambi. Rimangono necessari i test end-to-end sul browser e la verifica della configurazione del progetto reale.
