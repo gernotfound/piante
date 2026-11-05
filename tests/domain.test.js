@@ -16,7 +16,8 @@ test("i link immagini non accettano javascript o http", () => {
 });
 
 test("contenuto utente è escapato per il markup", () => {
-  assert.equal(escapeHtml("<script>"&'"), "&lt;script&gt;&quot;&amp;&#39;");
+  const unsafe = '<script>"&' + String.fromCharCode(39);
+  assert.equal(escapeHtml(unsafe), "&lt;script&gt;&quot;&amp;&#39;");
 });
 
 test("la pubblicazione esclude le note private", () => {
