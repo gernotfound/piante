@@ -13,14 +13,14 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 
 ## Configurazione iniziale (necessaria)
 
-1. Apri [Firebase Console](https://console.firebase.google.com/project/piante-a617e/overview) e registra una **app Web** da Impostazioni progetto > Le tue app. Copia i valori `apiKey` e `appId` (e, se diversi, `authDomain` e `projectId`) in `src/config.js`. Questi parametri Web **non sono segreti**. Non inserire mai chiavi private, token o password nel repository.
+1. **Già completato:** è stata registrata l'app Web Firebase e la relativa configurazione pubblica è stata inserita in `src/config.js`. Questi parametri Web **non sono segreti**. Non inserire mai chiavi private, token o password nel repository.
 2. Nella console abilita **Authentication > Sign-in method > Email/Password**. Crea **manualmente** il tuo utente amministratore in Authentication > Users. Non attivare la registrazione pubblica nell'interfaccia.
 3. Copia il suo **UID** dalla schermata degli utenti. Crea in Firestore, tramite console con privilegi amministrativi, il documento **siteOwner/primary** con il campo stringa **uid** uguale all'UID di quell'utente. Non è possibile crearlo dall'app: è una protezione deliberata contro l'appropriazione del ruolo amministratore.
 4. Crea il database **Cloud Firestore** se non è già presente. Pubblica le regole **firestore.rules** soltanto dopo aver controllato eventuali regole e dati già presenti: il deploy sostituisce le regole del database predefinito. Il file propone un modello **nuovo** e non migra raccolte precedenti.
 5. Il primo accesso avviene con **email e password**. Nell'area riservata, apri **Impostazioni accesso** per assegnarti un **nome utente**: da quel momento puoi usarlo nel login al posto dell'email. La password resta sempre in Firebase Authentication, **mai in Firestore**.
 6. In Authentication > Settings > Authorized domains verifica che il dominio Firebase Hosting e gli eventuali domini personalizzati siano autorizzati.
 
-> Se non configuri `src/config.js`, le pagine pubbliche mostrano uno stato iniziale informativo, mentre le operazioni sul database non sono disponibili.
+> La configurazione Firebase è già presente in `src/config.js`. L'accesso non funzionerà finché l'UID amministratore non sarà salvato in `siteOwner/primary` e le regole Firestore non saranno verificate e attivate.
 
 ## Pubblicazione
 
@@ -35,7 +35,7 @@ npx firebase login
 npx firebase deploy --only hosting,firestore:rules
 ```
 
-Questi comandi vanno eseguiti **dopo** aver creato l'account admin e verificato le regole. L'hosting Firebase fornirà un indirizzo simile a `https://piante-a617e.web.app`, se il sito è stato inizializzato correttamente e il nome è disponibile.
+Questi comandi vanno eseguiti **dopo** aver creato l'account admin e verificato le regole. L'URL di Hosting desiderato è `https://piantee.web.app`: per ottenerlo occorre **creare in Firebase Hosting un sito con SITE_ID `piantee`** (se disponibile) e **configurare il deploy su quel sito**. Il sito predefinito del progetto, quando creato con l'ID del progetto, usa invece `https://piante-a617e.web.app`. Non eseguire il deploy finché il target Hosting non è stato verificato e configurato.
 
 **Alternative:** pubblicare le regole dalla console (scheda Regole) e poi eseguire `firebase deploy --only hosting`. In seguito si può configurare `firebase init hosting:github` per le anteprime PR e il deploy tramite GitHub Actions; questa repository esegue per ora soltanto le verifiche CI, **non** effettua deploy automatici.
 
