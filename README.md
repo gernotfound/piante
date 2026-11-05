@@ -20,24 +20,43 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 5. Il primo accesso avviene con **email e password**. Nell'area riservata, apri **Impostazioni accesso** per assegnarti un **nome utente**: da quel momento puoi usarlo nel login al posto dell'email. La password resta sempre in Firebase Authentication, **mai in Firestore**.
 6. In Authentication > Settings > Authorized domains verifica che il dominio Firebase Hosting e gli eventuali domini personalizzati siano autorizzati.
 
-> La configurazione Firebase è già presente in `src/config.js`. L'accesso non funzionerà finché l'UID amministratore non sarà salvato in `siteOwner/primary` e le regole Firestore non saranno verificate e attivate.
+> La configurazione Firebase è già presente in `src/config.js`. Il documento `siteOwner/primary` e le regole Firestore sono stati configurati tramite console dall'utente; il funzionamento sul progetto reale deve ancora essere verificato con accesso e operazioni nel browser.
 
-## Pubblicazione
+## Pubblicazione diretta automatica — `piantee.web.app`
 
-Da un ambiente con Node.js e Firebase CLI installata:
+Il sito Hosting `piantee` risulta creato nella console Firebase e il dominio è stato autorizzato in Authentication. Il target `piantee` è definito in `.firebaserc` e referenziato in `firebase.json`, separato dall'ID progetto Firebase `piante-a617e`.
+
+Il workflow `.github/workflows/deploy-production.yml` esegue **solo** su push al branch `main` (o avvio manuale `workflow_dispatch`). Prima del deploy sul canale `live` esegue controllo di sintassi, test unitari e test regole Firestore via emulatore. Non crea canali di anteprima. Un commit su un branch di lavoro **non** viene pubblicato; diventa operativo dopo il merge su `main`.
+
+### Credenziale richiesta — configurazione una tantum
+
+Il deploy richiede che GitHub sia autorizzato a pubblicare nel progetto Google Cloud/Firebase. Creare un account di servizio dedicato in Google Cloud IAM con i ruoli:
+- **Firebase Hosting Admin** (`roles/firebasehosting.admin`)
+- **API Keys Viewer** (`roles/serviceusage.apiKeysViewer`), richiesto dalla Firebase CLI.
+
+La configurazione corrente è esclusivamente Hosting statico, senza preview channel, Cloud Run o Cloud Functions; per questo non sono necessari i ruoli di amministrazione Firebase Authentication o Cloud Run Viewer. Non assegnare il ruolo Owner/Editor al service account.
+
+Generare una **chiave JSON** per questo account di servizio e inserirne **l'intero contenuto** come secret GitHub di repository con nome esatto `FIREBASE_SERVICE_ACCOUNT` in **Settings > Secrets and variables > Actions > New repository secret**. **Non inserire mai la chiave nel codice, in un issue, in un commit o in chat**. La chiave deve restare privata; se esposta, revocarla immediatamente in Google Cloud. Un'alternativa più avanzata che evita chiavi permanenti è la federazione OIDC/Workload Identity Federation.
+
+Senza il secret, il workflow fallisce deliberatamente prima del deploy. Il collegamento del solo SDK Firebase Web (`apiKey`/`appId`) non autorizza a pubblicare su Hosting.
+
+### Prima attivazione
+
+1. Controllare la correttezza del documento Firestore `siteOwner/primary`, delle regole già pubblicate e della configurazione Firebase Authentication; non pubblicare automaticamente le regole dal workflow.
+2. Configurare il secret GitHub `FIREBASE_SERVICE_ACCOUNT` con account dedicato e permessi minimi indicati sopra.
+3. Verificare `main` e le modifiche nella pull request; la PR resta **draft** finché non si decide di integrarla.
+4. Dopo l'integrazione su `main`, la prima esecuzione del workflow avvia il deploy **direttamente sul sito pubblico** `https://piantee.web.app` (senza preview). Aprire **GitHub > Actions > Deploy in produzione su piantee.web.app** per verificare l'esito.
+5. Accedere con email/password, verificare autorizzazioni, consultazione catalogo e un salvataggio di prova; prima del rilascio non è stata eseguita alcuna verifica nel browser sul Firebase reale.
+
+Per i successivi aggiornamenti: basta inserire il codice verificato su `main`; GitHub Actions ricontrolla e distribuisce in produzione. Se i test falliscono, il sito online non viene sostituito. Il rollback del solo Hosting è disponibile dalla Firebase Console in caso di regressioni visibili sul sito.
+
+Per un deploy manuale di emergenza, usando la stessa configurazione del repository in un ambiente già autenticato con privilegi di deploy:
 
 ```sh
-npm install
-npm run check
-npm test
-npm run test:rules
-npx firebase login
-npx firebase deploy --only hosting,firestore:rules
+npx firebase deploy --only hosting:piantee --project piante-a617e
 ```
 
-Questi comandi vanno eseguiti **dopo** aver creato l'account admin e verificato le regole. L'URL di Hosting desiderato è `https://piantee.web.app`: per ottenerlo occorre **creare in Firebase Hosting un sito con SITE_ID `piantee`** (se disponibile) e **configurare il deploy su quel sito**. Il sito predefinito del progetto, quando creato con l'ID del progetto, usa invece `https://piante-a617e.web.app`. Non eseguire il deploy finché il target Hosting non è stato verificato e configurato.
-
-**Alternative:** pubblicare le regole dalla console (scheda Regole) e poi eseguire `firebase deploy --only hosting`. In seguito si può configurare `firebase init hosting:github` per le anteprime PR e il deploy tramite GitHub Actions; questa repository esegue per ora soltanto le verifiche CI, **non** effettua deploy automatici.
+Il comando agisce soltanto sul sito Hosting `piantee`, non modifica le regole Firestore.
 
 ## Foto e piano gratuito
 
