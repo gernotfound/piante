@@ -1,3 +1,14 @@
 {
-  "projects": { "default": "piante-a617e" }
+  "projects": {
+    "default": "piante-a617e"
+  },
+  "targets": {
+    "piante-a617e": {
+      "hosting": {
+        "piantee": [
+          "piantee"
+        ]
+      }
+    }
+  }
 }
