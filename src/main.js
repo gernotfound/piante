@@ -601,6 +601,7 @@ async function login(form) {
   }
 }
 async function savePlant(form, id) {
+  if (plantSaveInProgress) return;
   const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
@@ -617,13 +618,20 @@ async function savePlant(form, id) {
   });
   if (plant.published) batch.set(publicDoc, catalogProjection(plant));
   else batch.delete(publicDoc);
+  const button = document.querySelector('#plant-form [type="submit"]');
+  plantSaveInProgress = true;
+  if (button) { button.disabled = true; button.textContent = "Salvataggio…"; }
   try {
     await batch.commit();
-    state.error = ""; state.flash = "Pianta salvata correttamente.";
+    state.error = "";
+    state.flash = "Pianta salvata correttamente.";
     formDirty = false;
     go("/admin/piante");
   } catch {
     showFormError("Salvataggio non riuscito. Controlla le autorizzazioni o la connessione.");
+  } finally {
+    plantSaveInProgress = false;
+    if (button?.isConnected) { button.disabled = false; button.textContent = "Salva pianta"; }
   }
 }
 async function deletePlant(id) {
