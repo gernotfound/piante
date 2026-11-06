@@ -630,7 +630,7 @@ function editPage(id) {
         ${inputField("Temperatura minima indicativa (°C)", "minColdC", p.minColdC,
           "type='number' step='0.5' min='-40' max='25' inputmode='decimal' placeholder='Es. -3'")}
         ${inputField("Fonte HTTPS (facoltativa)", "coldSource", p.coldSource,
-          "type='url' inputmode='url' placeholder='https://...'")}
+          "type='url' inputmode='url' maxlength='500' placeholder='https://...'")}
         <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", p.coldNotes, "maxlength='250'")}</div>
       </div>
       <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
@@ -639,7 +639,7 @@ function editPage(id) {
       <div class="editor-section-heading"><span class="editor-step">04</span><div>
         <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
       <div class="form-grid">
-        <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' placeholder='https://...'")}</div>
+        <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>
       </div>
       ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
     </section>
