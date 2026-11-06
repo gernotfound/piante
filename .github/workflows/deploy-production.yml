@@ -90,3 +90,10 @@ jobs:
           grep -q 'Piante — Vivaio e catalogo botanico' /tmp/piante-home.html
           curl --fail --location --silent --show-error --retry 3 --max-time 20 --output /dev/null https://piantee.web.app/styles.css
           curl --fail --location --silent --show-error --retry 3 --max-time 20 --output /dev/null https://piantee.web.app/src/main.js
+          grep -q 'property="og:image"' /tmp/piante-home.html
+          curl --fail --location --silent --show-error --retry 3 --max-time 20 https://piantee.web.app/favicon.svg -o /tmp/piante-favicon.svg
+          grep -q '<svg' /tmp/piante-favicon.svg
+          curl --fail --location --silent --show-error --retry 3 --max-time 20 https://piantee.web.app/favicon.ico -o /tmp/piante-favicon.ico
+          test "$(head -c 4 /tmp/piante-favicon.ico | od -An -tx1 | tr -d ' \n')" = "00000100"
+          curl --fail --location --silent --show-error --retry 3 --max-time 20 https://piantee.web.app/social-preview-v1.png -o /tmp/piante-social.png
+          test "$(head -c 8 /tmp/piante-social.png | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a"

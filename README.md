@@ -36,6 +36,12 @@ La configurazione passo per passo, le autorizzazioni minime, i controlli e il ro
 
 **Stato al 2026-11-05:** la prima versione è stata integrata in `main` con la PR #1. L'autenticazione GitHub→Google Cloud tramite WIF è riuscita, ma il primo deploy live ([Actions #42100963907](https://github.com/gernotfound/piante/actions/runs/42100963907)) si è fermato su una lettura Service Usage con HTTP 403. Il proprietario ha aggiunto **Service Usage Viewer** e il successivo [run #42102052951](https://github.com/gernotfound/piante/actions/runs/42102052951) ha pubblicato correttamente il sito Hosting e verificato l'HTTP del root. Login, dati e operazioni del gestionale richiedono ancora collaudo manuale sul browser.
 
+## Icona del sito e anteprime dei collegamenti
+
+Il sito usa l'avocado cartoon approvato come favicon vettoriale (`favicon.svg`), con `favicon.ico` e PNG di fallback per i browser. Non prevede installazione come app, manifest o service worker.
+
+I metadati Open Graph e Twitter Card sono presenti nell'HTML iniziale; l'immagine generica `social-preview-v1.png` (1200×630) viene servita pubblicamente da Hosting per anteprime su WhatsApp e altri social. Poiché le route del catalogo sono gestite dal client e Hosting risponde con lo stesso `index.html`, anche i link alle singole piante mostrano l'anteprima generale: non esistono attualmente metadati specifici per pianta. Eventuali cache esterne delle anteprime non sono controllabili dal sito.
+
 ## Foto e piano gratuito
 
 Su Spark, **Cloud Storage for Firebase non è accessibile**: dal 3 febbraio 2026 richiede Blaze. Il modulo della pianta accetta quindi URL **HTTPS** di foto legittimamente ospitate altrove, senza caricamento di immagini nel database. Le fotografie devono avere una URL diretta accessibile pubblicamente. In una fase successiva si potrà usare Storage con Blaze oppure un provider d'immagini alternativo.
