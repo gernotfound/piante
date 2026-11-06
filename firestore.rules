@@ -22,13 +22,68 @@ service cloud.firestore {
       allow create, update: if isOwner()
         && request.resource.data.keys().hasOnly([
           'name', 'scientificName', 'category', 'variety', 'description',
-          'light', 'water', 'origin', 'imageUrl', 'availability', 'price'
+          'light', 'water', 'origin', 'imageUrl', 'availability', 'price',
+          'plantGroup', 'fruitType', 'growthHabit', 'searchAliases',
+          'minColdC', 'coldSource', 'coldNotes'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 100
         && request.resource.data.description is string
-        && request.resource.data.description.size() <= 3000;
+        && request.resource.data.description.size() <= 3000
+        && request.resource.data.get('plantGroup', '') in [
+          '', 'Piante da frutto', 'Orto e tuberi', 'Altre piante'
+        ]
+        && request.resource.data.get('fruitType', '') in [
+          '', 'Agrumi', 'Tropicali e subtropicali', 'Mediterranee',
+          'Temperate', 'Piccoli frutti', 'Altre fruttifere'
+        ]
+        && request.resource.data.get('growthHabit', '') in [
+          '', 'Albero', 'Arbusto', 'Rampicante', 'Erbacea', 'Succulenta', 'Altra'
+        ]
+        && request.resource.data.get('searchAliases', '') is string
+        && request.resource.data.get('searchAliases', '').size() <= 250
+        && request.resource.data.get('coldNotes', '') is string
+        && request.resource.data.get('coldNotes', '').size() <= 250
+        && request.resource.data.get('coldSource', '') is string
+        && request.resource.data.get('coldSource', '').size() <= 500
+        && (
+          request.resource.data.get('coldSource', '') == '' ||
+          request.resource.data.get('coldSource', '').matches('^https://[^ ]+
+      allow delete: if isOwner();
+    }
+
+    match /adminProfiles/{uid} {
+      allow get, create, update: if isOwner() && request.auth.uid == uid;
+      allow list, delete: if false;
+    }
+
+    match /loginAliases/{username} {
+      // L'alias è consultabile soltanto per ID esatto per risolvere la email.
+      // Non contiene password né autorizzazioni.
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isOwner()
+        && username.matches('^[a-z0-9._-]{3,32}$')
+        && request.resource.data.keys().hasOnly(['email'])
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+)
+        )
+        && (
+          !request.resource.data.keys().hasAny(['minColdC']) ||
+          (request.resource.data.minColdC is number
+            && request.resource.data.minColdC >= -40
+            && request.resource.data.minColdC <= 25)
+        );
       allow delete: if isOwner();
     }
 
