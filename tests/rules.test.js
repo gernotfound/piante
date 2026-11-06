@@ -82,6 +82,27 @@ test("catalogo: non ammette l'esposizione delle note interne", async () => {
   await assertFails(setDoc(doc(db, "catalog", "senza-nome"), { ...published, name: "" }));
 });
 
+test("metadati climatici pubblici: allowlist e tipi validati, nessun campo privato", async () => {
+  const db = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
+  const guest = environment.unauthenticatedContext().firestore();
+  const docRef = doc(db, "catalog", "clima");
+  const valid = {
+    ...published, plantGroup: "Piante da frutto", fruitType: "Tropicali e subtropicali",
+    growthHabit: "Albero", searchAliases: "avocado, aguacate",
+    minColdC: -3, coldSource: "https://example.test/source", coldNotes: "Solo piante adulte"
+  };
+  await assertSucceeds(setDoc(docRef, valid));
+  await assertSucceeds(getDoc(doc(guest, "catalog", "clima")));
+  await assertFails(setDoc(docRef, { ...valid, internalNotes: "Privato" }));
+  await assertFails(setDoc(docRef, { ...valid, minColdC: "-3" }));
+  await assertFails(setDoc(docRef, { ...valid, minColdC: -55 }));
+  await assertFails(setDoc(docRef, { ...valid, minColdC: null }));
+  await assertFails(setDoc(docRef, { ...valid, coldSource: "http://example.test" }));
+  await assertFails(setDoc(docRef, { ...valid, coldNotes: "x".repeat(251) }));
+  await assertFails(setDoc(docRef, { ...valid, plantGroup: "Privato" }));
+  await assertSucceeds(setDoc(docRef, { ...published, plantGroup: "Piante da frutto" }));
+});
+
 test("alias: singolo lookup pubblico, elenco negato, scrittura solo dal proprietario", async () => {
   const owner = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
   const guest = environment.unauthenticatedContext().firestore();
