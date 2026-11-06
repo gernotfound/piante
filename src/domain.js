@@ -110,7 +110,9 @@ export function validatePlant(plant) {
   if (String(plant.name).trim().length > 100) return "Il nome è troppo lungo (massimo 100 caratteri).";
   if (String(plant.description ?? "").length > 3000) return "La descrizione supera 3000 caratteri.";
   if (plant.imageUrl && !safeImageUrl(plant.imageUrl)) return "L'immagine deve avere un URL HTTPS valido.";
+  if (safeImageUrl(plant.imageUrl).length > 4096) return "L'URL della fotografia supera 4096 caratteri.";
   if (plant.coldSource && !safeImageUrl(plant.coldSource)) return "La fonte climatica deve essere un URL HTTPS valido.";
+  if (safeImageUrl(plant.coldSource).length > 500) return "L'URL della fonte climatica supera 500 caratteri.";
   if (plant.plantGroup && !plantGroups.includes(plant.plantGroup)) return "Gruppo di pianta non riconosciuto.";
   if (plant.fruitType && !fruitTypes.includes(plant.fruitType)) return "Tipologia di frutto non riconosciuta.";
   if (plant.growthHabit && !growthHabits.includes(plant.growthHabit)) return "Forma di crescita non riconosciuta.";
