@@ -18,7 +18,7 @@
 | Firebase/GCP | Progetto `piante-a617e`, numero `401886801214` | USER-REPORTED + VERIFIED-REPO | Dati del proprietario; il project ID coincide con Web SDK e `.firebaserc` |
 | Firebase piano | Spark | USER-REPORTED | Screenshot console precedente; non dimostra quote o stato fatturazione odierno |
 | Firebase Web App | `src/config.js` | VERIFIED-REPO | Configurazione Web pubblica presente; non dà privilegi amministrativi |
-| Firebase Authentication | Provider email/password attivo e utente proprietario creato | USER-REPORTED | Non sono stati verificati login live, policy password o UID in console |
+| Firebase Authentication | Provider email/password attivo e utente proprietario creato | USER-REPORTED / VERIFY-LIVE | Il proprietario ha confermato il 2026-11-06 di aver effettuato il login tramite browser in incognito e di aver raggiunto `/admin` (Panoramica) senza errori in console. Non verificati via API l'UID e altri flussi |
 | Authentication | Dominio autorizzato `piantee.web.app` | USER-REPORTED | Aggiunto dal proprietario, non letto via API |
 | Firestore | Database `(default)` | USER-REPORTED | Progetto e schermata condivisi dal proprietario |
 | Firestore proprietario | `siteOwner/primary` con campo `uid` stringa | USER-REPORTED | Creazione e salvataggio confermati; valore UID non conservato in documentazione |
@@ -48,7 +48,7 @@ Il progetto `gernotfound/logbook` è stato studiato **solo come riferimento meto
 1. Verificare direttamente nella console le assegnazioni IAM dell'account di servizio `github-piante-hosting-675` (creazione e ruoli confermati dal proprietario, non letti via API).
 2. Verificare mapping, condizione del provider WIF e binding IAM di impersonificazione confermati dal proprietario; le due variabili di repository GitHub sono state visualizzate nello screenshot ma la corretta autenticazione sarà verificabile solo in GitHub Actions. La configurazione ADC viene generata automaticamente dal workflow.
 3. **Completato:** PR #1 integrata in `main`; controlli sul candidato eseguiti. **Completato tramite conferma utente:** assegnazione del ruolo `roles/serviceusage.serviceUsageViewer`. Il run #42102052951 ha dimostrato deploy Hosting riuscito.
-4. **Deploy Hosting verificato dai log CI**; ancora da verificare nel browser reale login proprietario, CRUD privato, pubblicazione e consultazione anonima del catalogo senza operazioni distruttive.
+4. **Deploy Hosting verificato dai log CI**; login e schermata Panoramica confermati dal proprietario in incognito il 2026-11-06. Da verificare ancora nel browser reale CRUD privato, pubblicazione e consultazione anonima del catalogo senza operazioni distruttive.
 5. Ricontrollare l'eventuale documento errato `siteOwner/uid` creato durante i primi passaggi; non eliminare senza verificarne identità e contenuto.
 
 **Non verificato:** lettura amministrativa delle assegnazioni IAM, fatturazione/quote, smoke browser/login reale e contenuto puntuale dei file remoti. La release Hosting e la raggiungibilità HTTP del root risultano verificate dal workflow CI.
