@@ -914,6 +914,9 @@ async function handleClick(event) {
     state.group = "Tutte";
     state.fruitType = "Tutte";
     state.minTempC = "";
+    state.pollination = "Tutte";
+    state.potSuitability = "Tutte";
+    state.harvestMonth = "";
     state.filter = "";
     state.filtersOpen = false;
     syncCatalogUrl();
@@ -934,7 +937,7 @@ async function handleClick(event) {
 }
 function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "climate-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
+  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
@@ -946,6 +949,18 @@ function handleSubmit(event) {
   if (form.id === "climate-form") {
     const minimum = String(data.get("minimum") || "");
     state.minTempC = coldOptions.includes(minimum) ? minimum : "";
+    state.filtersOpen = false;
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  if (form.id === "traits-form") {
+    const pollination = String(data.get("pollination") || "Tutte");
+    const pot = String(data.get("potSuitability") || "Tutte");
+    const month = String(data.get("harvestMonth") || "");
+    state.pollination = ["Tutte", ...pollinationTypes].includes(pollination) ? pollination : "Tutte";
+    state.potSuitability = ["Tutte", ...potSuitabilityTypes].includes(pot) ? pot : "Tutte";
+    state.harvestMonth = /^(?:[1-9]|1[012])$/.test(month) ? month : "";
     state.filtersOpen = false;
     syncCatalogUrl();
     render();
