@@ -282,43 +282,102 @@ function loginPage() {
   </div></section>`;
 }
 function adminTabs() {
-  return `<div class="container"><nav class="admin-nav" aria-label="Gestionale">
-    <a class="admin-tab ${state.route === "/admin" ? "active" : ""}" href="/admin" data-nav>Panoramica</a>
-    <a class="admin-tab ${state.route.startsWith("/admin/piante") ? "active" : ""}" href="/admin/piante" data-nav>Inventario</a>
-    <a class="admin-tab ${state.route.includes("/impostazioni") ? "active" : ""}" href="/admin/impostazioni" data-nav>Impostazioni accesso</a>
-    <button class="admin-tab" style="border:0;background:transparent;margin-left:auto" type="button" data-action="logout">Esci</button>
-  </nav></div>`;
+  const current = (path) => state.route === path ||
+    (path === "/admin/piante" && state.route.startsWith("/admin/modifica/"));
+  const adminLink = (path, label, symbol, className = "") =>
+    `<a href="${path}" data-nav class="admin-link ${current(path) ? "active" : ""} ${className}"
+      ${current(path) ? `aria-current="page"` : ""}>
+      <span class="admin-link-icon" aria-hidden="true">${symbol}</span><span>${label}</span></a>`;
+  return `<aside class="admin-sidebar">
+    <a class="brand admin-brand" href="/admin" data-nav><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+    <span class="sidebar-label">GESTIONALE PRIVATO</span>
+    <nav class="admin-side-links" aria-label="Navigazione gestionale">
+      ${adminLink("/admin", "Panoramica", "⌂")}
+      ${adminLink("/admin/piante", "Inventario", "❀")}
+      ${adminLink("/admin/nuova", "Nuova pianta", "+")}
+      ${adminLink("/admin/impostazioni", "Impostazioni", "⚙")}
+    </nav>
+    <div class="sidebar-bottom">
+      <a href="/piante" data-nav class="admin-side-extra">↗ Visita il catalogo</a>
+      <button type="button" data-action="logout" class="admin-side-extra">Esci dall'account</button>
+    </div>
+  </aside>
+  <nav class="admin-bottom-nav" aria-label="Navigazione gestionale mobile">
+    ${adminLink("/admin", "Home", "⌂")}
+    ${adminLink("/admin/piante", "Piante", "❀")}
+    ${adminLink("/admin/nuova", "Aggiungi", "+")}
+    ${adminLink("/admin/impostazioni", "Altro", "⚙")}
+  </nav>`;
 }
 function adminFrame(content, title, intro) {
-  return `<div class="admin-shell"><div class="admin-header"><div class="container"><span class="eyebrow">Gestionale privato</span>
-    <h1>${h(title)}</h1><p>${h(intro)}</p></div></div>${adminTabs()}
-    <div class="container admin-body">${alertBox(state.error, true)}${alertBox(state.flash)}${content}</div></div>`;
+  return `<div class="admin-shell">
+    ${adminTabs()}
+    <div class="admin-workspace">
+      <div class="admin-topbar"><span>Gestione del vivaio</span><a href="/" data-nav>Apri il sito <span aria-hidden="true">↗</span></a></div>
+      <header class="admin-header"><span class="eyebrow">IL TUO SPAZIO DI LAVORO</span>
+        <h1>${h(title)}</h1><p>${h(intro)}</p></header>
+      <div class="admin-body">${alertBox(state.error, true)}${alertBox(state.flash)}${content}</div>
+    </div>
+  </div>`;
 }
 function overviewPage() {
-  const published = state.inventory.filter((p) => p.published).length;
-  return adminFrame(`<div class="stat-grid">
-    <div class="stat"><div class="stat-label">Totale piante</div><div class="stat-value">${state.inventory.length}</div></div>
-    <div class="stat"><div class="stat-label">Pubblicate</div><div class="stat-value">${published}</div></div>
-    <div class="stat"><div class="stat-label">Private</div><div class="stat-value">${state.inventory.length - published}</div></div>
-  </div><div class="panel"><h2>La tua collezione</h2>
-  <p class="section-sub">Gestisci gli esemplari, conserva le note riservate e scegli quali piante pubblicare nella vetrina.</p>
-  <div class="admin-actions"><a href="/admin/nuova" data-nav class="btn btn-primary">+ Aggiungi pianta</a>
-    <a href="/admin/piante" data-nav class="btn btn-outline">Apri inventario →</a>
-    <a href="/piante" data-nav class="btn btn-outline">Visita il catalogo</a></div></div>`,
-    "Panoramica", `Benvenuto${state.username ? ", " + state.username : ""}. Ecco lo stato della tua collezione.`);
+  const published = state.inventory.filter((plant) => plant.published).length;
+  const recent = [...state.inventory].sort((a, b) =>
+    (Number(b.updatedAt?.seconds) || 0) - (Number(a.updatedAt?.seconds) || 0)).slice(0, 5);
+  return adminFrame(`
+    <div class="dashboard-head">
+      <div><h2>La tua collezione</h2><p>Gestisci le piante e scegli cosa mostrare nel catalogo pubblico.</p></div>
+      <a href="/admin/nuova" data-nav class="btn btn-primary">+ Nuova pianta</a>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">Totale piante</div><div class="stat-value">${state.inventory.length}</div></div>
+      <div class="stat"><div class="stat-label">Pubblicate</div><div class="stat-value">${published}</div></div>
+      <div class="stat"><div class="stat-label">Private</div><div class="stat-value">${state.inventory.length - published}</div></div>
+    </div>
+    <section class="panel recent-panel">
+      <div class="panel-heading"><h2>Modificate di recente</h2><a href="/admin/piante" data-nav class="text-link">Apri inventario <span aria-hidden="true">↗</span></a></div>
+      ${recent.length ? `<div class="recent-list">${recent.map((plant) => `
+        <a href="/admin/modifica/${encodeURIComponent(plant.id)}" data-nav class="recent-row">
+          ${imageMarkup(plant)}
+          <span class="recent-name"><strong>${h(plant.name)}</strong><small>${h(plant.category || "")}</small></span>
+          <span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span>
+          <span class="recent-arrow" aria-hidden="true">↗</span>
+        </a>`).join("")}</div>` : empty("Non hai ancora aggiunto piante. Inizia creando la tua prima scheda.") }
+    </section>`,
+    "Panoramica", `Benvenuto${state.username ? ", " + state.username : ""}. Qui trovi i dati essenziali della tua collezione.`);
 }
 function inventoryPage() {
-  const rows = state.inventory.map((p) => `<tr>
-    <td><strong>${h(p.name)}</strong><br><span class="status">${h(p.scientificName || "")}</span></td>
-    <td>${h(p.category || "—")}</td>
-    <td><span class="pill ${p.published ? "" : "draft"}">${p.published ? "Pubblica" : "Privata"}</span></td>
-    <td><a class="btn btn-outline btn-small" data-nav href="/admin/modifica/${encodeURIComponent(p.id)}">Modifica</a></td>
+  const plants = filterInventory(state.inventory, {
+    query: state.inventoryQuery, visibility: state.inventoryVisibility
+  });
+  const rows = plants.map((plant) => `<tr>
+    <td data-label="Pianta"><div class="inventory-name">
+      ${imageMarkup(plant)}<div><strong>${h(plant.name)}</strong><small>${h(plant.scientificName || plant.variety || "")}</small></div>
+    </div></td>
+    <td data-label="Categoria">${h(plant.category || "—")}</td>
+    <td data-label="Visibilità"><span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span></td>
+    <td data-label="Azioni"><a class="btn btn-outline btn-small" data-nav href="/admin/modifica/${encodeURIComponent(plant.id)}">Modifica</a></td>
   </tr>`).join("");
-  return adminFrame(`<div class="panel"><div class="section-heading"><h2 style="margin:0">Tutte le piante</h2>
-    <a href="/admin/nuova" data-nav class="btn btn-primary btn-small">+ Nuova pianta</a></div>
-    ${state.inventory.length ? `<div class="table-scroll"><table class="inventory"><thead><tr><th>Pianta</th><th>Categoria</th><th>Visibilità</th><th>Azioni</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>` : empty("Non hai ancora aggiunto piante al gestionale.")}</div>`,
-    "Inventario", "Tutti i tuoi esemplari, pubblici e privati, in un unico posto.");
+  return adminFrame(`<section class="panel inventory-panel">
+    <div class="panel-heading"><h2>Le tue piante</h2><a href="/admin/nuova" data-nav class="btn btn-primary btn-small">+ Nuova pianta</a></div>
+    <form id="inventory-search-form" class="inventory-filters" role="search">
+      <label class="sr-only" for="inventory-search-input">Cerca nel tuo inventario</label>
+      <input id="inventory-search-input" class="input" type="search" name="q" value="${h(state.inventoryQuery)}" placeholder="Cerca una pianta" autocomplete="off">
+      <label class="sr-only" for="inventory-visibility">Filtra per visibilità</label>
+      <select id="inventory-visibility" class="select" name="visibility">
+        ${["Tutte", "Pubblicate", "Private"].map((value) =>
+          `<option value="${value}" ${state.inventoryVisibility === value ? "selected" : ""}>${value === "Tutte" ? "Tutte le piante" : value}</option>`).join("")}
+      </select>
+      <button type="submit" class="btn btn-primary">Filtra</button>
+    </form>
+    <p class="results inventory-results" role="status">${plants.length} ${plants.length === 1 ? "risultato" : "risultati"}</p>
+    ${state.inventory.length ? plants.length ?
+      `<div class="table-scroll"><table class="inventory"><thead><tr>
+        <th>Pianta</th><th>Categoria</th><th>Visibilità</th><th>Azioni</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>` :
+      empty("Nessuna pianta corrisponde ai filtri selezionati.") :
+      empty("Non hai ancora piante. Aggiungine una per iniziare.") }
+    </section>`, "Inventario", "Tutte le tue piante, pubbliche e private, in un unico spazio.");
 }
 function inputField(label, name, value, opts = "") {
   return `<label class="form-field"><span>${h(label)}</span><input class="input" name="${name}" value="${h(value || "")}" ${opts}></label>`;
