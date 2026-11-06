@@ -1,15 +1,17 @@
 # Piante — vetrina pubblica e gestionale privato
 
-Sito statico responsive (HTML, CSS, JavaScript modulari) ospitato su **Firebase Hosting**. **Cloud Firestore** contiene dati pubblici e privati separati, mentre **Firebase Authentication** gestisce le password. Non è necessario attivare un server o un piano a pagamento.
+Sito statico Mobile First (HTML, CSS, JavaScript modulari) ospitato su **Firebase Hosting**. **Cloud Firestore** contiene dati pubblici e privati separati, mentre **Firebase Authentication** gestisce le password. Non è necessario attivare un server o un piano a pagamento.
 
 Per lavorare nel repository leggere [AGENTS.md](AGENTS.md); per lo stato delle configurazioni live seguire [registro servizi esterni](docs/operations/external-services-register.md) e [runbook Hosting](docs/operations/firebase-hosting-runbook.md). La documentazione distingue configurazione versionata, dichiarazioni del proprietario e verifiche live.
 
 ## Sezioni
 
-- **Home:** presentazione e anteprima delle piante pubblicate.
-- **Piante:** catalogo pubblico con ricerca, filtri e schede.
+- **Home:** presentazione commerciale, categorie e anteprima delle piante pubblicate.
+- **Catalogo:** ricerca, filtri per categoria e schede botaniche con disponibilità e prezzi solo quando registrati.
 - **Chi siamo / Contatti:** pagine informative, senza dati aziendali inventati.
-- **Area riservata:** inventario, inserimento, modifica, pubblicazione, rimozione, configurazione del nome utente.
+- **Area riservata:** dashboard, inventario filtrabile, moduli a sezioni, pubblicazione, rimozione e configurazione del nome utente. Sidebar desktop e navigazione inferiore mobile.
+
+Il design usa la palette botanico-commerciale approvata e parte da viewport di 320 px. La strategia, le verifiche mobile e i limiti dei browser datati sono documentati in [Frontend Mobile First](docs/design/mobile-first.md). Non sono presenti carrello o pagamenti.
 
 Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. La pubblicazione/rimozione avviene tramite un batch atomico.
 
