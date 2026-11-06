@@ -91,6 +91,16 @@ function sortMatches(items, query, fruitFirst) {
   });
 }
 
+function matchesTrait(plant, key, selected) {
+  return selected === "Tutte" || plant[key] === selected;
+}
+function matchesHarvest(plant, month) {
+  if (month === "" || month === null || month === undefined) return true;
+  const target = Number(month);
+  return Number.isInteger(target) && target >= 1 && target <= 12 &&
+    Array.isArray(plant.harvestMonths) && plant.harvestMonths.includes(target);
+}
+
 function matchesClimate(plant, minimum) {
   if (minimum === "" || minimum === null || minimum === undefined) return true;
   const threshold = Number(minimum);
@@ -99,13 +109,17 @@ function matchesClimate(plant, minimum) {
 }
 
 export function filterCatalog(items, {
-  query = "", category = "Tutte", group = "Tutte", fruitType = "Tutte", minTempC = ""
+  query = "", category = "Tutte", group = "Tutte", fruitType = "Tutte", minTempC = "",
+  pollination = "Tutte", potSuitability = "Tutte", harvestMonth = ""
 } = {}) {
   return sortMatches(items.filter((item) =>
     (category === "Tutte" || item.category === category) &&
     (group === "Tutte" || plantGroupOf(item) === group) &&
     (fruitType === "Tutte" || fruitTypeOf(item) === fruitType) &&
     matchesClimate(item, minTempC) &&
+    matchesTrait(item, "pollination", pollination) &&
+    matchesTrait(item, "potSuitability", potSuitability) &&
+    matchesHarvest(item, harvestMonth) &&
     plantSearchScore(item, query) > 0
   ), query, true);
 }
