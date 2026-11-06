@@ -14,6 +14,8 @@
 
 Le letture GitHub non provano le impostazioni di sicurezza non accessibili al connettore: push protection, token permissions, CodeQL default setup, branch environments, stato effettivo degli avvisi.
 
+**Controllo live successivo (2026-11-06):** GitHub restituisce ruleset `protect main branch` ID `26683653`, `enforcement=active`, target `~DEFAULT_BRANCH`, lista bypass vuota, `main.protected=true`, regole `deletion`, `non_fast_forward`, `required_linear_history`, PR obbligatoria con 0 reviews e conversazioni risolte, `allowed_merge_methods=[squash]` e `require_extra_approval_for_unattributed_changes=false`, controllo `Canonical Verification` della GitHub Actions App ID 15368 con `strict_required_status_checks_policy=true`. Le due differenze iniziali rispetto a Logbook sono state corrette dall'amministratore e confermate via GitHub API. Le altre impostazioni esterne restano da verificare.
+
 ## Alert «Google API Key #1»
 
 La chiave `apiKey` in `src/config.js` è la **configurazione pubblica della Firebase Web App**. Secondo la documentazione ufficiale Firebase, non è una credenziale amministrativa e va inclusa nella configurazione del client, se limitata alle API Firebase appropriate. Nasconderla nelle variabili GitHub compilate nel client non ne restringe l'utilizzo: è comunque leggibile in rete/browser.
