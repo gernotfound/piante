@@ -218,7 +218,7 @@ button:focus,a:focus,input:focus,select:focus,textarea:focus{outline:2px solid v
 .admin-header h1{font-size:2.05rem;color:var(--forest);margin:7px 0 8px}
 .admin-header p{color:var(--muted);margin:0;line-height:1.7;font-size:.88rem}
 .admin-body{padding:0 16px 35px}
-.admin-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;background:var(--white);border-top:1px solid var(--line);box-shadow:0 -8px 30px rgba(20,50,31,.06);padding:5px 5px calc(5px + env(safe-area-inset-bottom, 0px))}
+.admin-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;background:var(--white);border-top:1px solid var(--line);box-shadow:0 -8px 30px rgba(20,50,31,.06);padding:5px;padding:5px 5px calc(5px + env(safe-area-inset-bottom, 0px))}
 .admin-bottom-nav .admin-link{min-width:0;min-height:56px;padding:7px 2px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:9px;text-align:center;font-size:.65rem;font-weight:700;color:var(--muted)}
 .admin-link-icon{font-size:1.4rem;font-weight:700;line-height:1.1}
 .admin-bottom-nav .admin-link.active{background:var(--sage);color:var(--forest)}
@@ -285,7 +285,11 @@ button:focus,a:focus,input:focus,select:focus,textarea:focus{outline:2px solid v
 .editor-danger p{color:var(--muted);font-size:.77rem;margin-bottom:9px}
 .settings-logout{border-top:1px solid var(--line);margin-top:23px;padding-top:20px}
 .status{font-size:.79rem;color:var(--muted)}
-.boot{min-height:70vh;display:grid;place-items:center;color:var(--leaf)}
+.boot{min-height:70vh;display:grid;place-items:center;color:var(--leaf);padding:24px;text-align:center}
+.boot-message{max-width:440px}
+.boot-message strong{display:block;font-size:1rem;color:var(--forest)}
+.boot-message p{margin:12px 0 0;font-size:.83rem;color:var(--muted);line-height:1.65}
+.noscript-message{text-align:center;padding:20px;font-size:.87rem;color:#883A31}
 /* Miglioramenti progressivi, senza dipendere da funzionalità CSS recenti. */
 @media (min-width:380px){
   .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
