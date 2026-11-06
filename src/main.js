@@ -386,32 +386,64 @@ function textareaField(label, name, value, opts = "") {
   return `<label class="form-field"><span>${h(label)}</span><textarea class="textarea" name="${name}" ${opts}>${h(value || "")}</textarea></label>`;
 }
 function editPage(id) {
-  const item = id ? state.inventory.find((p) => p.id === id) : null;
-  if (id && !item) return adminFrame(`<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`, "Scheda non trovata", "La pianta non è presente nell'inventario.");
+  const item = id ? state.inventory.find((plant) => plant.id === id) : null;
+  if (id && !item) return adminFrame(
+    `<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`,
+    "Scheda non trovata", "La pianta non è presente nell'inventario.");
   const p = item || {};
   const select = `<label class="form-field"><span>Categoria</span><select class="select" name="category">
-    ${categories.map((c) => `<option ${(p.category || "Tropicali da frutto") === c ? "selected" : ""} value="${h(c)}">${h(c)}</option>`).join("")}
-    </select></label>`;
-  return adminFrame(`<form class="panel" id="plant-form" data-id="${h(id || "")}">
-    <h2>${id ? "Modifica la pianta" : "Nuova pianta"}</h2><div class="form-grid">
-    ${inputField("Nome comune *", "name", p.name, "required maxlength='100'")}
-    ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
-    ${select}${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
-    ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
-    ${inputField("Disponibilità (facoltativa)", "availability", p.availability, "placeholder='Es. disponibile su richiesta' maxlength='120'")}
-    ${inputField("Esposizione", "light", p.light, "placeholder='Es. pieno sole' maxlength='120'")}
-    ${inputField("Irrigazione", "water", p.water, "placeholder='Es. moderata' maxlength='120'")}
-    ${inputField("Prezzo indicativo (facoltativo)", "price", p.price, "placeholder='Es. 15 €' maxlength='50'")}
-    ${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' placeholder='https://...'")}
-    <div class="full-width">${textareaField("Descrizione pubblica", "description", p.description, "maxlength='3000'")}</div>
-    <div class="full-width">${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}</div>
-    <label class="form-field full-width"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
-      <span style="display:inline;margin-left:8px">Mostra nel catalogo pubblico</span>
-      <small>Quando disattivato, la pianta resta nell'inventario ma non è visibile ai visitatori.</small></label>
-    </div><div class="admin-actions"><button class="btn btn-primary" type="submit">Salva pianta</button>
-      <a class="btn btn-outline" href="/admin/piante" data-nav>Annulla</a>
-      ${id ? `<button type="button" data-action="delete-plant" data-id="${h(id)}" class="btn btn-danger">Elimina definitivamente</button>` : ""}
-    </div></form>`, id ? "Modifica pianta" : "Aggiungi pianta", "Tieni aggiornati i dettagli pubblici e le tue note riservate.");
+    ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Tropicali da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
+  </select></label>`;
+  return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}">
+    <div class="editor-heading"><div><h2>${id ? "Dettagli della pianta" : "Nuova scheda"}</h2>
+      <p>Compila le informazioni e scegli se renderle visibili nel catalogo pubblico.</p></div>
+      ${id && p.published ? `<a class="text-link" data-nav href="/piante/${encodeURIComponent(id)}">Vedi scheda pubblica ↗</a>` : ""}
+    </div>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">01</span><div>
+        <h3>Informazioni principali</h3><p>Identifica la pianta e la sua varietà.</p></div></div>
+      <div class="form-grid">
+        ${inputField("Nome comune *", "name", p.name, "required maxlength='100'")}
+        ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
+        ${select}
+        ${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
+        ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
+      </div>
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">02</span><div>
+        <h3>Informazioni per i visitatori</h3><p>Descrizione e caratteristiche che possono apparire online.</p></div></div>
+      <div class="form-grid">
+        ${inputField("Esposizione", "light", p.light, "placeholder='Es. pieno sole' maxlength='120'")}
+        ${inputField("Irrigazione", "water", p.water, "placeholder='Es. moderata' maxlength='120'")}
+        ${inputField("Disponibilità (facoltativa)", "availability", p.availability, "placeholder='Es. su richiesta' maxlength='120'")}
+        ${inputField("Prezzo indicativo (facoltativo)", "price", p.price, "placeholder='Es. 15 €' maxlength='50'")}
+        <div class="full-width">${textareaField("Descrizione pubblica", "description", p.description, "maxlength='3000'")}</div>
+      </div>
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">03</span><div>
+        <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
+      <div class="form-grid">
+        <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' placeholder='https://...'")}</div>
+      </div>
+      ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">04</span><div>
+        <h3>Visibilità e note riservate</h3><p>Le note private non vengono mai copiate nel catalogo pubblico.</p></div></div>
+      <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
+        <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
+      ${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}
+    </section>
+    <div class="editor-actions">
+      <button class="btn btn-primary" type="submit">Salva pianta</button>
+      <a href="/admin/piante" data-nav class="btn btn-outline">Annulla</a>
+    </div>
+    ${id ? `<div class="editor-danger"><p>Per rimuovere definitivamente questa pianta dall'inventario e dal catalogo:</p>
+      <button class="btn btn-danger" type="button" data-action="delete-plant" data-id="${h(id)}">Elimina pianta</button></div>` : ""}
+  </form>`, id ? "Modifica pianta" : "Aggiungi pianta",
+  "Aggiorna il catalogo e conserva i dettagli utili alla gestione del vivaio.");
 }
 function settingsPage() {
   return adminFrame(`<div class="panel" style="max-width:660px">
@@ -423,6 +455,7 @@ function settingsPage() {
       autocomplete="off" required><small>Da 3 a 32 caratteri: lettere, numeri, punto, trattino e underscore.</small></label>
     <button type="submit" class="btn btn-primary">Salva nome utente</button></form>
     <div class="notice" style="margin-top:25px;margin-bottom:0">Chi conosce il nome utente può ricavare l'email dell'account usato per accedere. Se preferisci riservatezza, puoi continuare ad accedere soltanto con la tua email.</div>
+    <div class="settings-logout"><button type="button" class="btn btn-outline" data-action="logout">Esci dall\u0027account</button></div>
     </div>`, "Impostazioni accesso", "Personalizza le credenziali di accesso al tuo gestionale.");
 }
 function adminPage() {
