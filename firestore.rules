@@ -24,7 +24,8 @@ service cloud.firestore {
           'name', 'scientificName', 'category', 'variety', 'description',
           'light', 'water', 'origin', 'imageUrl', 'availability', 'price',
           'plantGroup', 'fruitType', 'growthHabit', 'searchAliases',
-          'minColdC', 'coldSource', 'coldNotes'
+          'minColdC', 'coldSource', 'coldNotes',
+          'pollination', 'potSuitability', 'harvestMonths'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -39,6 +40,17 @@ service cloud.firestore {
         && request.resource.data.get('growthHabit', '') in [
           '', 'Albero', 'Arbusto', 'Rampicante', 'Erbacea', 'Succulenta', 'Altra'
         ]
+        && request.resource.data.get('pollination', '') in [
+          '', 'Autofertile', 'Richiede impollinazione', 'Variabile'
+        ]
+        && request.resource.data.get('potSuitability', '') in [
+          '', 'Adatta', 'Con accorgimenti', 'Non consigliata'
+        ]
+        && request.resource.data.get('harvestMonths', []) is list
+        && request.resource.data.get('harvestMonths', []).size() <= 12
+        && request.resource.data.get('harvestMonths', []).hasOnly([
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        ])
         && request.resource.data.get('searchAliases', '') is string
         && request.resource.data.get('searchAliases', '').size() <= 250
         && request.resource.data.get('coldNotes', '') is string
