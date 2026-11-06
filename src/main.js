@@ -53,21 +53,34 @@ function nav(path, label, extra = "") {
   return `<a href="${path}" data-nav class="nav-link ${active ? "active" : ""} ${extra}">${h(label)}</a>`;
 }
 function header() {
-  return `<header class="site-header"><div class="container navbar">
-    <a class="brand" href="/" data-nav><span class="brand-symbol">✳</span>Piante<span style="color:#89a18a">.</span></a>
-    <button type="button" class="btn btn-outline btn-small mobile-menu" data-toggle-menu aria-expanded="${state.menuOpen}" aria-label="Apri menu">Menu ☰</button>
-    <nav class="nav-links ${state.menuOpen ? "open" : ""}" aria-label="Navigazione principale">
-      ${nav("/", "Home")}${nav("/piante", "Piante")}${nav("/chi-siamo", "Chi siamo")}${nav("/contatti", "Contatti")}
-      <a href="${state.owner ? "/admin" : "/login"}" data-nav class="btn btn-primary btn-small nav-cta">${state.owner ? "Gestionale" : "Area riservata"}</a>
-    </nav></div></header>`;
+  return `<header class="site-header">
+    <div class="container navbar">
+      <a class="brand" href="/" data-nav aria-label="Piante, torna alla home"><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+      <button type="button" class="mobile-menu" data-toggle-menu aria-controls="primary-navigation" aria-expanded="${state.menuOpen}" aria-label="${state.menuOpen ? "Chiudi il menu" : "Apri il menu"}">
+        <span class="menu-lines" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>Menu</span>
+      </button>
+      <nav id="primary-navigation" class="nav-links ${state.menuOpen ? "open" : ""}" aria-label="Navigazione principale">
+        ${nav("/", "Home")}${nav("/piante", "Catalogo")}${nav("/chi-siamo", "Il vivaio")}${nav("/contatti", "Contatti")}
+        <a href="${state.owner ? "/admin" : "/login"}" data-nav class="nav-cta">${state.owner ? "Apri gestionale" : "Area riservata"}</a>
+      </nav>
+    </div>
+  </header>`;
 }
 function footer() {
-  return `<footer class="site-footer"><div class="container"><div class="footer-main">
-    <div><a class="brand footer-brand" href="/" data-nav><span class="brand-symbol">✳</span>Piante.</a>
-      <p style="font-size:12px;margin:18px 0 0">La tua collezione botanica, una pianta alla volta.</p></div>
-    <div class="footer-links"><a href="/piante" data-nav>Catalogo</a><a href="/chi-siamo" data-nav>Chi siamo</a>
-      <a href="/contatti" data-nav>Contatti</a><a href="/login" data-nav>Accesso</a></div>
-    </div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Piante. Tutti i diritti riservati.</span><span>Coltivato con cura</span></div></div></footer>`;
+  return `<footer class="site-footer"><div class="container">
+    <div class="footer-main">
+      <div class="footer-intro">
+        <a class="brand footer-brand" href="/" data-nav><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+        <p>Una collezione in crescita. Scopri le piante, le varietà e le loro caratteristiche.</p>
+      </div>
+      <nav class="footer-links" aria-label="Collegamenti nel footer">
+        <a href="/piante" data-nav>Catalogo</a><a href="/chi-siamo" data-nav>Il vivaio</a>
+        <a href="/contatti" data-nav>Contatti</a><a href="/login" data-nav>Area riservata</a>
+      </nav>
+    </div>
+    <div class="footer-bottom"><span>© ${new Date().getFullYear()} Piante</span><span>Coltiviamo la curiosità per la natura.</span></div>
+  </div></footer>`;
 }
 function alertBox(message, error = false) {
   return message ? `<div class="notice ${error ? "error" : ""} flash" role="status">${h(message)}</div>` : "";
@@ -78,15 +91,20 @@ function shell(page) {
 function imageMarkup(item, detail = false) {
   const url = safeImageUrl(item.imageUrl);
   return `<div class="${detail ? "detail-img" : "plant-img"}">${url
-    ? `<img src="${h(url)}" alt="Foto di ${h(item.name)}" loading="lazy" data-photo>`
+    ? `<img src="${h(url)}" alt="${h(item.name ? `Foto della pianta ${item.name}` : "Foto della pianta")}" loading="${detail ? "eager" : "lazy"}" decoding="async" data-photo>`
     : leafArt}</div>`;
 }
 function card(item) {
   return `<a class="plant-card" href="/piante/${encodeURIComponent(item.id)}" data-nav>
-    ${imageMarkup(item)}<div class="plant-info"><div class="plant-category">${h(item.category || "Pianta")}</div>
-      <h3 class="plant-name">${h(item.name)}</h3><div class="plant-latin">${h(item.scientificName || " ")}</div>
-      <div class="plant-bottom"><span>${h(item.variety || "Scopri la pianta")}</span><strong>Dettagli →</strong></div>
-    </div></a>`;
+    ${imageMarkup(item)}
+    <div class="plant-info">
+      <span class="plant-category">${h(item.category || "Pianta")}</span>
+      <h3 class="plant-name">${h(item.name)}</h3>
+      <p class="plant-latin">${h(item.scientificName || item.variety || "")}</p>
+      ${item.availability ? `<p class="plant-availability">${h(item.availability)}</p>` : ""}
+      <div class="plant-bottom"><strong>${item.price ? h(item.price) : "Scopri la pianta"}</strong><span aria-hidden="true">↗</span></div>
+    </div>
+  </a>`;
 }
 function empty(message) {
   return `<div class="empty"><div class="empty-symbol">✳</div><h3>La collezione prende forma</h3>
@@ -94,35 +112,61 @@ function empty(message) {
 }
 function homepage() {
   const featured = state.catalog.slice(0, 3);
-  return `<section class="hero"><div class="container hero-inner">
-    <div class="hero-copy"><div class="eyebrow">Una passione che cresce</div>
-      <h1>La natura,<br><em>una pianta</em><br>alla volta.</h1>
-      <p class="hero-lead">Un luogo per conoscere, osservare e scoprire piante speciali. Esplora il catalogo e segui la crescita della nostra collezione botanica.</p>
-      <div class="hero-actions"><a href="/piante" data-nav class="btn btn-light">Esplora le piante <span>→</span></a>
-      <a href="/chi-siamo" data-nav class="btn btn-outline" style="color:#fff;border-color:#7e9b84">La nostra storia</a></div>
-    </div><div class="hero-art"><div class="hero-orbit"></div><div class="hero-orbit two"></div>
-      <span class="hero-number">01 / Natura</span>${heroArt}<span class="hero-label">Growing collection</span>
-    </div></div></section>
-    <section class="section"><div class="container">
-      <div class="section-heading"><div><span class="eyebrow">Dal nostro catalogo</span>
-        <h2 class="section-title">Piante da scoprire</h2><p class="section-sub">Ogni pianta ha una storia e caratteristiche uniche.</p></div>
-        <a class="text-link" href="/piante" data-nav>Vedi tutto il catalogo →</a></div>
-      <div class="grid">${featured.length ? featured.map(card).join("") : empty("Quando verranno pubblicate le prime piante, compariranno qui.")}</div>
-    </div></section>
-    <section class="section section-soft"><div class="container"><span class="eyebrow">Il nostro approccio</span>
-      <h2 class="section-title">Passione per il verde</h2>
-      <div class="features">
-        <div class="feature"><div class="feature-icon">✳</div><h3>Collezione botanica</h3><p>Uno spazio dedicato alle specie, alle varietà e alle loro caratteristiche.</p></div>
-        <div class="feature"><div class="feature-icon">☼</div><h3>Informazioni utili</h3><p>Schede con descrizioni e indicazioni per conoscere meglio ogni esemplare.</p></div>
-        <div class="feature"><div class="feature-icon">↗</div><h3>In continua crescita</h3><p>Il catalogo si arricchisce nel tempo, seguendo l'evoluzione del vivaio.</p></div>
-      </div></div></section>
-    ${banner()}`;
+  const photo = state.catalog.find((item) => safeImageUrl(item.imageUrl));
+  const categoriesToShow = ["Tropicali da frutto", "Agrumi", "Succulente", "Ornamentali"];
+  return `<section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-copy">
+        <span class="eyebrow">Benvenuto nel nostro vivaio</span>
+        <h1>La natura, <em>da coltivare.</em></h1>
+        <p class="hero-lead">Scopri piante tropicali, agrumi e varietà botaniche: esplora il catalogo e trova le informazioni che cerchi.</p>
+        <div class="hero-actions">
+          <a href="/piante" data-nav class="btn btn-light">Esplora il catalogo <span aria-hidden="true">↗</span></a>
+          <a href="/chi-siamo" data-nav class="btn btn-hero-outline">Scopri il vivaio</a>
+        </div>
+        <span class="hero-note">Specie e varietà in continua evoluzione</span>
+      </div>
+      <div class="hero-art" aria-label="Piante della collezione">
+        <div class="hero-orbit" aria-hidden="true"></div><div class="hero-orbit two" aria-hidden="true"></div>
+        ${photo ? `<div class="hero-photo-frame">${imageMarkup(photo, true)}</div>` : heroArt}
+        <span class="hero-label">Piante · Natura · Scoperta</span>
+      </div>
+    </div>
+  </section>
+  <section class="section categories-section"><div class="container">
+    <div class="section-heading"><div><span class="eyebrow">Trova la tua pianta</span><h2 class="section-title">Esplora per categoria</h2>
+      <p class="section-sub">Dalle specie da frutto alle piante ornamentali: ogni varietà ha qualcosa da raccontare.</p></div>
+      <a class="text-link" href="/piante" data-nav>Vedi tutto il catalogo <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="category-grid">${categoriesToShow.map((category, index) => {
+      const representative = state.catalog.find((item) => item.category === category && safeImageUrl(item.imageUrl));
+      return `<a class="category-tile category-tile-${index + 1}" href="/piante?categoria=${encodeURIComponent(category)}" data-nav>
+        <span class="category-media">${representative ? `<img src="${h(safeImageUrl(representative.imageUrl))}" alt="" loading="lazy" decoding="async" data-photo>` : leafArt}</span>
+        <span class="category-copy"><strong>${h(category)}</strong><span aria-hidden="true">↗</span></span>
+      </a>`;
+    }).join("")}</div>
+  </div></section>
+  <section class="section section-soft"><div class="container">
+    <div class="section-heading"><div><span class="eyebrow">La selezione</span><h2 class="section-title">Dal nostro catalogo</h2>
+      <p class="section-sub">Una selezione delle piante attualmente pubblicate.</p></div>
+      <a class="text-link" href="/piante" data-nav>Scopri tutte le piante <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="grid">${featured.length ? featured.map(card).join("") : empty("Le prime piante pubblicate compariranno qui.")}</div>
+  </div></section>
+  <section class="section"><div class="container">
+    <div class="service-strip">
+      <div class="service-item"><span class="service-icon" aria-hidden="true">✳</span><div><h3>Varietà da scoprire</h3><p>Esplora specie e caratteristiche nel catalogo.</p></div></div>
+      <div class="service-item"><span class="service-icon" aria-hidden="true">☼</span><div><h3>Informazioni utili</h3><p>Esposizione, irrigazione e dettagli botanici.</p></div></div>
+      <div class="service-item"><span class="service-icon" aria-hidden="true">↗</span><div><h3>Una collezione in crescita</h3><p>Nuove piante vengono aggiunte nel tempo.</p></div></div>
+    </div>
+  </div></section>
+  ${banner()}`;
 }
 function banner() {
   return `<section class="banner"><div class="container banner-inner"><div>
-    <span class="eyebrow" style="color:#bdd0a8">Resta in contatto</span>
-    <h2>Hai una domanda sulle piante?</h2><p>Contattaci per informazioni sulla collezione.</p></div>
-    <a href="/contatti" data-nav class="btn btn-light">Vai ai contatti →</a></div></section>`;
+    <span class="eyebrow">Hai trovato una pianta interessante?</span>
+    <h2>Scopri di più sul vivaio.</h2><p>Visita la sezione contatti per gli aggiornamenti sui recapiti disponibili.</p></div>
+    <a href="/contatti" data-nav class="btn btn-light">Informazioni e contatti <span aria-hidden="true">↗</span></a></div></section>`;
 }
 function pageHero(tag, title, intro) {
   return `<section class="page-hero"><div class="container"><span class="eyebrow">${h(tag)}</span>
