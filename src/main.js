@@ -510,8 +510,19 @@ function editPage(id) {
     `<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`,
     "Scheda non trovata", "La pianta non è presente nell'inventario.");
   const p = item || {};
+  const selectedGroup = p.plantGroup || (id ? plantGroupOf(p) : "Piante da frutto");
+  const selectedFruitType = p.fruitType || (id ? fruitTypeOf(p) : "Altre fruttifere");
+  const groupSelect = `<label class="form-field"><span>Gruppo principale</span><select class="select" name="plantGroup">
+    ${plantGroups.map((group) => `<option value="${h(group)}" ${selectedGroup === group ? "selected" : ""}>${h(group)}</option>`).join("")}
+  </select></label>`;
+  const fruitSelect = `<label class="form-field"><span>Tipo di fruttifera (se applicabile)</span><select class="select" name="fruitType">
+    ${["", ...fruitTypes].map((type) => `<option value="${h(type)}" ${selectedFruitType === type ? "selected" : ""}>${h(type || "Non applicabile")}</option>`).join("")}
+  </select></label>`;
+  const habitSelect = `<label class="form-field"><span>Forma della pianta</span><select class="select" name="growthHabit">
+    ${["", ...growthHabits].map((type) => `<option value="${h(type)}" ${p.growthHabit === type ? "selected" : ""}>${h(type || "Da indicare")}</option>`).join("")}
+  </select></label>`;
   const select = `<label class="form-field"><span>Categoria</span><select class="select" name="category">
-    ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Tropicali da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
+    ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Piante da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
   </select></label>`;
   return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}">
     <div class="editor-heading"><div><h2>${id ? "Dettagli della pianta" : "Nuova scheda"}</h2>
@@ -525,7 +536,11 @@ function editPage(id) {
         ${inputField("Nome comune *", "name", p.name, "required maxlength='100'")}
         ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
         ${select}
+        ${groupSelect}
+        ${fruitSelect}
+        ${habitSelect}
         ${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
+        <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", p.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
         ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
       </div>
     </section>
@@ -542,6 +557,19 @@ function editPage(id) {
     </section>
     <section class="editor-section">
       <div class="editor-section-heading"><span class="editor-step">03</span><div>
+        <h3>Clima e resistenza al freddo</h3>
+        <p>Facoltativo. Non assegnare valori presunti: il filtro pubblico utilizza solo soglie registrate.</p></div></div>
+      <div class="form-grid">
+        ${inputField("Temperatura minima indicativa (°C)", "minColdC", p.minColdC,
+          "type='number' step='0.5' min='-40' max='25' inputmode='decimal' placeholder='Es. -3'")}
+        ${inputField("Fonte HTTPS (facoltativa)", "coldSource", p.coldSource,
+          "type='url' inputmode='url' placeholder='https://...'")}
+        <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", p.coldNotes, "maxlength='250'")}</div>
+      </div>
+      <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">04</span><div>
         <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
       <div class="form-grid">
         <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' placeholder='https://...'")}</div>
@@ -549,7 +577,7 @@ function editPage(id) {
       ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
     </section>
     <section class="editor-section">
-      <div class="editor-section-heading"><span class="editor-step">04</span><div>
+      <div class="editor-section-heading"><span class="editor-step">05</span><div>
         <h3>Visibilità e note riservate</h3><p>Le note private non vengono mai copiate nel catalogo pubblico.</p></div></div>
       <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
         <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
@@ -676,9 +704,11 @@ async function login(form) {
 }
 async function savePlant(form, id) {
   if (plantSaveInProgress) return;
-  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes"];
+  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "plantGroup", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
+  const coldRaw = String(form.get("minColdC") || "").trim();
+  if (coldRaw) plant.minColdC = Number(coldRaw.replace(",", "."));
   const validation = validatePlant(plant);
   if (validation) { showFormError(validation); return; }
   const docId = id || firebase.doc(firebase.collection(firebase.db, "privatePlants")).id;
