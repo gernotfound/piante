@@ -1,5 +1,6 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, normalizeUsername, validUsername, safeImageUrl, escapeHtml, displayText, catalogProjection, validatePlant } from "./domain.js";
+import { categories, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
+import { filterCatalog, filterInventory } from "./catalog.js";
 
 const appRoot = document.querySelector("#app");
 const h = escapeHtml;
@@ -15,12 +16,18 @@ const state = {
   error: "",
   flash: "",
   filter: "",
-  category: "Tutte",
+  category: getCategoryFromUrl(),
+  filtersOpen: false,
+  inventoryQuery: "",
+  inventoryVisibility: "Tutte",
   dbError: ""
 };
 let firebase = null;
 let privateListener = null;
 let authCheckSerial = 0;
+let formDirty = false;
+let plantSaveInProgress = false;
+let currentPath = window.location.pathname + window.location.search;
 
 const leafArt = `<svg viewBox="0 0 140 140" fill="none" aria-hidden="true"><path d="M67 128C67 84 83 54 106 17" stroke="#2f6b4c" stroke-width="3" stroke-linecap="round"/><path d="M72 100C37 106 19 86 17 57c29 0 55 14 55 43ZM85 65C82 30 106 11 132 9c0 29-16 54-47 56ZM66 119C34 134 12 119 6 97c27-5 49 0 60 22Z" fill="#3e7c55" stroke="#296543" stroke-width="2"/><path d="M71 100 26 66M86 64l36-44M64 118 17 104" stroke="#a2c5a0" stroke-width="2"/></svg>`;
 const heroArt = `<svg class="botanical-art" viewBox="0 0 450 495" role="img" aria-label="Illustrazione botanica di una pianta in vaso">
@@ -40,17 +47,52 @@ const heroArt = `<svg class="botanical-art" viewBox="0 0 450 495" role="img" ari
 <path d="M174 377c5 37 12 59 19 73" stroke="#edcfaf" stroke-width="7" opacity=".45" stroke-linecap="round"/>
 </svg>`;
 
-function go(path) {
-  window.history.pushState({}, "", path);
-  state.route = path;
-  state.menuOpen = false;
-  state.error = "";
-  window.scrollTo({ top: 0, behavior: "instant" });
+function getCategoryFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("categoria");
+  return categories.includes(value) ? value : "Tutte";
+}
+function confirmDiscard() {
+  return !formDirty || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+}
+function renderUnlessEditing() {
+  if (formDirty && document.querySelector("#plant-form")) return;
   render();
+}
+function showFormError(message) {
+  state.error = message;
+  const container = document.querySelector(".admin-body");
+  if (!container) return;
+  let notice = container.querySelector(".notice.error");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.className = "notice error flash";
+    notice.setAttribute("role", "alert");
+    container.prepend(notice);
+  }
+  notice.textContent = message;
+  notice.scrollIntoView({ block: "nearest" });
+}
+function go(path) {
+  const target = new URL(path, window.location.href);
+  if (target.origin !== window.location.origin || !confirmDiscard()) return false;
+  formDirty = false;
+  currentPath = target.pathname + target.search;
+  window.history.pushState({}, "", currentPath);
+  state.route = target.pathname;
+  if (state.route === "/piante") {
+    state.category = getCategoryFromUrl();
+    state.filter = "";
+  }
+  state.menuOpen = false;
+  state.filtersOpen = false;
+  state.error = "";
+  window.scrollTo(0, 0);
+  render();
+  return true;
 }
 function nav(path, label, extra = "") {
   const active = state.route === path || (path === "/piante" && state.route.startsWith("/piante/"));
-  return `<a href="${path}" data-nav class="nav-link ${active ? "active" : ""} ${extra}">${h(label)}</a>`;
+  return `<a href="${path}" data-nav class="nav-link ${active ? "active" : ""} ${extra}" ${active ? 'aria-current="page"' : ""}>${h(label)}</a>`;
 }
 function header() {
   return `<header class="site-header">
@@ -86,7 +128,10 @@ function alertBox(message, error = false) {
   return message ? `<div class="notice ${error ? "error" : ""} flash" role="status">${h(message)}</div>` : "";
 }
 function shell(page) {
-  appRoot.innerHTML = header() + `<main id="main">${page}</main>` + footer();
+  const privatePage = state.route.startsWith("/admin") && state.owner;
+  appRoot.innerHTML = `<a class="skip-link" href="#main">Vai al contenuto principale</a>` +
+    (privatePage ? "" : header()) + `<main id="main">${page}</main>` +
+    (privatePage ? "" : footer());
 }
 function imageMarkup(item, detail = false) {
   const url = safeImageUrl(item.imageUrl);
@@ -494,8 +539,8 @@ async function startFirebase() {
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
       state.catalog = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
-      state.dbError = ""; render();
-    }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; render(); });
+      state.dbError = ""; renderUnlessEditing();
+    }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; renderUnlessEditing(); });
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
@@ -512,8 +557,8 @@ async function startFirebase() {
             state.username = profile.exists() ? profile.data().username || "" : "";
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
               state.inventory = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it")); render();
-            }, () => { state.error = "Impossibile leggere l'inventario privato."; render(); });
+                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it")); renderUnlessEditing();
+            }, () => { state.error = "Impossibile leggere l'inventario privato."; renderUnlessEditing(); });
           } else {
             state.error = "Questo account non è autorizzato a gestire il sito.";
             await firebase.signOut(firebase.auth);
@@ -560,7 +605,7 @@ async function savePlant(form, id) {
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
   const validation = validatePlant(plant);
-  if (validation) { state.error = validation; render(); return; }
+  if (validation) { showFormError(validation); return; }
   const docId = id || firebase.doc(firebase.collection(firebase.db, "privatePlants")).id;
   const previous = state.inventory.find((p) => p.id === docId);
   const privateDoc = firebase.doc(firebase.db, "privatePlants", docId);
@@ -575,10 +620,10 @@ async function savePlant(form, id) {
   try {
     await batch.commit();
     state.error = ""; state.flash = "Pianta salvata correttamente.";
+    formDirty = false;
     go("/admin/piante");
   } catch {
-    state.error = "Salvataggio non riuscito. Controlla le autorizzazioni o la connessione.";
-    render();
+    showFormError("Salvataggio non riuscito. Controlla le autorizzazioni o la connessione.");
   }
 }
 async function deletePlant(id) {
@@ -589,10 +634,10 @@ async function deletePlant(id) {
     batch.delete(firebase.doc(firebase.db, "catalog", id));
     await batch.commit();
     state.error = ""; state.flash = "Pianta eliminata.";
+    formDirty = false;
     go("/admin/piante");
   } catch {
-    state.error = "Impossibile eliminare la pianta.";
-    render();
+    showFormError("Impossibile eliminare la pianta.");
   }
 }
 async function saveUsername(form) {
