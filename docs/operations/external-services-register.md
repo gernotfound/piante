@@ -1,6 +1,6 @@
 # Registro dei servizi esterni — Piante
 
-**Rilevazione:** 2026-11-05. **Scopo:** preservare decisioni e checkpoint su GitHub, Firebase e Google Cloud. Gli stati possono cambiare senza modifiche al repository. Non contengono credenziali né UID reali.
+**Rilevazione:** 2026-11-06. **Scopo:** preservare decisioni e checkpoint su GitHub, Firebase e Google Cloud. Gli stati possono cambiare senza modifiche al repository. Non contengono credenziali né UID reali.
 
 ## Legenda delle evidenze
 
@@ -13,11 +13,11 @@
 
 | Servizio | Identificatore pubblico / funzione | Stato al 2026-11-05 | Fonte e limite |
 |---|---|---|---|
-| GitHub | `gernotfound/piante`, default `main` | VERIFIED-REPO | Repo e PR #1 letti dal connettore; il codice candidato è su `feat/vivaio-site-initial` |
-| PR sito | [#1](https://github.com/gernotfound/piante/pull/1) | VERIFIED-REPO | Squash merge in `main` `1eea9fe3608944106dcbfc7e2dc56cec72567c70` il 2026-11-05 |
+| GitHub | `gernotfound/piante`, default `main` | VERIFIED-REPO | Branch `main` letto via GitHub, SHA `53bb29dbf2f69cecb16d9b4d7d05043c8c441424` prima dell'hardening; sito mobile-first già rilasciato tramite PR #4 |
+| PR sito | [#4](https://github.com/gernotfound/piante/pull/4) | VERIFIED-REPO | Redesign mobile-first integrato in `main` il 2026-11-06; deploy [#42194297007](https://github.com/gernotfound/piante/actions/runs/42194297007) riuscito |
 | Firebase/GCP | Progetto `piante-a617e`, numero `401886801214` | USER-REPORTED + VERIFIED-REPO | Dati del proprietario; il project ID coincide con Web SDK e `.firebaserc` |
 | Firebase piano | Spark | USER-REPORTED | Screenshot console precedente; non dimostra quote o stato fatturazione odierno |
-| Firebase Web App | `src/config.js` | VERIFIED-REPO | Configurazione Web pubblica presente; non dà privilegi amministrativi |
+| Firebase Web App | `src/config.js` | VERIFIED-REPO / USER-REPORTED / VERIFY-LIVE | `apiKey` Firebase Web pubblica. Il 2026-11-06 il proprietario ha mostrato la Browser key con 25 API selezionate, inizialmente senza restrizioni applicative, ha dichiarato di aver salvato restrizioni per i riferimenti web di `piantee.web.app`, ha confermato il login funzionante e poi la **chiusura** dell'alert GitHub «Google API Key #1». Stato e motivo esatto della chiusura non verificabili attraverso il connettore; chiave non revocata. La selezione delle 25 API non è stata modificata per esplicita scelta del proprietario |
 | Firebase Authentication | Provider email/password attivo e utente proprietario creato | USER-REPORTED / VERIFY-LIVE | Il proprietario ha confermato il 2026-11-06 di aver effettuato il login tramite browser in incognito e di aver raggiunto `/admin` (Panoramica) senza errori in console. Non verificati via API l'UID e altri flussi |
 | Authentication | Dominio autorizzato `piantee.web.app` | USER-REPORTED | Aggiunto dal proprietario, non letto via API |
 | Firestore | Database `(default)` | USER-REPORTED | Progetto e schermata condivisi dal proprietario |
@@ -28,7 +28,10 @@
 | Google Cloud IAM | `github-piante-hosting-675@piante-a617e.iam.gserviceaccount.com` | USER-REPORTED | Il proprietario ha confermato il 2026-11-05 il completamento della creazione e l'assegnazione dei ruoli Hosting Admin + API Keys Viewer + Service Usage Viewer; assegnazioni IAM non ancora lette direttamente dalla console/API |
 | Workload Identity Federation | Pool `github-piante` / provider OIDC `github-actions` | VERIFIED-CI per autenticazione / VERIFY-LIVE per IAM | La GitHub Action `google-github-actions/auth@v3` è riuscita nel run #42100963907. Mapping, condizione e binding precisi restano da rileggere via API/console; non è stata utilizzata chiave JSON |
 | GitHub Actions WIF variables | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` | VERIFIED-CI | Run GitHub Actions #42100963907 ha superato il controllo variabili e autenticato il service account via WIF; non sono stati copiati valori riservati |
-| Deploy Production | `main` → test → `piantee` live | VERIFIED-CI | Run #42102052951, SHA `ae90bf52d1b311101435d24ed94b70e93151aa9b`: sintassi, unit test, Rules emulator, WIF, release Hosting `piantee` e curl HTTP live riusciti. Login e interazione browser non verificati |
+| Deploy Production | `main` → test → `piantee` live | VERIFIED-CI / CANDIDATE-HARDENING | Redesign mobile-first in `main` SHA `53bb29dbf2f69cecb16d9b4d7d05043c8c441424` verificato da GitHub Actions [#42194297007](https://github.com/gernotfound/piante/actions/runs/42194297007). Nuova catena gated CI→Hosting e SHA pin candidata sul branch `chore/github-security-baseline`, non ancora rilasciata |
+
+| GitHub branch security | `main` ruleset e branch protection | VERIFIED-LIVE | GitHub API 2026-11-06: `main.protected=true`; ruleset `protect main branch` #26683653 active, target default (`~DEFAULT_BRANCH`), bypass vuota, delete/force push bloccati, PR obbligatoria con 0 approvazioni, conversazioni risolte, linear history, `Canonical Verification` strict (GitHub Actions), **solo squash**, approvazione aggiuntiva Copilot disattivata. Coincide con le regole esaminate su Logbook | 
+| GitHub security automation | CodeQL, Dependabot, actions SHA pin | CANDIDATE-PR | File di hardening preparati su `chore/github-security-baseline`; test e CI/merge da verificare. CodeQL default setup e alert settings esterni non verificati | 
 
 ## IAM e scelta di sicurezza
 
@@ -45,13 +48,15 @@ Il progetto `gernotfound/logbook` è stato studiato **solo come riferimento meto
 
 ## Punti aperti
 
+0. **Priorità sicurezza GitHub (2026-11-06):** PR #5 ha superato CodeQL e `Canonical Verification` sul commit `9fb8ad78b7b3000c4abf881a51304389cb9ea6a9` (run #42197783147); l'ulteriore modifica documentale richiede una nuova verifica sullo SHA finale. Ruleset di `main` verificato attivo via GitHub API e allineato a Logbook. Permessi predefiniti Actions in sola lettura osservati nello screenshot, con possibilità di creare/approvare PR disabilitata (salvataggio non verificato via API). Alert Firebase client dichiarato chiuso dal proprietario; classificazione non riletta via API. Confermare restrizioni effettive nel provider solo in caso di problemi, senza cambiare l'elenco delle 25 API come richiesto.
+
 1. Verificare direttamente nella console le assegnazioni IAM dell'account di servizio `github-piante-hosting-675` (creazione e ruoli confermati dal proprietario, non letti via API).
 2. Verificare mapping, condizione del provider WIF e binding IAM di impersonificazione confermati dal proprietario; le due variabili di repository GitHub sono state visualizzate nello screenshot ma la corretta autenticazione sarà verificabile solo in GitHub Actions. La configurazione ADC viene generata automaticamente dal workflow.
 3. **Completato:** PR #1 integrata in `main`; controlli sul candidato eseguiti. **Completato tramite conferma utente:** assegnazione del ruolo `roles/serviceusage.serviceUsageViewer`. Il run #42102052951 ha dimostrato deploy Hosting riuscito.
 4. **Deploy Hosting verificato dai log CI**; login e schermata Panoramica confermati dal proprietario in incognito il 2026-11-06. Da verificare ancora nel browser reale CRUD privato, pubblicazione e consultazione anonima del catalogo senza operazioni distruttive.
 5. Ricontrollare l'eventuale documento errato `siteOwner/uid` creato durante i primi passaggi; non eliminare senza verificarne identità e contenuto.
 
-**Non verificato:** lettura amministrativa delle assegnazioni IAM, fatturazione/quote, smoke browser/login reale e contenuto puntuale dei file remoti. La release Hosting e la raggiungibilità HTTP del root risultano verificate dal workflow CI.
+**Non verificato:** stato effettivo di chiave Firebase e restrizioni Google API, alert secret scanning, impostazioni GitHub Actions, CodeQL default setup, Dependabot alerts, ruleset attivo e lettura amministrativa delle assegnazioni IAM, fatturazione/quote, smoke browser/login reale e contenuto puntuale dei file remoti. La release Hosting e la raggiungibilità HTTP del root risultano verificate dal workflow CI.
 
 ## Modifiche alla configurazione
 
