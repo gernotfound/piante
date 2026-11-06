@@ -17,6 +17,7 @@ Ambito: repository `gernotfound/piante`, sito pubblico del vivaio e gestionale p
 | Firebase, Google Cloud IAM, GitHub, costi, credenziali, domini | [Servizi esterni](.agents/rules/external-services.md) e [Registro servizi](docs/operations/external-services-register.md) |
 | Firebase Authentication, Firestore, separazione pubblico/privato, Hosting | [Contratto Firebase](.agents/rules/firebase-config.md) |
 | Deploy, CI, permessi GitHub, messa in produzione, rollback | [Runbook di pubblicazione](docs/operations/firebase-hosting-runbook.md) |
+| Sicurezza repository, ruleset main, CodeQL, alert secret scanning | [Sicurezza GitHub](docs/operations/github-security-runbook.md) |
 | Documenti architetturali e operativi | [Indice documenti](docs/README.md) |
 | Panoramica tecnica dell'app | [Architettura](docs/architecture/overview.md) |
 
