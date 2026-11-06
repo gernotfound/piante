@@ -254,8 +254,20 @@ function pageHero(tag, title, intro) {
     <h1>${h(title)}</h1><p>${h(intro)}</p></div></section>`;
 }
 function catalogPage() {
-  const plants = filterCatalog(state.catalog, { query: state.filter, category: state.category });
-  const hasFilters = Boolean(state.filter.trim()) || state.category !== "Tutte";
+  const plants = filterCatalog(state.catalog, {
+    query: state.filter, category: state.category, group: state.group,
+    fruitType: state.fruitType, minTempC: state.minTempC
+  });
+  const hasFilters = Boolean(state.filter.trim()) || state.category !== "Tutte" ||
+    state.group !== "Tutte" || state.fruitType !== "Tutte" || state.minTempC !== "";
+  const groupFilters = ["Tutte", ...plantGroups].map((group) => `<button type="button"
+    class="filter-option ${state.group === group ? "active" : ""}" data-group-filter="${h(group)}"
+    aria-pressed="${state.group === group}">${h(group === "Tutte" ? "Tutte le piante" : group)}</button>`).join("");
+  const fruitFilters = ["Tutte", ...fruitTypes].map((type) => `<button type="button"
+    class="filter-option ${state.fruitType === type ? "active" : ""}" data-fruit-filter="${h(type)}"
+    aria-pressed="${state.fruitType === type}">${h(type === "Tutte" ? "Tutte le fruttifere" : type)}</button>`).join("");
+  const coldSelect = coldOptions.map((value) => `<option value="${value}" ${state.minTempC === value ? "selected" : ""}>
+    ${value === "" ? "Qualsiasi temperatura" : "Fino a " + (Number(value) > 0 ? "+" : "") + value + " °C"}</option>`).join("");
   const filters = ["Tutte", ...categories].map((category) => `<button type="button"
       class="filter-option ${state.category === category ? "active" : ""}"
       data-category-filter="${h(category)}" aria-pressed="${state.category === category}">
@@ -270,7 +282,7 @@ function catalogPage() {
         <label class="sr-only" for="catalog-search-input">Cerca nel catalogo</label>
         <span class="search-icon" aria-hidden="true">⌕</span>
         <input id="catalog-search-input" class="input" type="search" name="q"
-          placeholder="Cerca nome, specie o varietà" value="${h(state.filter)}" autocomplete="off">
+          placeholder="Es. maracujà, avocado, Opuntia" value="${h(state.filter)}" maxlength="120" autocomplete="off">
         <button class="btn btn-primary" type="submit">Cerca</button>
       </form>
       <div class="catalog-toolbar">
@@ -282,13 +294,29 @@ function catalogPage() {
         ${hasFilters ? `<button class="text-link reset-filters" type="button" data-reset-filters>Rimuovi filtri</button>` : ""}
       </div>
       <div class="catalog-layout">
-        <aside id="catalog-filters" class="catalog-filters ${state.filtersOpen ? "open" : ""}" aria-label="Filtra per categoria">
-          <h2>Filtra per categoria</h2>
+        <aside id="catalog-filters" class="catalog-filters ${state.filtersOpen ? "open" : ""}" aria-label="Filtri del catalogo">
+          <h2>Tipologia</h2>
+          <div class="filter-options">${groupFilters}</div>
+          <h2>Piante da frutto</h2>
+          <div class="filter-options">${fruitFilters}</div>
+          <h2>Resistenza al freddo</h2>
+          <form id="climate-form" class="climate-form">
+            <label for="climate-minimum">La pianta resiste almeno a</label>
+            <select id="climate-minimum" name="minimum" class="select">${coldSelect}</select>
+            <button class="btn btn-outline btn-small" type="submit">Applica temperatura</button>
+            <small>Si considerano solo schede con una temperatura indicativa inserita. Le piante giovani e in vaso possono essere meno resistenti.</small>
+          </form>
+          <h2>Categorie specifiche</h2>
           <div class="filter-options">${filters}</div>
         </aside>
         <div class="catalog-content">
-          ${hasFilters ? `<p class="filter-summary">${state.category !== "Tutte" ? `<span class="filter-chip">${h(state.category)}</span>` : ""}
-            ${state.filter ? `<span class="filter-chip">Ricerca: ${h(state.filter)}</span>` : ""}</p>` : ""}
+          ${hasFilters ? `<p class="filter-summary">
+            ${state.group !== "Tutte" ? `<span class="filter-chip">${h(state.group)}</span>` : ""}
+            ${state.fruitType !== "Tutte" ? `<span class="filter-chip">${h(state.fruitType)}</span>` : ""}
+            ${state.category !== "Tutte" ? `<span class="filter-chip">${h(state.category)}</span>` : ""}
+            ${state.minTempC !== "" ? `<span class="filter-chip">Almeno ${h(state.minTempC)} °C</span>` : ""}
+            ${state.filter ? `<span class="filter-chip">Ricerca: ${h(state.filter)}</span>` : ""}
+          </p>` : ""}
           <div class="grid catalog-grid">${plants.length ? plants.map(card).join("") :
             empty(state.catalog.length ? "Nessuna pianta corrisponde ai filtri. Prova a modificarli." :
               "Il catalogo si riempirà quando pubblicherai le prime piante dal gestionale.")}</div>
@@ -435,7 +463,7 @@ function overviewPage() {
 }
 function inventoryPage() {
   const plants = filterInventory(state.inventory, {
-    query: state.inventoryQuery, visibility: state.inventoryVisibility
+    query: state.inventoryQuery, visibility: state.inventoryVisibility, group: state.inventoryGroup
   });
   const rows = plants.map((plant) => `<tr>
     <td data-label="Pianta"><div class="inventory-name">
@@ -450,6 +478,10 @@ function inventoryPage() {
     <form id="inventory-search-form" class="inventory-filters" role="search">
       <label class="sr-only" for="inventory-search-input">Cerca nel tuo inventario</label>
       <input id="inventory-search-input" class="input" type="search" name="q" value="${h(state.inventoryQuery)}" placeholder="Cerca una pianta" autocomplete="off">
+      <label class="sr-only" for="inventory-group">Filtra per tipologia</label>
+      <select id="inventory-group" class="select" name="group">
+        ${["Tutte", ...plantGroups].map((value) => `<option value="${h(value)}" ${state.inventoryGroup === value ? "selected" : ""}>${h(value === "Tutte" ? "Tutte le tipologie" : value)}</option>`).join("")}
+      </select>
       <label class="sr-only" for="inventory-visibility">Filtra per visibilità</label>
       <select id="inventory-visibility" class="select" name="visibility">
         ${["Tutte", "Pubblicate", "Private"].map((value) =>
