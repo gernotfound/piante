@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, plantGroupOf, fruitTypeOf, coldMinimumOf, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
 import { filterCatalog, filterInventory } from "./catalog.js";
 
 const appRoot = document.querySelector("#app");
@@ -15,11 +15,15 @@ const state = {
   username: "",
   error: "",
   flash: "",
-  filter: "",
+  filter: new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "",
   category: getCategoryFromUrl(),
+  group: getGroupFromUrl(),
+  fruitType: getFruitTypeFromUrl(),
+  minTempC: getColdFromUrl(),
   filtersOpen: false,
   inventoryQuery: "",
   inventoryVisibility: "Tutte",
+  inventoryGroup: "Tutte",
   dbError: ""
 };
 let firebase = null;
@@ -51,6 +55,37 @@ function getCategoryFromUrl() {
   const value = new URLSearchParams(window.location.search).get("categoria");
   return categories.includes(value) ? value : "Tutte";
 }
+function getGroupFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("gruppo");
+  return plantGroups.includes(value) ? value : "Tutte";
+}
+function getFruitTypeFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("tipo");
+  return fruitTypes.includes(value) ? value : "Tutte";
+}
+const coldOptions = ["", "5", "0", "-3", "-5", "-10", "-15", "-20"];
+function getColdFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("freddo") || "";
+  return coldOptions.includes(value) ? value : "";
+}
+function readCatalogUrl() {
+  state.category = getCategoryFromUrl();
+  state.group = getGroupFromUrl();
+  state.fruitType = getFruitTypeFromUrl();
+  state.minTempC = getColdFromUrl();
+  state.filter = new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "";
+}
+function syncCatalogUrl() {
+  const params = new URLSearchParams();
+  if (state.category !== "Tutte") params.set("categoria", state.category);
+  if (state.group !== "Tutte") params.set("gruppo", state.group);
+  if (state.fruitType !== "Tutte") params.set("tipo", state.fruitType);
+  if (state.minTempC !== "") params.set("freddo", state.minTempC);
+  if (state.filter) params.set("q", state.filter);
+  const path = "/piante" + (params.size ? "?" + params.toString() : "");
+  window.history.replaceState({}, "", path);
+  currentPath = path;
+}
 function confirmDiscard() {
   return !formDirty || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
 }
@@ -79,10 +114,7 @@ function go(path) {
   currentPath = target.pathname + target.search;
   window.history.pushState({}, "", currentPath);
   state.route = target.pathname;
-  if (state.route === "/piante") {
-    state.category = getCategoryFromUrl();
-    state.filter = "";
-  }
+  if (state.route === "/piante") readCatalogUrl();
   state.menuOpen = false;
   state.filtersOpen = false;
   state.error = "";
@@ -143,10 +175,11 @@ function card(item) {
   return `<a class="plant-card" href="/piante/${encodeURIComponent(item.id)}" data-nav>
     ${imageMarkup(item)}
     <div class="plant-info">
-      <span class="plant-category">${h(item.category || "Pianta")}</span>
+      <span class="plant-category">${h(plantGroupOf(item) === "Piante da frutto" ? fruitTypeOf(item) : item.category || "Pianta")}</span>
       <h3 class="plant-name">${h(item.name)}</h3>
       <p class="plant-latin">${h(item.scientificName || item.variety || "")}</p>
       ${item.availability ? `<p class="plant-availability">${h(item.availability)}</p>` : ""}
+      ${coldMinimumOf(item) !== null ? `<p class="plant-climate">Freddo indicativo: ${h(coldMinimumOf(item))} °C</p>` : ""}
       <div class="plant-bottom"><strong>${item.price ? h(item.price) : "Scopri la pianta"}</strong><span aria-hidden="true">↗</span></div>
     </div>
   </a>`;
@@ -156,9 +189,9 @@ function empty(message) {
     <p>${h(message)}</p></div>`;
 }
 function homepage() {
-  const featured = state.catalog.slice(0, 3);
-  const photo = state.catalog.find((item) => safeImageUrl(item.imageUrl));
-  const categoriesToShow = ["Tropicali da frutto", "Agrumi", "Succulente", "Ornamentali"];
+  const featured = filterCatalog(state.catalog).slice(0, 3);
+  const photo = featured.find((item) => safeImageUrl(item.imageUrl)) || state.catalog.find((item) => safeImageUrl(item.imageUrl));
+  const categoriesToShow = ["Piante da frutto", "Tropicali da frutto", "Agrumi", "Orto e tuberi"];
   return `<section class="hero">
     <div class="container hero-inner">
       <div class="hero-copy">
@@ -184,8 +217,11 @@ function homepage() {
       <a class="text-link" href="/piante" data-nav>Vedi tutto il catalogo <span aria-hidden="true">↗</span></a>
     </div>
     <div class="category-grid">${categoriesToShow.map((category, index) => {
-      const representative = state.catalog.find((item) => item.category === category && safeImageUrl(item.imageUrl));
-      return `<a class="category-tile category-tile-${index + 1}" href="/piante?categoria=${encodeURIComponent(category)}" data-nav>
+      const byGroup = category === "Piante da frutto" || category === "Orto e tuberi";
+      const representative = state.catalog.find((item) =>
+        (byGroup ? plantGroupOf(item) === category : item.category === category) && safeImageUrl(item.imageUrl));
+      const queryKey = byGroup ? "gruppo" : "categoria";
+      return `<a class="category-tile category-tile-${index + 1}" href="/piante?${queryKey}=${encodeURIComponent(category)}" data-nav>
         <span class="category-media">${representative ? `<img src="${h(safeImageUrl(representative.imageUrl))}" alt="" loading="lazy" decoding="async" data-photo>` : leafArt}</span>
         <span class="category-copy"><strong>${h(category)}</strong><span aria-hidden="true">↗</span></span>
       </a>`;
@@ -283,6 +319,12 @@ function detailPage(id) {
           ${item.availability ? `<div><span class="detail-label">Disponibilità</span><strong>${h(item.availability)}</strong></div>` : ""}
         </div>` : ""}
         <p class="detail-description">${h(item.description || "La scheda di questa pianta verrà arricchita con altre informazioni.")}</p>
+        ${coldMinimumOf(item) !== null ? `<div class="climate-detail">
+          <strong>Temperatura minima indicativa: ${h(coldMinimumOf(item))} °C</strong>
+          <p>Dato orientativo per piante adulte acclimatate in piena terra. La resistenza dipende da durata del freddo, cultivar, esposizione e protezione.</p>
+          ${item.coldNotes ? `<p>${h(item.coldNotes)}</p>` : ""}
+          ${safeImageUrl(item.coldSource) ? `<a href="${h(safeImageUrl(item.coldSource))}" target="_blank" rel="noopener noreferrer">Consulta la fonte</a>` : ""}
+        </div>` : ""}
         <a href="/contatti" data-nav class="btn btn-primary detail-contact">Informazioni e contatti <span aria-hidden="true">↗</span></a>
         ${properties.length ? `<section class="detail-properties"><h2>Caratteristiche della pianta</h2><dl class="specs">
           ${properties.map(([label,value]) => `<div class="spec-row"><dt>${h(label)}</dt><dd>${h(value)}</dd></div>`).join("")}
@@ -425,7 +467,7 @@ function inventoryPage() {
     </section>`, "Inventario", "Tutte le tue piante, pubbliche e private, in un unico spazio.");
 }
 function inputField(label, name, value, opts = "") {
-  return `<label class="form-field"><span>${h(label)}</span><input class="input" name="${name}" value="${h(value || "")}" ${opts}></label>`;
+  return `<label class="form-field"><span>${h(label)}</span><input class="input" name="${name}" value="${h(value ?? "")}" ${opts}></label>`;
 }
 function textareaField(label, name, value, opts = "") {
   return `<label class="form-field"><span>${h(label)}</span><textarea class="textarea" name="${name}" ${opts}>${h(value || "")}</textarea></label>`;
@@ -767,7 +809,7 @@ function handlePopState() {
   formDirty = false;
   currentPath = window.location.pathname + window.location.search;
   state.route = window.location.pathname;
-  if (state.route === "/piante") state.category = getCategoryFromUrl();
+  if (state.route === "/piante") readCatalogUrl();
   state.error = "";
   state.menuOpen = false;
   state.filtersOpen = false;
