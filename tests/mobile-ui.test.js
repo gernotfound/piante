@@ -29,7 +29,7 @@ test("Navbar e gestionale: comandi accessibili al tocco anche senza hover", () =
 });
 
 test("Scheda privata: campi e controllo delle modifiche non salvate preservati", () => {
-  assert.match(ui, /name="internalNotes"/, "Le note private devono essere parte del modulo");
+  assert.match(ui, /textareaField\("Note private \(mai pubblicate\)", "internalNotes"/, "Le note private devono essere parte del modulo");
   assert.match(ui, /function confirmDiscard\(/);
   assert.match(ui, /function renderUnlessEditing\(/);
   assert.match(ui, /beforeunload/);
