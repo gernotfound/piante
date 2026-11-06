@@ -375,7 +375,11 @@ function detailPage(id) {
   const properties = [
     ["Nome scientifico", item.scientificName], ["Varietà", item.variety],
     ["Categoria", item.category], ["Origine", item.origin],
-    ["Esposizione", item.light], ["Irrigazione", item.water]
+    ["Esposizione", item.light], ["Irrigazione", item.water],
+    ["Impollinazione", item.pollination], ["Coltivazione in vaso", item.potSuitability],
+    ["Raccolta indicativa", Array.isArray(item.harvestMonths)
+      ? item.harvestMonths.filter((m) => Number.isInteger(m) && m >= 1 && m <= 12)
+        .map((m) => monthNames[m - 1]).join(", ") : ""]
   ].filter(([,value]) => Boolean(value));
   return `<section class="section detail-section"><div class="container">
     <nav class="breadcrumbs" aria-label="Percorso"><a href="/piante" data-nav>Catalogo</a><span aria-hidden="true">/</span><span>${h(item.name)}</span></nav>
@@ -554,6 +558,22 @@ function editPage(id) {
     `<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`,
     "Scheda non trovata", "La pianta non è presente nell'inventario.");
   const p = item || {};
+  const selectedHarvestMonths = new Set(Array.isArray(p.harvestMonths) ? p.harvestMonths : []);
+  const pollinationSelect = `<label class="form-field"><span>Autofertilità</span><select class="select" name="pollination">
+    ${["", ...pollinationTypes].map((value) => `<option value="${h(value)}" ${(p.pollination || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
+  </select></label>`;
+  const potSelect = `<label class="form-field"><span>Coltivazione in vaso</span><select class="select" name="potSuitability">
+    ${["", ...potSuitabilityTypes].map((value) => `<option value="${h(value)}" ${(p.potSuitability || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
+  </select></label>`;
+  const harvestSelector = `<fieldset class="harvest-fieldset full-width">
+    <legend>Mesi indicativi della raccolta (facoltativi)</legend>
+    <div class="harvest-months">
+      ${monthNames.map((name, i) => `<label>
+        <input type="checkbox" name="harvestMonth" value="${i + 1}" ${selectedHarvestMonths.has(i + 1) ? "checked" : ""}>
+        <span>${h(name)}</span></label>`).join("")}
+    </div>
+    <p>Il calendario è indicativo per il clima locale e non determina la data effettiva di maturazione.</p>
+  </fieldset>`;
   const selectedGroup = p.plantGroup || (id ? plantGroupOf(p) : "Piante da frutto");
   const selectedFruitType = p.fruitType || (id ? fruitTypeOf(p) : "Altre fruttifere");
   const groupSelect = `<label class="form-field"><span>Gruppo principale</span><select class="select" name="plantGroup">
@@ -586,6 +606,9 @@ function editPage(id) {
         ${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
         <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", p.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
         ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
+        ${pollinationSelect}
+        ${potSelect}
+        ${harvestSelector}
       </div>
     </section>
     <section class="editor-section">
@@ -748,9 +771,10 @@ async function login(form) {
 }
 async function savePlant(form, id) {
   if (plantSaveInProgress) return;
-  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "plantGroup", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes"];
+  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "plantGroup", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
+  plant.harvestMonths = [...new Set(form.getAll("harvestMonth").map(Number))].sort((a, b) => a - b);
   const coldRaw = String(form.get("minColdC") || "").trim();
   if (coldRaw) plant.minColdC = Number(coldRaw.replace(",", "."));
   const validation = validatePlant(plant);
