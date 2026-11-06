@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, growthHabits, plantGroupOf, fruitTypeOf, coldMinimumOf, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, plantGroupOf, fruitTypeOf, coldMinimumOf, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
 import { filterCatalog, filterInventory } from "./catalog.js";
 
 const appRoot = document.querySelector("#app");
@@ -20,6 +20,9 @@ const state = {
   group: getGroupFromUrl(),
   fruitType: getFruitTypeFromUrl(),
   minTempC: getColdFromUrl(),
+  pollination: getPollinationFromUrl(),
+  potSuitability: getPotFromUrl(),
+  harvestMonth: getHarvestFromUrl(),
   filtersOpen: false,
   inventoryQuery: "",
   inventoryVisibility: "Tutte",
@@ -68,11 +71,26 @@ function getColdFromUrl() {
   const value = new URLSearchParams(window.location.search).get("freddo") || "";
   return coldOptions.includes(value) ? value : "";
 }
+function getPollinationFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("impollinazione");
+  return pollinationTypes.includes(value) ? value : "Tutte";
+}
+function getPotFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("vaso");
+  return potSuitabilityTypes.includes(value) ? value : "Tutte";
+}
+function getHarvestFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("raccolta") || "";
+  return /^(?:[1-9]|1[012])$/.test(value) ? value : "";
+}
 function readCatalogUrl() {
   state.category = getCategoryFromUrl();
   state.group = getGroupFromUrl();
   state.fruitType = getFruitTypeFromUrl();
   state.minTempC = getColdFromUrl();
+  state.pollination = getPollinationFromUrl();
+  state.potSuitability = getPotFromUrl();
+  state.harvestMonth = getHarvestFromUrl();
   state.filter = new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "";
 }
 function syncCatalogUrl() {
@@ -81,6 +99,9 @@ function syncCatalogUrl() {
   if (state.group !== "Tutte") params.set("gruppo", state.group);
   if (state.fruitType !== "Tutte") params.set("tipo", state.fruitType);
   if (state.minTempC !== "") params.set("freddo", state.minTempC);
+  if (state.pollination !== "Tutte") params.set("impollinazione", state.pollination);
+  if (state.potSuitability !== "Tutte") params.set("vaso", state.potSuitability);
+  if (state.harvestMonth !== "") params.set("raccolta", state.harvestMonth);
   if (state.filter) params.set("q", state.filter);
   const path = "/piante" + (params.size ? "?" + params.toString() : "");
   window.history.replaceState({}, "", path);
