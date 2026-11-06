@@ -60,4 +60,6 @@ Il progetto `gernotfound/logbook` è stato studiato **solo come riferimento meto
 
 ## Modifiche alla configurazione
 
+**2026-11-06 — GitHub Actions / Dependabot (VERIFIED-REPO; candidato, non rilasciato).** Le PR Dependabot [#6](https://github.com/gernotfound/piante/pull/6) e [#7](https://github.com/gernotfound/piante/pull/7) falliscono CodeQL per versioni diverse di `init` e `analyze`, come dimostrato dai run [#42206746330](https://github.com/gernotfound/piante/actions/runs/42206746330) e [#42206742287](https://github.com/gernotfound/piante/actions/runs/42206742287). Candidato sul branch `chore/codeql-4-39-3-grouped-updates`: stesso commit ufficiale della release [v4.39.3](https://github.com/github/codeql-action/releases/tag/v4.39.3) per entrambi i passi, con aggiornamenti raggruppati in Dependabot. Residui: esito CI sul candidato, stato PR obsolete e nessun merge o deploy autorizzato in questo incarico.
+
 Per ogni modifica aggiungere un checkpoint datato con **azione**, **provider**, **evidenza** (screenshot, run ID, URL o lettura API), **esito** e **verifiche residue**. Non scrivere valori privati né trattare un resoconto precedente come prova permanente.

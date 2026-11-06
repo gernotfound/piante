@@ -76,6 +76,7 @@ In Settings → Advanced Security (o sezione sicurezza equivalente):
 - Il deploy `.github/workflows/deploy-production.yml` non si avvia da PR né manualmente: soltanto da un `workflow_run` CI concluso con successo per evento `push` su `main` del repository corrente.
 - Il deployer controlla ancora che SHA verificato, checkout e `main` remoto corrispondano, prima di usare la federazione GitHub OIDC e pubblicare solo Hosting.
 - Le Actions esterne sono referenziate tramite commit SHA immutabili; Dependabot segnalerà aggiornamenti.
+- `github/codeql-action/init` e `github/codeql-action/analyze` condividono lo stesso SHA di release: CodeQL richiede versioni identiche nello stesso job. Dependabot le raggruppa tramite `groups.codeql` in `.github/dependabot.yml`, evitando aggiornamenti indipendenti che interrompono `Canonical Verification`.
 - `npm install` rimane **non riproducibile** senza `package-lock.json`; il prossimo incremento di sicurezza deve generare un lockfile reale da una versione effettivamente risolta e usare `npm ci`. Non inventare un lockfile. Fino ad allora, pin SHA delle Actions non fissa le dipendenze npm.
 
 ## Limiti e verifiche
