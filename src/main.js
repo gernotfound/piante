@@ -618,9 +618,13 @@ async function savePlant(form, id) {
   });
   if (plant.published) batch.set(publicDoc, catalogProjection(plant));
   else batch.delete(publicDoc);
-  const button = document.querySelector('#plant-form [type="submit"]');
+  const editor = document.querySelector("#plant-form");
+  const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
+    .map((control) => ({ control, wasDisabled: control.disabled }));
+  const button = editor?.querySelector('[type="submit"]');
   plantSaveInProgress = true;
-  if (button) { button.disabled = true; button.textContent = "Salvataggio…"; }
+  controls.forEach(({ control }) => { control.disabled = true; });
+  if (button) button.textContent = "Salvataggio…";
   try {
     await batch.commit();
     state.error = "";
@@ -631,7 +635,8 @@ async function savePlant(form, id) {
     showFormError("Salvataggio non riuscito. Controlla le autorizzazioni o la connessione.");
   } finally {
     plantSaveInProgress = false;
-    if (button?.isConnected) { button.disabled = false; button.textContent = "Salva pianta"; }
+    controls.forEach(({ control, wasDisabled }) => { if (control.isConnected) control.disabled = wasDisabled; });
+    if (button?.isConnected) button.textContent = "Salva pianta";
   }
 }
 async function deletePlant(id) {
