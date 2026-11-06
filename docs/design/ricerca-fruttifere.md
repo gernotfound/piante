@@ -46,6 +46,16 @@ Ricerca e filtri condividono funzioni pure. La vetrina aggiunge gruppo, tipo di 
 
 Nessuna chiamata a modelli AI, nessuna indicizzazione privata esterna, nessun nuovo servizio a pagamento.
 
+## Impollinazione, raccolta e vaso
+
+Questi tre filtri sono stati approvati come requisiti di prodotto, ma **non** devono essere compilati automaticamente in base al solo nome botanico.
+
+- `pollination` opzionale: `Autofertile`, `Richiede impollinazione`, `Variabile`. Vuoto = sconosciuto. Non confondere autofertilità, tipo sessuale della pianta, impollinazione incrociata e capacità effettiva di allegagione. Per le piante da seme, non assumere la caratteristica della cultivar madre.
+- `harvestMonths` opzionale: lista ordinata dei mesi da 1 a 12. È un calendario *indicativo* per il luogo di coltivazione, non una promessa di raccolta né il periodo di fioritura. Il filtro mostra solo schede che contengono esplicitamente il mese selezionato.
+- `potSuitability` opzionale: `Adatta`, `Con accorgimenti`, `Non consigliata`. Vuoto = dato sconosciuto. Dimensioni del vaso, substrato, portainnesto, potatura e durata della coltivazione influiscono molto.
+
+Riferimenti: [RHS su scelta alberi da frutto, autofertilità e gruppi di impollinazione](https://www.rhs.org.uk/fruit/fruit-trees/choosing-the-best); [RHS coltivazione fruttifere in vaso](https://www.rhs.org.uk/education-learning/school-gardening/resources/food-growing/growing-fruit-in-containers).
+
 ## Temperatura
 
 `minColdC` opzionale numerico: **temperatura minima indicativa tollerabile in °C da pianta adulta, acclimatata e in piena terra durante un episodio breve**. Il filtro «Resiste almeno a -5 °C» include solo le schede con valore documentato minore o uguale a -5, non quelle con dato assente. Il valore 0 è valido e non equivale al dato mancante.
@@ -56,7 +66,7 @@ La temperatura non è una garanzia di sopravvivenza: cultivar, durata, vento, te
 
 ## Contratti Firestore e rilascio
 
-`catalogProjection` copia solo i metadati pubblici consentiti; non copia `internalNotes`. La nuova allowlist in `firestore.rules` richiede numeri, stringhe ed enum validi e continua a negare scritture anonime e letture private. I campi nuovi sono facoltativi, preservando le vecchie schede.
+`catalogProjection` copia solo i metadati pubblici consentiti; non copia `internalNotes`. La nuova allowlist in `firestore.rules` richiede numeri, stringhe, liste di mesi ed enum validi e continua a negare scritture anonime e letture private. I campi nuovi sono facoltativi, preservando le vecchie schede.
 
 **CRITICAL:** le Rules live non sono aggiornate dalla pipeline Hosting. Se si distribuisse soltanto la nuova UI, i salvataggi di schede pubblicate fallirebbero, perché `catalogProjection` aggiunge campi non ammessi dalle vecchie Rules. Non eseguire merge/deploy Hosting prima di pianificare e verificare separatamente l'aggiornamento delle Rules su database reale, oppure implementare una fase compatibile senza nuovi campi.
 
@@ -64,4 +74,4 @@ I test emulator della PR provano soltanto il file Rules candidato, non lo stato 
 
 ## Verifica manuale necessaria
 
-Viewport 320/360/390/768/1024+, filtri mobile espansi/chiusi, ricerca con sinonimi e refusi, assenza risultati, URL condiviso dopo reload/back, 0 °C, -5 °C, schede senza clima, filtro combinato, accessibilità keyboard, creazione e modifica admin senza perdita input, pubblicazione e rollback compatibili con Rules live. Nessuna garanzia E2E senza browser realmente usato.
+Viewport 320/360/390/768/1024+, filtri mobile espansi/chiusi, ricerca con sinonimi e refusi, assenza risultati, URL condiviso dopo reload/back, 0 °C, -5 °C, schede senza clima, autofertilità ignota, raccolta su più mesi, idoneità al vaso sconosciuta, filtri combinati, accessibilità keyboard, creazione e modifica admin senza perdita input, pubblicazione e rollback compatibili con Rules live. Nessuna garanzia E2E senza browser realmente usato.
