@@ -28,6 +28,18 @@ test("Navbar e gestionale: comandi accessibili al tocco anche senza hover", () =
   assert.match(css, /\.inventory thead\{display:none\}/);
 });
 
+test("Ricerca e filtri fruttifere: moduli e URL condivisibili", () => {
+  assert.match(ui, /id="traits-form"/);
+  assert.match(ui, /id="climate-form"/);
+  assert.match(ui, /data-fruit-filter/);
+  assert.match(ui, /getHarvestFromUrl/);
+  assert.match(ui, /params\.set\("raccolta", state\.harvestMonth\)/);
+  assert.match(ui, /name="harvestMonth"/);
+  assert.match(ui, /name="potSuitability"/);
+  assert.match(ui, /name="pollination"/);
+  assert.match(css, /\.harvest-months\{display:grid/);
+});
+
 test("Scheda privata: campi e controllo delle modifiche non salvate preservati", () => {
   assert.match(ui, /textareaField\("Note private \(mai pubblicate\)", "internalNotes"/, "Le note private devono essere parte del modulo");
   assert.match(ui, /function confirmDiscard\(/);

@@ -8,6 +8,18 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/siteOwner/primary).data.uid == request.auth.uid;
     }
 
+    // I campi facoltativi devono avere un tipo coerente anche se il client viene alterato.
+    function optionalText(data, field, maxLength) {
+      return data.get(field, '') is string
+        && data.get(field, '').size() <= maxLength;
+    }
+
+    function optionalHttps(data, field, maxLength) {
+      return optionalText(data, field, maxLength)
+        && (data.get(field, '') == ''
+          || data.get(field, '').matches('^https://[^ ]+$'));
+    }
+
     match /siteOwner/{id} {
       allow get: if isOwner();
       allow list, create, update, delete: if false;
@@ -22,13 +34,53 @@ service cloud.firestore {
       allow create, update: if isOwner()
         && request.resource.data.keys().hasOnly([
           'name', 'scientificName', 'category', 'variety', 'description',
-          'light', 'water', 'origin', 'imageUrl', 'availability', 'price'
+          'light', 'water', 'origin', 'imageUrl', 'availability', 'price',
+          'plantGroup', 'fruitType', 'growthHabit', 'searchAliases',
+          'minColdC', 'coldSource', 'coldNotes',
+          'pollination', 'potSuitability', 'harvestMonths'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 100
         && request.resource.data.description is string
-        && request.resource.data.description.size() <= 3000;
+        && request.resource.data.description.size() <= 3000
+        && optionalText(request.resource.data, 'scientificName', 150)
+        && optionalText(request.resource.data, 'category', 100)
+        && optionalText(request.resource.data, 'variety', 150)
+        && optionalText(request.resource.data, 'origin', 150)
+        && optionalText(request.resource.data, 'light', 120)
+        && optionalText(request.resource.data, 'water', 120)
+        && optionalText(request.resource.data, 'availability', 120)
+        && optionalText(request.resource.data, 'price', 50)
+        && optionalHttps(request.resource.data, 'imageUrl', 4096)
+        && request.resource.data.get('plantGroup', '') in ['', 'Piante da frutto', 'Orto e tuberi', 'Altre piante']
+        && request.resource.data.get('fruitType', '') in [
+          '', 'Agrumi', 'Tropicali e subtropicali', 'Mediterranee',
+          'Temperate', 'Piccoli frutti', 'Altre fruttifere'
+        ]
+        && request.resource.data.get('growthHabit', '') in [
+          '', 'Albero', 'Arbusto', 'Rampicante', 'Erbacea', 'Succulenta', 'Altra'
+        ]
+        && request.resource.data.get('pollination', '') in [
+          '', 'Autofertile', 'Richiede impollinazione', 'Variabile'
+        ]
+        && request.resource.data.get('potSuitability', '') in [
+          '', 'Adatta', 'Con accorgimenti', 'Non consigliata'
+        ]
+        && request.resource.data.get('harvestMonths', []) is list
+        && request.resource.data.get('harvestMonths', []).size() <= 12
+        && request.resource.data.get('harvestMonths', []).hasOnly([
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        ])
+        && request.resource.data.get('harvestMonths', []).toSet().size()
+          == request.resource.data.get('harvestMonths', []).size()
+        && optionalText(request.resource.data, 'searchAliases', 250)
+        && optionalText(request.resource.data, 'coldNotes', 250)
+        && optionalHttps(request.resource.data, 'coldSource', 500)
+        && (!request.resource.data.keys().hasAny(['minColdC']) ||
+            (request.resource.data.minColdC is number &&
+             request.resource.data.minColdC >= -40 &&
+             request.resource.data.minColdC <= 25));
       allow delete: if isOwner();
     }
 
