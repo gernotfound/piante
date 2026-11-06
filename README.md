@@ -1,15 +1,17 @@
 # Piante — vetrina pubblica e gestionale privato
 
-Sito statico responsive (HTML, CSS, JavaScript modulari) ospitato su **Firebase Hosting**. **Cloud Firestore** contiene dati pubblici e privati separati, mentre **Firebase Authentication** gestisce le password. Non è necessario attivare un server o un piano a pagamento.
+Sito statico Mobile First (HTML, CSS, JavaScript modulari) ospitato su **Firebase Hosting**. **Cloud Firestore** contiene dati pubblici e privati separati, mentre **Firebase Authentication** gestisce le password. Non è necessario attivare un server o un piano a pagamento.
 
 Per lavorare nel repository leggere [AGENTS.md](AGENTS.md); per lo stato delle configurazioni live seguire [registro servizi esterni](docs/operations/external-services-register.md) e [runbook Hosting](docs/operations/firebase-hosting-runbook.md). La documentazione distingue configurazione versionata, dichiarazioni del proprietario e verifiche live.
 
 ## Sezioni
 
-- **Home:** presentazione e anteprima delle piante pubblicate.
-- **Piante:** catalogo pubblico con ricerca, filtri e schede.
+- **Home:** presentazione commerciale, categorie e anteprima delle piante pubblicate.
+- **Catalogo:** ricerca, filtri per categoria e schede botaniche con disponibilità e prezzi solo quando registrati.
 - **Chi siamo / Contatti:** pagine informative, senza dati aziendali inventati.
-- **Area riservata:** inventario, inserimento, modifica, pubblicazione, rimozione, configurazione del nome utente.
+- **Area riservata:** dashboard, inventario filtrabile, moduli a sezioni, pubblicazione, rimozione e configurazione del nome utente. Sidebar desktop e navigazione inferiore mobile.
+
+Il design usa la palette botanico-commerciale approvata e parte da viewport di 320 px. La strategia, le verifiche mobile e i limiti dei browser datati sono documentati in [Frontend Mobile First](docs/design/mobile-first.md). Non sono presenti carrello o pagamenti.
 
 Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. La pubblicazione/rimozione avviene tramite un batch atomico.
 
@@ -32,7 +34,7 @@ Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza
 
 La configurazione passo per passo, le autorizzazioni minime, i controlli e il rollback sono nel [runbook Firebase Hosting](docs/operations/firebase-hosting-runbook.md). Le conferme e le verifiche mancanti sono nel [registro dei servizi esterni](docs/operations/external-services-register.md).
 
-**Stato al 2026-11-05:** la prima versione è stata integrata in `main` con la PR #1. L'autenticazione GitHub→Google Cloud tramite WIF è riuscita, ma il primo deploy live ([Actions #42100963907](https://github.com/gernotfound/piante/actions/runs/42100963907)) si è fermato su una lettura Service Usage con HTTP 403. Per completare il rilascio serve aggiungere il ruolo minimo **Service Usage Viewer** al service account Hosting e ripetere il workflow. Non risulta ancora una release del codice candidato verificata sul sito.
+**Stato al 2026-11-05:** la prima versione è stata integrata in `main` con la PR #1. L'autenticazione GitHub→Google Cloud tramite WIF è riuscita, ma il primo deploy live ([Actions #42100963907](https://github.com/gernotfound/piante/actions/runs/42100963907)) si è fermato su una lettura Service Usage con HTTP 403. Il proprietario ha aggiunto **Service Usage Viewer** e il successivo [run #42102052951](https://github.com/gernotfound/piante/actions/runs/42102052951) ha pubblicato correttamente il sito Hosting e verificato l'HTTP del root. Login, dati e operazioni del gestionale richiedono ancora collaudo manuale sul browser.
 
 ## Foto e piano gratuito
 

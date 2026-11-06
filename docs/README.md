@@ -8,6 +8,7 @@ Questa cartella contiene **contesto operativo e tecnico**, non segreti e non cer
 | [Regola servizi esterni](../.agents/rules/external-services.md) | IAM, credenziali, provider, quote e sicurezza | Contratto operativo |
 | [Regola Firebase](../.agents/rules/firebase-config.md) | Auth, catalogo privato/pubblico, Rules e Hosting | Contratto tecnico |
 | [Architettura](architecture/overview.md) | Boundary, file e flussi dati del sito | Descrizione del codice da verificare |
+| [Design Mobile First](design/mobile-first.md) | Palette, breakpoint, UX del vivaio e compatibilità browser | Decisioni frontend e piano di verifica |
 | [Registro servizi esterni](operations/external-services-register.md) | Cosa è stato fatto/dichiarato, cosa resta da verificare | Registro operativo, non verità live permanente |
 | [Runbook Hosting](operations/firebase-hosting-runbook.md) | Procedura di autorizzazione GitHub, pubblicazione, controlli e rollback | Istruzioni; non prova di esecuzione |
 

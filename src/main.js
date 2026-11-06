@@ -1,5 +1,6 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, normalizeUsername, validUsername, safeImageUrl, escapeHtml, displayText, catalogProjection, validatePlant } from "./domain.js";
+import { categories, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
+import { filterCatalog, filterInventory } from "./catalog.js";
 
 const appRoot = document.querySelector("#app");
 const h = escapeHtml;
@@ -15,12 +16,18 @@ const state = {
   error: "",
   flash: "",
   filter: "",
-  category: "Tutte",
+  category: getCategoryFromUrl(),
+  filtersOpen: false,
+  inventoryQuery: "",
+  inventoryVisibility: "Tutte",
   dbError: ""
 };
 let firebase = null;
 let privateListener = null;
 let authCheckSerial = 0;
+let formDirty = false;
+let plantSaveInProgress = false;
+let currentPath = window.location.pathname + window.location.search;
 
 const leafArt = `<svg viewBox="0 0 140 140" fill="none" aria-hidden="true"><path d="M67 128C67 84 83 54 106 17" stroke="#2f6b4c" stroke-width="3" stroke-linecap="round"/><path d="M72 100C37 106 19 86 17 57c29 0 55 14 55 43ZM85 65C82 30 106 11 132 9c0 29-16 54-47 56ZM66 119C34 134 12 119 6 97c27-5 49 0 60 22Z" fill="#3e7c55" stroke="#296543" stroke-width="2"/><path d="M71 100 26 66M86 64l36-44M64 118 17 104" stroke="#a2c5a0" stroke-width="2"/></svg>`;
 const heroArt = `<svg class="botanical-art" viewBox="0 0 450 495" role="img" aria-label="Illustrazione botanica di una pianta in vaso">
@@ -40,53 +47,109 @@ const heroArt = `<svg class="botanical-art" viewBox="0 0 450 495" role="img" ari
 <path d="M174 377c5 37 12 59 19 73" stroke="#edcfaf" stroke-width="7" opacity=".45" stroke-linecap="round"/>
 </svg>`;
 
-function go(path) {
-  window.history.pushState({}, "", path);
-  state.route = path;
-  state.menuOpen = false;
-  state.error = "";
-  window.scrollTo({ top: 0, behavior: "instant" });
+function getCategoryFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("categoria");
+  return categories.includes(value) ? value : "Tutte";
+}
+function confirmDiscard() {
+  return !formDirty || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+}
+function renderUnlessEditing() {
+  if (formDirty && document.querySelector("#plant-form")) return;
   render();
+}
+function showFormError(message) {
+  state.error = message;
+  const container = document.querySelector(".admin-body");
+  if (!container) return;
+  let notice = container.querySelector(".notice.error");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.className = "notice error flash";
+    notice.setAttribute("role", "alert");
+    container.prepend(notice);
+  }
+  notice.textContent = message;
+  notice.scrollIntoView({ block: "nearest" });
+}
+function go(path) {
+  const target = new URL(path, window.location.href);
+  if (target.origin !== window.location.origin || !confirmDiscard()) return false;
+  formDirty = false;
+  currentPath = target.pathname + target.search;
+  window.history.pushState({}, "", currentPath);
+  state.route = target.pathname;
+  if (state.route === "/piante") {
+    state.category = getCategoryFromUrl();
+    state.filter = "";
+  }
+  state.menuOpen = false;
+  state.filtersOpen = false;
+  state.error = "";
+  window.scrollTo(0, 0);
+  render();
+  return true;
 }
 function nav(path, label, extra = "") {
   const active = state.route === path || (path === "/piante" && state.route.startsWith("/piante/"));
-  return `<a href="${path}" data-nav class="nav-link ${active ? "active" : ""} ${extra}">${h(label)}</a>`;
+  return `<a href="${path}" data-nav class="nav-link ${active ? "active" : ""} ${extra}" ${active ? 'aria-current="page"' : ""}>${h(label)}</a>`;
 }
 function header() {
-  return `<header class="site-header"><div class="container navbar">
-    <a class="brand" href="/" data-nav><span class="brand-symbol">✳</span>Piante<span style="color:#89a18a">.</span></a>
-    <button type="button" class="btn btn-outline btn-small mobile-menu" data-toggle-menu aria-expanded="${state.menuOpen}" aria-label="Apri menu">Menu ☰</button>
-    <nav class="nav-links ${state.menuOpen ? "open" : ""}" aria-label="Navigazione principale">
-      ${nav("/", "Home")}${nav("/piante", "Piante")}${nav("/chi-siamo", "Chi siamo")}${nav("/contatti", "Contatti")}
-      <a href="${state.owner ? "/admin" : "/login"}" data-nav class="btn btn-primary btn-small nav-cta">${state.owner ? "Gestionale" : "Area riservata"}</a>
-    </nav></div></header>`;
+  return `<header class="site-header">
+    <div class="container navbar">
+      <a class="brand" href="/" data-nav aria-label="Piante, torna alla home"><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+      <button type="button" class="mobile-menu" data-toggle-menu aria-controls="primary-navigation" aria-expanded="${state.menuOpen}" aria-label="${state.menuOpen ? "Chiudi il menu" : "Apri il menu"}">
+        <span class="menu-lines" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>Menu</span>
+      </button>
+      <nav id="primary-navigation" class="nav-links ${state.menuOpen ? "open" : ""}" aria-label="Navigazione principale">
+        ${nav("/", "Home")}${nav("/piante", "Catalogo")}${nav("/chi-siamo", "Il vivaio")}${nav("/contatti", "Contatti")}
+        <a href="${state.owner ? "/admin" : "/login"}" data-nav class="nav-cta">${state.owner ? "Apri gestionale" : "Area riservata"}</a>
+      </nav>
+    </div>
+  </header>`;
 }
 function footer() {
-  return `<footer class="site-footer"><div class="container"><div class="footer-main">
-    <div><a class="brand footer-brand" href="/" data-nav><span class="brand-symbol">✳</span>Piante.</a>
-      <p style="font-size:12px;margin:18px 0 0">La tua collezione botanica, una pianta alla volta.</p></div>
-    <div class="footer-links"><a href="/piante" data-nav>Catalogo</a><a href="/chi-siamo" data-nav>Chi siamo</a>
-      <a href="/contatti" data-nav>Contatti</a><a href="/login" data-nav>Accesso</a></div>
-    </div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Piante. Tutti i diritti riservati.</span><span>Coltivato con cura</span></div></div></footer>`;
+  return `<footer class="site-footer"><div class="container">
+    <div class="footer-main">
+      <div class="footer-intro">
+        <a class="brand footer-brand" href="/" data-nav><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+        <p>Una collezione in crescita. Scopri le piante, le varietà e le loro caratteristiche.</p>
+      </div>
+      <nav class="footer-links" aria-label="Collegamenti nel footer">
+        <a href="/piante" data-nav>Catalogo</a><a href="/chi-siamo" data-nav>Il vivaio</a>
+        <a href="/contatti" data-nav>Contatti</a><a href="/login" data-nav>Area riservata</a>
+      </nav>
+    </div>
+    <div class="footer-bottom"><span>© ${new Date().getFullYear()} Piante</span><span>Coltiviamo la curiosità per la natura.</span></div>
+  </div></footer>`;
 }
 function alertBox(message, error = false) {
   return message ? `<div class="notice ${error ? "error" : ""} flash" role="status">${h(message)}</div>` : "";
 }
 function shell(page) {
-  appRoot.innerHTML = header() + `<main id="main">${page}</main>` + footer();
+  const privatePage = state.route.startsWith("/admin") && state.owner;
+  appRoot.innerHTML = `<a class="skip-link" href="#main">Vai al contenuto principale</a>` +
+    (privatePage ? "" : header()) + `<main id="main">${page}</main>` +
+    (privatePage ? "" : footer());
 }
 function imageMarkup(item, detail = false) {
   const url = safeImageUrl(item.imageUrl);
   return `<div class="${detail ? "detail-img" : "plant-img"}">${url
-    ? `<img src="${h(url)}" alt="Foto di ${h(item.name)}" loading="lazy" data-photo>`
+    ? `<img src="${h(url)}" alt="${h(item.name ? `Foto della pianta ${item.name}` : "Foto della pianta")}" loading="${detail ? "eager" : "lazy"}" decoding="async" data-photo>`
     : leafArt}</div>`;
 }
 function card(item) {
   return `<a class="plant-card" href="/piante/${encodeURIComponent(item.id)}" data-nav>
-    ${imageMarkup(item)}<div class="plant-info"><div class="plant-category">${h(item.category || "Pianta")}</div>
-      <h3 class="plant-name">${h(item.name)}</h3><div class="plant-latin">${h(item.scientificName || " ")}</div>
-      <div class="plant-bottom"><span>${h(item.variety || "Scopri la pianta")}</span><strong>Dettagli →</strong></div>
-    </div></a>`;
+    ${imageMarkup(item)}
+    <div class="plant-info">
+      <span class="plant-category">${h(item.category || "Pianta")}</span>
+      <h3 class="plant-name">${h(item.name)}</h3>
+      <p class="plant-latin">${h(item.scientificName || item.variety || "")}</p>
+      ${item.availability ? `<p class="plant-availability">${h(item.availability)}</p>` : ""}
+      <div class="plant-bottom"><strong>${item.price ? h(item.price) : "Scopri la pianta"}</strong><span aria-hidden="true">↗</span></div>
+    </div>
+  </a>`;
 }
 function empty(message) {
   return `<div class="empty"><div class="empty-symbol">✳</div><h3>La collezione prende forma</h3>
@@ -94,77 +157,139 @@ function empty(message) {
 }
 function homepage() {
   const featured = state.catalog.slice(0, 3);
-  return `<section class="hero"><div class="container hero-inner">
-    <div class="hero-copy"><div class="eyebrow">Una passione che cresce</div>
-      <h1>La natura,<br><em>una pianta</em><br>alla volta.</h1>
-      <p class="hero-lead">Un luogo per conoscere, osservare e scoprire piante speciali. Esplora il catalogo e segui la crescita della nostra collezione botanica.</p>
-      <div class="hero-actions"><a href="/piante" data-nav class="btn btn-light">Esplora le piante <span>→</span></a>
-      <a href="/chi-siamo" data-nav class="btn btn-outline" style="color:#fff;border-color:#7e9b84">La nostra storia</a></div>
-    </div><div class="hero-art"><div class="hero-orbit"></div><div class="hero-orbit two"></div>
-      <span class="hero-number">01 / Natura</span>${heroArt}<span class="hero-label">Growing collection</span>
-    </div></div></section>
-    <section class="section"><div class="container">
-      <div class="section-heading"><div><span class="eyebrow">Dal nostro catalogo</span>
-        <h2 class="section-title">Piante da scoprire</h2><p class="section-sub">Ogni pianta ha una storia e caratteristiche uniche.</p></div>
-        <a class="text-link" href="/piante" data-nav>Vedi tutto il catalogo →</a></div>
-      <div class="grid">${featured.length ? featured.map(card).join("") : empty("Quando verranno pubblicate le prime piante, compariranno qui.")}</div>
-    </div></section>
-    <section class="section section-soft"><div class="container"><span class="eyebrow">Il nostro approccio</span>
-      <h2 class="section-title">Passione per il verde</h2>
-      <div class="features">
-        <div class="feature"><div class="feature-icon">✳</div><h3>Collezione botanica</h3><p>Uno spazio dedicato alle specie, alle varietà e alle loro caratteristiche.</p></div>
-        <div class="feature"><div class="feature-icon">☼</div><h3>Informazioni utili</h3><p>Schede con descrizioni e indicazioni per conoscere meglio ogni esemplare.</p></div>
-        <div class="feature"><div class="feature-icon">↗</div><h3>In continua crescita</h3><p>Il catalogo si arricchisce nel tempo, seguendo l'evoluzione del vivaio.</p></div>
-      </div></div></section>
-    ${banner()}`;
+  const photo = state.catalog.find((item) => safeImageUrl(item.imageUrl));
+  const categoriesToShow = ["Tropicali da frutto", "Agrumi", "Succulente", "Ornamentali"];
+  return `<section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-copy">
+        <span class="eyebrow">Benvenuto nel nostro vivaio</span>
+        <h1>La natura, <em>da coltivare.</em></h1>
+        <p class="hero-lead">Scopri piante tropicali, agrumi e varietà botaniche: esplora il catalogo e trova le informazioni che cerchi.</p>
+        <div class="hero-actions">
+          <a href="/piante" data-nav class="btn btn-light">Esplora il catalogo <span aria-hidden="true">↗</span></a>
+          <a href="/chi-siamo" data-nav class="btn btn-hero-outline">Scopri il vivaio</a>
+        </div>
+        <span class="hero-note">Specie e varietà in continua evoluzione</span>
+      </div>
+      <div class="hero-art" aria-label="Piante della collezione">
+        <div class="hero-orbit" aria-hidden="true"></div><div class="hero-orbit two" aria-hidden="true"></div>
+        ${photo ? `<div class="hero-photo-frame">${imageMarkup(photo, true)}</div>` : heroArt}
+        <span class="hero-label">Piante · Natura · Scoperta</span>
+      </div>
+    </div>
+  </section>
+  <section class="section categories-section"><div class="container">
+    <div class="section-heading"><div><span class="eyebrow">Trova la tua pianta</span><h2 class="section-title">Esplora per categoria</h2>
+      <p class="section-sub">Dalle specie da frutto alle piante ornamentali: ogni varietà ha qualcosa da raccontare.</p></div>
+      <a class="text-link" href="/piante" data-nav>Vedi tutto il catalogo <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="category-grid">${categoriesToShow.map((category, index) => {
+      const representative = state.catalog.find((item) => item.category === category && safeImageUrl(item.imageUrl));
+      return `<a class="category-tile category-tile-${index + 1}" href="/piante?categoria=${encodeURIComponent(category)}" data-nav>
+        <span class="category-media">${representative ? `<img src="${h(safeImageUrl(representative.imageUrl))}" alt="" loading="lazy" decoding="async" data-photo>` : leafArt}</span>
+        <span class="category-copy"><strong>${h(category)}</strong><span aria-hidden="true">↗</span></span>
+      </a>`;
+    }).join("")}</div>
+  </div></section>
+  <section class="section section-soft"><div class="container">
+    <div class="section-heading"><div><span class="eyebrow">La selezione</span><h2 class="section-title">Dal nostro catalogo</h2>
+      <p class="section-sub">Una selezione delle piante attualmente pubblicate.</p></div>
+      <a class="text-link" href="/piante" data-nav>Scopri tutte le piante <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="grid">${featured.length ? featured.map(card).join("") : empty("Le prime piante pubblicate compariranno qui.")}</div>
+  </div></section>
+  <section class="section"><div class="container">
+    <div class="service-strip">
+      <div class="service-item"><span class="service-icon" aria-hidden="true">✳</span><div><h3>Varietà da scoprire</h3><p>Esplora specie e caratteristiche nel catalogo.</p></div></div>
+      <div class="service-item"><span class="service-icon" aria-hidden="true">☼</span><div><h3>Informazioni utili</h3><p>Esposizione, irrigazione e dettagli botanici.</p></div></div>
+      <div class="service-item"><span class="service-icon" aria-hidden="true">↗</span><div><h3>Una collezione in crescita</h3><p>Nuove piante vengono aggiunte nel tempo.</p></div></div>
+    </div>
+  </div></section>
+  ${banner()}`;
 }
 function banner() {
   return `<section class="banner"><div class="container banner-inner"><div>
-    <span class="eyebrow" style="color:#bdd0a8">Resta in contatto</span>
-    <h2>Hai una domanda sulle piante?</h2><p>Contattaci per informazioni sulla collezione.</p></div>
-    <a href="/contatti" data-nav class="btn btn-light">Vai ai contatti →</a></div></section>`;
+    <span class="eyebrow">Hai trovato una pianta interessante?</span>
+    <h2>Scopri di più sul vivaio.</h2><p>Visita la sezione contatti per gli aggiornamenti sui recapiti disponibili.</p></div>
+    <a href="/contatti" data-nav class="btn btn-light">Informazioni e contatti <span aria-hidden="true">↗</span></a></div></section>`;
 }
 function pageHero(tag, title, intro) {
   return `<section class="page-hero"><div class="container"><span class="eyebrow">${h(tag)}</span>
     <h1>${h(title)}</h1><p>${h(intro)}</p></div></section>`;
 }
 function catalogPage() {
-  const q = state.filter.toLocaleLowerCase("it").trim();
-  const plants = state.catalog.filter((item) => {
-    const matches = [item.name, item.scientificName, item.variety, item.category]
-      .some((s) => String(s || "").toLocaleLowerCase("it").includes(q));
-    return matches && (state.category === "Tutte" || item.category === state.category);
-  });
-  const options = ["Tutte", ...categories].map((c) => `<option value="${h(c)}" ${state.category === c ? "selected" : ""}>${h(c)}</option>`).join("");
-  return pageHero("La collezione", "Le nostre piante", "Esplora le specie presenti nel catalogo e scopri le caratteristiche di ogni pianta.") +
-    `<section class="section"><div class="container">${alertBox(state.dbError, true)}
-      <form id="search-form" class="toolbar" role="search">
-        <input class="input search-field" type="search" name="q" placeholder="Cerca nome, specie, varietà…" value="${h(state.filter)}" aria-label="Cerca piante">
-        <select class="select" name="category" aria-label="Categoria" style="max-width:215px">${options}</select>
+  const plants = filterCatalog(state.catalog, { query: state.filter, category: state.category });
+  const hasFilters = Boolean(state.filter.trim()) || state.category !== "Tutte";
+  const filters = ["Tutte", ...categories].map((category) => `<button type="button"
+      class="filter-option ${state.category === category ? "active" : ""}"
+      data-category-filter="${h(category)}" aria-pressed="${state.category === category}">
+      <span>${category === "Tutte" ? "Tutte le categorie" : h(category)}</span>
+      ${state.category === category ? `<span aria-hidden="true">✓</span>` : ""}
+    </button>`).join("");
+  return pageHero("La collezione", "Catalogo piante",
+    "Esplora le specie, le varietà e le informazioni disponibili per ogni pianta.") +
+    `<section class="section catalog-section"><div class="container">
+      ${alertBox(state.dbError, true)}
+      <form id="search-form" class="catalog-search" role="search">
+        <label class="sr-only" for="catalog-search-input">Cerca nel catalogo</label>
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="catalog-search-input" class="input" type="search" name="q"
+          placeholder="Cerca nome, specie o varietà" value="${h(state.filter)}" autocomplete="off">
         <button class="btn btn-primary" type="submit">Cerca</button>
-        <span class="results">${plants.length} ${plants.length === 1 ? "pianta" : "piante"}</span>
-      </form><div class="grid">${plants.length ? plants.map(card).join("") : empty(state.catalog.length ? "Nessuna pianta corrisponde ai filtri selezionati." : "Le piante pubblicate saranno visibili in questa pagina.")}</div>
+      </form>
+      <div class="catalog-toolbar">
+        <button type="button" class="btn btn-outline mobile-filter-button"
+          data-toggle-filters aria-controls="catalog-filters" aria-expanded="${state.filtersOpen}">
+          Filtri ${hasFilters ? "· Attivi" : ""} <span aria-hidden="true">☰</span>
+        </button>
+        <span class="results" role="status">${plants.length} ${plants.length === 1 ? "pianta trovata" : "piante trovate"}</span>
+        ${hasFilters ? `<button class="text-link reset-filters" type="button" data-reset-filters>Rimuovi filtri</button>` : ""}
+      </div>
+      <div class="catalog-layout">
+        <aside id="catalog-filters" class="catalog-filters ${state.filtersOpen ? "open" : ""}" aria-label="Filtra per categoria">
+          <h2>Filtra per categoria</h2>
+          <div class="filter-options">${filters}</div>
+        </aside>
+        <div class="catalog-content">
+          ${hasFilters ? `<p class="filter-summary">${state.category !== "Tutte" ? `<span class="filter-chip">${h(state.category)}</span>` : ""}
+            ${state.filter ? `<span class="filter-chip">Ricerca: ${h(state.filter)}</span>` : ""}</p>` : ""}
+          <div class="grid catalog-grid">${plants.length ? plants.map(card).join("") :
+            empty(state.catalog.length ? "Nessuna pianta corrisponde ai filtri. Prova a modificarli." :
+              "Il catalogo si riempirà quando pubblicherai le prime piante dal gestionale.")}</div>
+        </div>
+      </div>
     </div></section>`;
 }
 function detailPage(id) {
-  const item = state.catalog.find((p) => p.id === id);
+  const item = state.catalog.find((plant) => plant.id === id);
   if (!item) return pageHero("Catalogo", "Pianta non trovata", "Questa pianta non è presente nel catalogo pubblico.") +
     `<section class="section"><div class="container"><a class="btn btn-primary" href="/piante" data-nav>Torna al catalogo</a></div></section>`;
   const properties = [
     ["Nome scientifico", item.scientificName], ["Varietà", item.variety],
     ["Categoria", item.category], ["Origine", item.origin],
-    ["Esposizione", item.light], ["Irrigazione", item.water],
-    ["Disponibilità", item.availability], ["Prezzo indicativo", item.price]
-  ].filter(([, val]) => Boolean(val));
-  return `<section class="section"><div class="container">
-    <a class="text-link" href="/piante" data-nav>← Torna alle piante</a>
-    <div class="detail" style="margin-top:31px">${imageMarkup(item, true)}
-    <div><span class="eyebrow">${h(item.category || "Collezione")}</span>
-      <h1>${h(item.name)}</h1><p class="plant-latin">${h(item.scientificName || "")}</p>
-      <p class="detail-description">${h(item.description || "La scheda di questa pianta verrà arricchita con ulteriori informazioni.")}</p>
-      <div class="specs">${properties.map(([k, v]) => `<div class="spec-row"><span>${h(k)}</span><strong>${h(v)}</strong></div>`).join("")}</div>
-      <a href="/contatti" data-nav class="btn btn-primary">Richiedi informazioni →</a>
-    </div></div></div></section>`;
+    ["Esposizione", item.light], ["Irrigazione", item.water]
+  ].filter(([,value]) => Boolean(value));
+  return `<section class="section detail-section"><div class="container">
+    <nav class="breadcrumbs" aria-label="Percorso"><a href="/piante" data-nav>Catalogo</a><span aria-hidden="true">/</span><span>${h(item.name)}</span></nav>
+    <div class="detail">
+      ${imageMarkup(item, true)}
+      <div class="detail-info">
+        <span class="eyebrow">${h(item.category || "Collezione")}</span>
+        <h1>${h(item.name)}</h1>
+        ${item.scientificName ? `<p class="plant-latin">${h(item.scientificName)}</p>` : ""}
+        ${item.variety ? `<p class="detail-variety">Varietà: ${h(item.variety)}</p>` : ""}
+        ${item.price || item.availability ? `<div class="product-availability">
+          ${item.price ? `<div><span class="detail-label">Prezzo indicativo</span><strong class="detail-price">${h(item.price)}</strong></div>` : ""}
+          ${item.availability ? `<div><span class="detail-label">Disponibilità</span><strong>${h(item.availability)}</strong></div>` : ""}
+        </div>` : ""}
+        <p class="detail-description">${h(item.description || "La scheda di questa pianta verrà arricchita con altre informazioni.")}</p>
+        <a href="/contatti" data-nav class="btn btn-primary detail-contact">Informazioni e contatti <span aria-hidden="true">↗</span></a>
+        ${properties.length ? `<section class="detail-properties"><h2>Caratteristiche della pianta</h2><dl class="specs">
+          ${properties.map(([label,value]) => `<div class="spec-row"><dt>${h(label)}</dt><dd>${h(value)}</dd></div>`).join("")}
+        </dl></section>` : ""}
+      </div>
+    </div>
+  </div></section>`;
 }
 function aboutPage() {
   return pageHero("Il progetto", "Chi siamo", "Una collezione in evoluzione, nata dalla passione per le piante.") +
@@ -202,43 +327,102 @@ function loginPage() {
   </div></section>`;
 }
 function adminTabs() {
-  return `<div class="container"><nav class="admin-nav" aria-label="Gestionale">
-    <a class="admin-tab ${state.route === "/admin" ? "active" : ""}" href="/admin" data-nav>Panoramica</a>
-    <a class="admin-tab ${state.route.startsWith("/admin/piante") ? "active" : ""}" href="/admin/piante" data-nav>Inventario</a>
-    <a class="admin-tab ${state.route.includes("/impostazioni") ? "active" : ""}" href="/admin/impostazioni" data-nav>Impostazioni accesso</a>
-    <button class="admin-tab" style="border:0;background:transparent;margin-left:auto" type="button" data-action="logout">Esci</button>
-  </nav></div>`;
+  const current = (path) => state.route === path ||
+    (path === "/admin/piante" && state.route.startsWith("/admin/modifica/"));
+  const adminLink = (path, label, symbol, className = "") =>
+    `<a href="${path}" data-nav class="admin-link ${current(path) ? "active" : ""} ${className}"
+      ${current(path) ? `aria-current="page"` : ""}>
+      <span class="admin-link-icon" aria-hidden="true">${symbol}</span><span>${label}</span></a>`;
+  return `<aside class="admin-sidebar">
+    <a class="brand admin-brand" href="/admin" data-nav><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+    <span class="sidebar-label">GESTIONALE PRIVATO</span>
+    <nav class="admin-side-links" aria-label="Navigazione gestionale">
+      ${adminLink("/admin", "Panoramica", "⌂")}
+      ${adminLink("/admin/piante", "Inventario", "❀")}
+      ${adminLink("/admin/nuova", "Nuova pianta", "+")}
+      ${adminLink("/admin/impostazioni", "Impostazioni", "⚙")}
+    </nav>
+    <div class="sidebar-bottom">
+      <a href="/piante" data-nav class="admin-side-extra">↗ Visita il catalogo</a>
+      <button type="button" data-action="logout" class="admin-side-extra">Esci dall'account</button>
+    </div>
+  </aside>
+  <nav class="admin-bottom-nav" aria-label="Navigazione gestionale mobile">
+    ${adminLink("/admin", "Home", "⌂")}
+    ${adminLink("/admin/piante", "Piante", "❀")}
+    ${adminLink("/admin/nuova", "Aggiungi", "+")}
+    ${adminLink("/admin/impostazioni", "Altro", "⚙")}
+  </nav>`;
 }
 function adminFrame(content, title, intro) {
-  return `<div class="admin-shell"><div class="admin-header"><div class="container"><span class="eyebrow">Gestionale privato</span>
-    <h1>${h(title)}</h1><p>${h(intro)}</p></div></div>${adminTabs()}
-    <div class="container admin-body">${alertBox(state.error, true)}${alertBox(state.flash)}${content}</div></div>`;
+  return `<div class="admin-shell">
+    ${adminTabs()}
+    <div class="admin-workspace">
+      <div class="admin-topbar"><span>Gestione del vivaio</span><a href="/" data-nav>Apri il sito <span aria-hidden="true">↗</span></a></div>
+      <header class="admin-header"><span class="eyebrow">IL TUO SPAZIO DI LAVORO</span>
+        <h1>${h(title)}</h1><p>${h(intro)}</p></header>
+      <div class="admin-body">${alertBox(state.error, true)}${alertBox(state.flash)}${content}</div>
+    </div>
+  </div>`;
 }
 function overviewPage() {
-  const published = state.inventory.filter((p) => p.published).length;
-  return adminFrame(`<div class="stat-grid">
-    <div class="stat"><div class="stat-label">Totale piante</div><div class="stat-value">${state.inventory.length}</div></div>
-    <div class="stat"><div class="stat-label">Pubblicate</div><div class="stat-value">${published}</div></div>
-    <div class="stat"><div class="stat-label">Private</div><div class="stat-value">${state.inventory.length - published}</div></div>
-  </div><div class="panel"><h2>La tua collezione</h2>
-  <p class="section-sub">Gestisci gli esemplari, conserva le note riservate e scegli quali piante pubblicare nella vetrina.</p>
-  <div class="admin-actions"><a href="/admin/nuova" data-nav class="btn btn-primary">+ Aggiungi pianta</a>
-    <a href="/admin/piante" data-nav class="btn btn-outline">Apri inventario →</a>
-    <a href="/piante" data-nav class="btn btn-outline">Visita il catalogo</a></div></div>`,
-    "Panoramica", `Benvenuto${state.username ? ", " + state.username : ""}. Ecco lo stato della tua collezione.`);
+  const published = state.inventory.filter((plant) => plant.published).length;
+  const recent = [...state.inventory].sort((a, b) =>
+    (Number(b.updatedAt?.seconds) || 0) - (Number(a.updatedAt?.seconds) || 0)).slice(0, 5);
+  return adminFrame(`
+    <div class="dashboard-head">
+      <div><h2>La tua collezione</h2><p>Gestisci le piante e scegli cosa mostrare nel catalogo pubblico.</p></div>
+      <a href="/admin/nuova" data-nav class="btn btn-primary">+ Nuova pianta</a>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">Totale piante</div><div class="stat-value">${state.inventory.length}</div></div>
+      <div class="stat"><div class="stat-label">Pubblicate</div><div class="stat-value">${published}</div></div>
+      <div class="stat"><div class="stat-label">Private</div><div class="stat-value">${state.inventory.length - published}</div></div>
+    </div>
+    <section class="panel recent-panel">
+      <div class="panel-heading"><h2>Modificate di recente</h2><a href="/admin/piante" data-nav class="text-link">Apri inventario <span aria-hidden="true">↗</span></a></div>
+      ${recent.length ? `<div class="recent-list">${recent.map((plant) => `
+        <a href="/admin/modifica/${encodeURIComponent(plant.id)}" data-nav class="recent-row">
+          ${imageMarkup(plant)}
+          <span class="recent-name"><strong>${h(plant.name)}</strong><small>${h(plant.category || "")}</small></span>
+          <span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span>
+          <span class="recent-arrow" aria-hidden="true">↗</span>
+        </a>`).join("")}</div>` : empty("Non hai ancora aggiunto piante. Inizia creando la tua prima scheda.") }
+    </section>`,
+    "Panoramica", `Benvenuto${state.username ? ", " + state.username : ""}. Qui trovi i dati essenziali della tua collezione.`);
 }
 function inventoryPage() {
-  const rows = state.inventory.map((p) => `<tr>
-    <td><strong>${h(p.name)}</strong><br><span class="status">${h(p.scientificName || "")}</span></td>
-    <td>${h(p.category || "—")}</td>
-    <td><span class="pill ${p.published ? "" : "draft"}">${p.published ? "Pubblica" : "Privata"}</span></td>
-    <td><a class="btn btn-outline btn-small" data-nav href="/admin/modifica/${encodeURIComponent(p.id)}">Modifica</a></td>
+  const plants = filterInventory(state.inventory, {
+    query: state.inventoryQuery, visibility: state.inventoryVisibility
+  });
+  const rows = plants.map((plant) => `<tr>
+    <td data-label="Pianta"><div class="inventory-name">
+      ${imageMarkup(plant)}<div><strong>${h(plant.name)}</strong><small>${h(plant.scientificName || plant.variety || "")}</small></div>
+    </div></td>
+    <td data-label="Categoria">${h(plant.category || "—")}</td>
+    <td data-label="Visibilità"><span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span></td>
+    <td data-label="Azioni"><a class="btn btn-outline btn-small" data-nav href="/admin/modifica/${encodeURIComponent(plant.id)}">Modifica</a></td>
   </tr>`).join("");
-  return adminFrame(`<div class="panel"><div class="section-heading"><h2 style="margin:0">Tutte le piante</h2>
-    <a href="/admin/nuova" data-nav class="btn btn-primary btn-small">+ Nuova pianta</a></div>
-    ${state.inventory.length ? `<div class="table-scroll"><table class="inventory"><thead><tr><th>Pianta</th><th>Categoria</th><th>Visibilità</th><th>Azioni</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>` : empty("Non hai ancora aggiunto piante al gestionale.")}</div>`,
-    "Inventario", "Tutti i tuoi esemplari, pubblici e privati, in un unico posto.");
+  return adminFrame(`<section class="panel inventory-panel">
+    <div class="panel-heading"><h2>Le tue piante</h2><a href="/admin/nuova" data-nav class="btn btn-primary btn-small">+ Nuova pianta</a></div>
+    <form id="inventory-search-form" class="inventory-filters" role="search">
+      <label class="sr-only" for="inventory-search-input">Cerca nel tuo inventario</label>
+      <input id="inventory-search-input" class="input" type="search" name="q" value="${h(state.inventoryQuery)}" placeholder="Cerca una pianta" autocomplete="off">
+      <label class="sr-only" for="inventory-visibility">Filtra per visibilità</label>
+      <select id="inventory-visibility" class="select" name="visibility">
+        ${["Tutte", "Pubblicate", "Private"].map((value) =>
+          `<option value="${value}" ${state.inventoryVisibility === value ? "selected" : ""}>${value === "Tutte" ? "Tutte le piante" : value}</option>`).join("")}
+      </select>
+      <button type="submit" class="btn btn-primary">Filtra</button>
+    </form>
+    <p class="results inventory-results" role="status">${plants.length} ${plants.length === 1 ? "risultato" : "risultati"}</p>
+    ${state.inventory.length ? plants.length ?
+      `<div class="table-scroll"><table class="inventory"><thead><tr>
+        <th>Pianta</th><th>Categoria</th><th>Visibilità</th><th>Azioni</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>` :
+      empty("Nessuna pianta corrisponde ai filtri selezionati.") :
+      empty("Non hai ancora piante. Aggiungine una per iniziare.") }
+    </section>`, "Inventario", "Tutte le tue piante, pubbliche e private, in un unico spazio.");
 }
 function inputField(label, name, value, opts = "") {
   return `<label class="form-field"><span>${h(label)}</span><input class="input" name="${name}" value="${h(value || "")}" ${opts}></label>`;
@@ -247,32 +431,64 @@ function textareaField(label, name, value, opts = "") {
   return `<label class="form-field"><span>${h(label)}</span><textarea class="textarea" name="${name}" ${opts}>${h(value || "")}</textarea></label>`;
 }
 function editPage(id) {
-  const item = id ? state.inventory.find((p) => p.id === id) : null;
-  if (id && !item) return adminFrame(`<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`, "Scheda non trovata", "La pianta non è presente nell'inventario.");
+  const item = id ? state.inventory.find((plant) => plant.id === id) : null;
+  if (id && !item) return adminFrame(
+    `<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`,
+    "Scheda non trovata", "La pianta non è presente nell'inventario.");
   const p = item || {};
   const select = `<label class="form-field"><span>Categoria</span><select class="select" name="category">
-    ${categories.map((c) => `<option ${(p.category || "Tropicali da frutto") === c ? "selected" : ""} value="${h(c)}">${h(c)}</option>`).join("")}
-    </select></label>`;
-  return adminFrame(`<form class="panel" id="plant-form" data-id="${h(id || "")}">
-    <h2>${id ? "Modifica la pianta" : "Nuova pianta"}</h2><div class="form-grid">
-    ${inputField("Nome comune *", "name", p.name, "required maxlength='100'")}
-    ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
-    ${select}${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
-    ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
-    ${inputField("Disponibilità (facoltativa)", "availability", p.availability, "placeholder='Es. disponibile su richiesta' maxlength='120'")}
-    ${inputField("Esposizione", "light", p.light, "placeholder='Es. pieno sole' maxlength='120'")}
-    ${inputField("Irrigazione", "water", p.water, "placeholder='Es. moderata' maxlength='120'")}
-    ${inputField("Prezzo indicativo (facoltativo)", "price", p.price, "placeholder='Es. 15 €' maxlength='50'")}
-    ${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' placeholder='https://...'")}
-    <div class="full-width">${textareaField("Descrizione pubblica", "description", p.description, "maxlength='3000'")}</div>
-    <div class="full-width">${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}</div>
-    <label class="form-field full-width"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
-      <span style="display:inline;margin-left:8px">Mostra nel catalogo pubblico</span>
-      <small>Quando disattivato, la pianta resta nell'inventario ma non è visibile ai visitatori.</small></label>
-    </div><div class="admin-actions"><button class="btn btn-primary" type="submit">Salva pianta</button>
-      <a class="btn btn-outline" href="/admin/piante" data-nav>Annulla</a>
-      ${id ? `<button type="button" data-action="delete-plant" data-id="${h(id)}" class="btn btn-danger">Elimina definitivamente</button>` : ""}
-    </div></form>`, id ? "Modifica pianta" : "Aggiungi pianta", "Tieni aggiornati i dettagli pubblici e le tue note riservate.");
+    ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Tropicali da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
+  </select></label>`;
+  return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}">
+    <div class="editor-heading"><div><h2>${id ? "Dettagli della pianta" : "Nuova scheda"}</h2>
+      <p>Compila le informazioni e scegli se renderle visibili nel catalogo pubblico.</p></div>
+      ${id && p.published ? `<a class="text-link" data-nav href="/piante/${encodeURIComponent(id)}">Vedi scheda pubblica ↗</a>` : ""}
+    </div>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">01</span><div>
+        <h3>Informazioni principali</h3><p>Identifica la pianta e la sua varietà.</p></div></div>
+      <div class="form-grid">
+        ${inputField("Nome comune *", "name", p.name, "required maxlength='100'")}
+        ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
+        ${select}
+        ${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
+        ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
+      </div>
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">02</span><div>
+        <h3>Informazioni per i visitatori</h3><p>Descrizione e caratteristiche che possono apparire online.</p></div></div>
+      <div class="form-grid">
+        ${inputField("Esposizione", "light", p.light, "placeholder='Es. pieno sole' maxlength='120'")}
+        ${inputField("Irrigazione", "water", p.water, "placeholder='Es. moderata' maxlength='120'")}
+        ${inputField("Disponibilità (facoltativa)", "availability", p.availability, "placeholder='Es. su richiesta' maxlength='120'")}
+        ${inputField("Prezzo indicativo (facoltativo)", "price", p.price, "placeholder='Es. 15 €' maxlength='50'")}
+        <div class="full-width">${textareaField("Descrizione pubblica", "description", p.description, "maxlength='3000'")}</div>
+      </div>
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">03</span><div>
+        <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
+      <div class="form-grid">
+        <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' placeholder='https://...'")}</div>
+      </div>
+      ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">04</span><div>
+        <h3>Visibilità e note riservate</h3><p>Le note private non vengono mai copiate nel catalogo pubblico.</p></div></div>
+      <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
+        <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
+      ${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}
+    </section>
+    <div class="editor-actions">
+      <button class="btn btn-primary" type="submit">Salva pianta</button>
+      <a href="/admin/piante" data-nav class="btn btn-outline">Annulla</a>
+    </div>
+    ${id ? `<div class="editor-danger"><p>Per rimuovere definitivamente questa pianta dall'inventario e dal catalogo:</p>
+      <button class="btn btn-danger" type="button" data-action="delete-plant" data-id="${h(id)}">Elimina pianta</button></div>` : ""}
+  </form>`, id ? "Modifica pianta" : "Aggiungi pianta",
+  "Aggiorna il catalogo e conserva i dettagli utili alla gestione del vivaio.");
 }
 function settingsPage() {
   return adminFrame(`<div class="panel" style="max-width:660px">
@@ -284,6 +500,7 @@ function settingsPage() {
       autocomplete="off" required><small>Da 3 a 32 caratteri: lettere, numeri, punto, trattino e underscore.</small></label>
     <button type="submit" class="btn btn-primary">Salva nome utente</button></form>
     <div class="notice" style="margin-top:25px;margin-bottom:0">Chi conosce il nome utente può ricavare l'email dell'account usato per accedere. Se preferisci riservatezza, puoi continuare ad accedere soltanto con la tua email.</div>
+    <div class="settings-logout"><button type="button" class="btn btn-outline" data-action="logout">Esci dall\u0027account</button></div>
     </div>`, "Impostazioni accesso", "Personalizza le credenziali di accesso al tuo gestionale.");
 }
 function adminPage() {
@@ -322,8 +539,8 @@ async function startFirebase() {
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
       state.catalog = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
-      state.dbError = ""; render();
-    }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; render(); });
+      state.dbError = ""; renderUnlessEditing();
+    }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; renderUnlessEditing(); });
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
@@ -340,8 +557,8 @@ async function startFirebase() {
             state.username = profile.exists() ? profile.data().username || "" : "";
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
               state.inventory = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it")); render();
-            }, () => { state.error = "Impossibile leggere l'inventario privato."; render(); });
+                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it")); renderUnlessEditing();
+            }, () => { state.error = "Impossibile leggere l'inventario privato."; renderUnlessEditing(); });
           } else {
             state.error = "Questo account non è autorizzato a gestire il sito.";
             await firebase.signOut(firebase.auth);
@@ -384,11 +601,12 @@ async function login(form) {
   }
 }
 async function savePlant(form, id) {
+  if (plantSaveInProgress) return;
   const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
   const validation = validatePlant(plant);
-  if (validation) { state.error = validation; render(); return; }
+  if (validation) { showFormError(validation); return; }
   const docId = id || firebase.doc(firebase.collection(firebase.db, "privatePlants")).id;
   const previous = state.inventory.find((p) => p.id === docId);
   const privateDoc = firebase.doc(firebase.db, "privatePlants", docId);
@@ -400,13 +618,25 @@ async function savePlant(form, id) {
   });
   if (plant.published) batch.set(publicDoc, catalogProjection(plant));
   else batch.delete(publicDoc);
+  const editor = document.querySelector("#plant-form");
+  const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
+    .map((control) => ({ control, wasDisabled: control.disabled }));
+  const button = editor?.querySelector('[type="submit"]');
+  plantSaveInProgress = true;
+  controls.forEach(({ control }) => { control.disabled = true; });
+  if (button) button.textContent = "Salvataggio…";
   try {
     await batch.commit();
-    state.error = ""; state.flash = "Pianta salvata correttamente.";
+    state.error = "";
+    state.flash = "Pianta salvata correttamente.";
+    formDirty = false;
     go("/admin/piante");
   } catch {
-    state.error = "Salvataggio non riuscito. Controlla le autorizzazioni o la connessione.";
-    render();
+    showFormError("Salvataggio non riuscito. Controlla le autorizzazioni o la connessione.");
+  } finally {
+    plantSaveInProgress = false;
+    controls.forEach(({ control, wasDisabled }) => { if (control.isConnected) control.disabled = wasDisabled; });
+    if (button?.isConnected) button.textContent = "Salva pianta";
   }
 }
 async function deletePlant(id) {
@@ -417,10 +647,10 @@ async function deletePlant(id) {
     batch.delete(firebase.doc(firebase.db, "catalog", id));
     await batch.commit();
     state.error = ""; state.flash = "Pianta eliminata.";
+    formDirty = false;
     go("/admin/piante");
   } catch {
-    state.error = "Impossibile eliminare la pianta.";
-    render();
+    showFormError("Impossibile eliminare la pianta.");
   }
 }
 async function saveUsername(form) {
@@ -451,42 +681,112 @@ async function saveUsername(form) {
     render();
   }
 }
-document.addEventListener("click", async (event) => {
+async function handleClick(event) {
   const link = event.target.closest("a[data-nav]");
-  if (link) { event.preventDefault(); go(link.getAttribute("href")); return; }
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    event.preventDefault();
+    go(link.getAttribute("href"));
+    return;
+  }
   if (event.target.closest("[data-toggle-menu]")) {
-    state.menuOpen = !state.menuOpen; render(); return;
+    state.menuOpen = !state.menuOpen;
+    const opening = state.menuOpen;
+    render();
+    document.querySelector(opening ? "#primary-navigation a" : "[data-toggle-menu]")?.focus();
+    return;
+  }
+  if (event.target.closest("[data-toggle-filters]")) {
+    state.filtersOpen = !state.filtersOpen;
+    render();
+    document.querySelector("[data-toggle-filters]")?.focus();
+    return;
+  }
+  const categoryButton = event.target.closest("[data-category-filter]");
+  if (categoryButton) {
+    const category = categoryButton.dataset.categoryFilter;
+    if (!["Tutte", ...categories].includes(category)) return;
+    state.category = category;
+    state.filtersOpen = false;
+    const path = category === "Tutte" ? "/piante" : `/piante?categoria=${encodeURIComponent(category)}`;
+    window.history.replaceState({}, "", path);
+    currentPath = path;
+    render();
+    return;
+  }
+  if (event.target.closest("[data-reset-filters]")) {
+    state.category = "Tutte";
+    state.filter = "";
+    state.filtersOpen = false;
+    window.history.replaceState({}, "", "/piante");
+    currentPath = "/piante";
+    render();
+    document.querySelector("#catalog-search-input")?.focus();
+    return;
   }
   const action = event.target.closest("[data-action]");
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
     await deletePlant(action.dataset.id);
   }
-  if (action?.dataset.action === "logout" && firebase) {
+  if (action?.dataset.action === "logout" && firebase && confirmDiscard()) {
+    formDirty = false;
     await firebase.signOut(firebase.auth);
     state.flash = "Hai effettuato la disconnessione.";
     go("/login");
   }
-});
-document.addEventListener("submit", async (event) => {
+}
+function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
+  if (!["search-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
-    state.filter = String(data.get("q") || "");
-    state.category = String(data.get("category") || "Tutte");
-    render(); return;
+    state.filter = String(data.get("q") || "").trim();
+    render();
+    return;
+  }
+  if (form.id === "inventory-search-form") {
+    state.inventoryQuery = String(data.get("q") || "").trim();
+    const visibility = String(data.get("visibility") || "Tutte");
+    state.inventoryVisibility = ["Tutte", "Pubblicate", "Private"].includes(visibility) ? visibility : "Tutte";
+    render();
+    return;
   }
   if (form.id === "login-form") return login(data);
   if (!state.owner || !firebase) return;
   if (form.id === "plant-form") return savePlant(data, form.dataset.id);
   if (form.id === "username-form") return saveUsername(data);
-});
+}
+function markPlantDirty(event) {
+  if (event.target.closest?.("#plant-form")) formDirty = true;
+}
+function handlePopState() {
+  if (!confirmDiscard()) {
+    window.history.pushState({}, "", currentPath);
+    return;
+  }
+  formDirty = false;
+  currentPath = window.location.pathname + window.location.search;
+  state.route = window.location.pathname;
+  if (state.route === "/piante") state.category = getCategoryFromUrl();
+  state.error = "";
+  state.menuOpen = false;
+  state.filtersOpen = false;
+  render();
+}
+document.addEventListener("click", handleClick);
+document.addEventListener("submit", handleSubmit);
+document.addEventListener("input", markPlantDirty);
+document.addEventListener("change", markPlantDirty);
 document.addEventListener("error", (event) => {
   if (event.target instanceof HTMLImageElement && event.target.hasAttribute("data-photo")) {
     event.target.parentElement.innerHTML = leafArt;
   }
 }, true);
-window.addEventListener("popstate", () => { state.route = location.pathname; state.error = ""; render(); });
+window.addEventListener("popstate", handlePopState);
+window.addEventListener("beforeunload", (event) => {
+  if (!formDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 render();
 startFirebase();

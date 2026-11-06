@@ -1,6 +1,6 @@
 # Pubblicazione Firebase Hosting — runbook Piante
 
-**Stato:** procedura in preparazione al primo deploy. La sua presenza non prova l'esecuzione. Consultare il [registro](external-services-register.md) per i checkpoint reali.
+**Stato:** prima pubblicazione Production riuscita da GitHub Actions il 2026-11-05; la procedura descrive anche deploy futuri. Il documento non prova da solo lo stato attuale del provider. Consultare il [registro](external-services-register.md) per i checkpoint reali.
 
 ## Perimetro
 
@@ -51,6 +51,15 @@ Nessun `FIREBASE_SERVICE_ACCOUNT` JSON è richiesto dal workflow WIF. Non carica
 6. Eseguire smoke non distruttivi: Home e catalogo da browser anonimo, login proprietario, inventario riservato, logout, URL di una pianta. Per la scrittura usarne una sintetica soltanto se esplicitamente autorizzato; non modificare dati reali per diagnosticare.
 
 ## Diagnosi e rollback
+
+### Prima pubblicazione riuscita — 2026-11-05
+
+- Dopo la conferma dell'assegnazione di `roles/serviceusage.serviceUsageViewer` da parte del proprietario, la PR #2 è stata integrata in `main`.
+- GitHub Actions [#42102052951](https://github.com/gernotfound/piante/actions/runs/42102052951), commit `ae90bf52d1b311101435d24ed94b70e93151aa9b`: controlli di sintassi, unit test e Rules emulator superati.
+- Autenticazione WIF senza chiavi private riuscita; Firebase CLI ha completato la release del site `piantee` e stampato `Deploy complete!`.
+- Il controllo HTTP del workflow (`curl --fail` su `https://piantee.web.app/`) è riuscito.
+- Restano da provare nel browser login reale, Firestore privato, CRUD e catalogo pubblico; la verifica HTTP del root non equivale a E2E.
+
 
 ### Prima esecuzione — 2026-11-05
 
