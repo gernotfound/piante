@@ -668,42 +668,112 @@ async function saveUsername(form) {
     render();
   }
 }
-document.addEventListener("click", async (event) => {
+async function handleClick(event) {
   const link = event.target.closest("a[data-nav]");
-  if (link) { event.preventDefault(); go(link.getAttribute("href")); return; }
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+    event.preventDefault();
+    go(link.getAttribute("href"));
+    return;
+  }
   if (event.target.closest("[data-toggle-menu]")) {
-    state.menuOpen = !state.menuOpen; render(); return;
+    state.menuOpen = !state.menuOpen;
+    const opening = state.menuOpen;
+    render();
+    document.querySelector(opening ? "#primary-navigation a" : "[data-toggle-menu]")?.focus();
+    return;
+  }
+  if (event.target.closest("[data-toggle-filters]")) {
+    state.filtersOpen = !state.filtersOpen;
+    render();
+    document.querySelector("[data-toggle-filters]")?.focus();
+    return;
+  }
+  const categoryButton = event.target.closest("[data-category-filter]");
+  if (categoryButton) {
+    const category = categoryButton.dataset.categoryFilter;
+    if (!["Tutte", ...categories].includes(category)) return;
+    state.category = category;
+    state.filtersOpen = false;
+    const path = category === "Tutte" ? "/piante" : `/piante?categoria=${encodeURIComponent(category)}`;
+    window.history.replaceState({}, "", path);
+    currentPath = path;
+    render();
+    return;
+  }
+  if (event.target.closest("[data-reset-filters]")) {
+    state.category = "Tutte";
+    state.filter = "";
+    state.filtersOpen = false;
+    window.history.replaceState({}, "", "/piante");
+    currentPath = "/piante";
+    render();
+    document.querySelector("#catalog-search-input")?.focus();
+    return;
   }
   const action = event.target.closest("[data-action]");
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
     await deletePlant(action.dataset.id);
   }
-  if (action?.dataset.action === "logout" && firebase) {
+  if (action?.dataset.action === "logout" && firebase && confirmDiscard()) {
+    formDirty = false;
     await firebase.signOut(firebase.auth);
     state.flash = "Hai effettuato la disconnessione.";
     go("/login");
   }
-});
-document.addEventListener("submit", async (event) => {
+}
+function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
+  if (!["search-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
-    state.filter = String(data.get("q") || "");
-    state.category = String(data.get("category") || "Tutte");
-    render(); return;
+    state.filter = String(data.get("q") || "").trim();
+    render();
+    return;
+  }
+  if (form.id === "inventory-search-form") {
+    state.inventoryQuery = String(data.get("q") || "").trim();
+    const visibility = String(data.get("visibility") || "Tutte");
+    state.inventoryVisibility = ["Tutte", "Pubblicate", "Private"].includes(visibility) ? visibility : "Tutte";
+    render();
+    return;
   }
   if (form.id === "login-form") return login(data);
   if (!state.owner || !firebase) return;
   if (form.id === "plant-form") return savePlant(data, form.dataset.id);
   if (form.id === "username-form") return saveUsername(data);
-});
+}
+function markPlantDirty(event) {
+  if (event.target.closest?.("#plant-form")) formDirty = true;
+}
+function handlePopState() {
+  if (!confirmDiscard()) {
+    window.history.pushState({}, "", currentPath);
+    return;
+  }
+  formDirty = false;
+  currentPath = window.location.pathname + window.location.search;
+  state.route = window.location.pathname;
+  if (state.route === "/piante") state.category = getCategoryFromUrl();
+  state.error = "";
+  state.menuOpen = false;
+  state.filtersOpen = false;
+  render();
+}
+document.addEventListener("click", handleClick);
+document.addEventListener("submit", handleSubmit);
+document.addEventListener("input", markPlantDirty);
+document.addEventListener("change", markPlantDirty);
 document.addEventListener("error", (event) => {
   if (event.target instanceof HTMLImageElement && event.target.hasAttribute("data-photo")) {
     event.target.parentElement.innerHTML = leafArt;
   }
 }, true);
-window.addEventListener("popstate", () => { state.route = location.pathname; state.error = ""; render(); });
+window.addEventListener("popstate", handlePopState);
+window.addEventListener("beforeunload", (event) => {
+  if (!formDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 render();
 startFirebase();
