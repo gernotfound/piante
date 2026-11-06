@@ -277,10 +277,13 @@ function pageHero(tag, title, intro) {
 function catalogPage() {
   const plants = filterCatalog(state.catalog, {
     query: state.filter, category: state.category, group: state.group,
-    fruitType: state.fruitType, minTempC: state.minTempC
+    fruitType: state.fruitType, minTempC: state.minTempC,
+    pollination: state.pollination, potSuitability: state.potSuitability,
+    harvestMonth: state.harvestMonth
   });
   const hasFilters = Boolean(state.filter.trim()) || state.category !== "Tutte" ||
-    state.group !== "Tutte" || state.fruitType !== "Tutte" || state.minTempC !== "";
+    state.group !== "Tutte" || state.fruitType !== "Tutte" || state.minTempC !== "" ||
+    state.pollination !== "Tutte" || state.potSuitability !== "Tutte" || state.harvestMonth !== "";
   const groupFilters = ["Tutte", ...plantGroups].map((group) => `<button type="button"
     class="filter-option ${state.group === group ? "active" : ""}" data-group-filter="${h(group)}"
     aria-pressed="${state.group === group}">${h(group === "Tutte" ? "Tutte le piante" : group)}</button>`).join("");
@@ -289,6 +292,12 @@ function catalogPage() {
     aria-pressed="${state.fruitType === type}">${h(type === "Tutte" ? "Tutte le fruttifere" : type)}</button>`).join("");
   const coldSelect = coldOptions.map((value) => `<option value="${value}" ${state.minTempC === value ? "selected" : ""}>
     ${value === "" ? "Qualsiasi temperatura" : "Fino a " + (Number(value) > 0 ? "+" : "") + value + " °C"}</option>`).join("");
+  const pollinationOptions = ["Tutte", ...pollinationTypes].map((value) =>
+    `<option value="${h(value)}" ${state.pollination === value ? "selected" : ""}>${h(value === "Tutte" ? "Qualsiasi / non specificata" : value)}</option>`).join("");
+  const potOptions = ["Tutte", ...potSuitabilityTypes].map((value) =>
+    `<option value="${h(value)}" ${state.potSuitability === value ? "selected" : ""}>${h(value === "Tutte" ? "Qualsiasi / non specificata" : value)}</option>`).join("");
+  const harvestOptions = ["", ...monthNames.map((_, i) => String(i + 1))].map((value) =>
+    `<option value="${value}" ${state.harvestMonth === value ? "selected" : ""}>${h(value === "" ? "Qualsiasi mese" : monthNames[Number(value) - 1])}</option>`).join("");
   const filters = ["Tutte", ...categories].map((category) => `<button type="button"
       class="filter-option ${state.category === category ? "active" : ""}"
       data-category-filter="${h(category)}" aria-pressed="${state.category === category}">
@@ -327,6 +336,17 @@ function catalogPage() {
             <button class="btn btn-outline btn-small" type="submit">Applica temperatura</button>
             <small>Si considerano solo schede con una temperatura indicativa inserita. Le piante giovani e in vaso possono essere meno resistenti.</small>
           </form>
+          <h2>Raccolta e impollinazione</h2>
+          <form id="traits-form" class="climate-form">
+            <label for="pollination-filter">Autofertilità</label>
+            <select id="pollination-filter" name="pollination" class="select">${pollinationOptions}</select>
+            <label for="harvest-filter">Mese di raccolta</label>
+            <select id="harvest-filter" name="harvestMonth" class="select">${harvestOptions}</select>
+            <label for="pot-filter">Coltivazione in vaso</label>
+            <select id="pot-filter" name="potSuitability" class="select">${potOptions}</select>
+            <button class="btn btn-outline btn-small" type="submit">Applica caratteristiche</button>
+            <small>Mostriamo solo caratteristiche documentate. L'impollinazione, il raccolto e l'idoneità al vaso variano anche secondo la cultivar e il luogo.</small>
+          </form>
           <h2>Categorie specifiche</h2>
           <div class="filter-options">${filters}</div>
         </aside>
@@ -336,6 +356,9 @@ function catalogPage() {
             ${state.fruitType !== "Tutte" ? `<span class="filter-chip">${h(state.fruitType)}</span>` : ""}
             ${state.category !== "Tutte" ? `<span class="filter-chip">${h(state.category)}</span>` : ""}
             ${state.minTempC !== "" ? `<span class="filter-chip">Almeno ${h(state.minTempC)} °C</span>` : ""}
+            ${state.pollination !== "Tutte" ? `<span class="filter-chip">${h(state.pollination)}</span>` : ""}
+            ${state.harvestMonth !== "" ? `<span class="filter-chip">Raccolta: ${h(monthNames[Number(state.harvestMonth) - 1])}</span>` : ""}
+            ${state.potSuitability !== "Tutte" ? `<span class="filter-chip">Vaso: ${h(state.potSuitability)}</span>` : ""}
             ${state.filter ? `<span class="filter-chip">Ricerca: ${h(state.filter)}</span>` : ""}
           </p>` : ""}
           <div class="grid catalog-grid">${plants.length ? plants.map(card).join("") :
