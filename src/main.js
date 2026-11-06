@@ -810,19 +810,45 @@ async function handleClick(event) {
     const category = categoryButton.dataset.categoryFilter;
     if (!["Tutte", ...categories].includes(category)) return;
     state.category = category;
+    state.group = "Tutte";
+    state.fruitType = "Tutte";
     state.filtersOpen = false;
-    const path = category === "Tutte" ? "/piante" : `/piante?categoria=${encodeURIComponent(category)}`;
-    window.history.replaceState({}, "", path);
-    currentPath = path;
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  const groupButton = event.target.closest("[data-group-filter]");
+  if (groupButton) {
+    const group = groupButton.dataset.groupFilter;
+    if (!["Tutte", ...plantGroups].includes(group)) return;
+    state.group = group;
+    state.category = "Tutte";
+    state.fruitType = "Tutte";
+    state.filtersOpen = false;
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  const fruitButton = event.target.closest("[data-fruit-filter]");
+  if (fruitButton) {
+    const type = fruitButton.dataset.fruitFilter;
+    if (!["Tutte", ...fruitTypes].includes(type)) return;
+    state.fruitType = type;
+    state.group = "Piante da frutto";
+    state.category = "Tutte";
+    state.filtersOpen = false;
+    syncCatalogUrl();
     render();
     return;
   }
   if (event.target.closest("[data-reset-filters]")) {
     state.category = "Tutte";
+    state.group = "Tutte";
+    state.fruitType = "Tutte";
+    state.minTempC = "";
     state.filter = "";
     state.filtersOpen = false;
-    window.history.replaceState({}, "", "/piante");
-    currentPath = "/piante";
+    syncCatalogUrl();
     render();
     document.querySelector("#catalog-search-input")?.focus();
     return;
@@ -840,16 +866,27 @@ async function handleClick(event) {
 }
 function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
+  if (!["search-form", "climate-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
-    state.filter = String(data.get("q") || "").trim();
+    state.filter = String(data.get("q") || "").trim().slice(0, 120);
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  if (form.id === "climate-form") {
+    const minimum = String(data.get("minimum") || "");
+    state.minTempC = coldOptions.includes(minimum) ? minimum : "";
+    state.filtersOpen = false;
+    syncCatalogUrl();
     render();
     return;
   }
   if (form.id === "inventory-search-form") {
     state.inventoryQuery = String(data.get("q") || "").trim();
+    const group = String(data.get("group") || "Tutte");
+    state.inventoryGroup = ["Tutte", ...plantGroups].includes(group) ? group : "Tutte";
     const visibility = String(data.get("visibility") || "Tutte");
     state.inventoryVisibility = ["Tutte", "Pubblicate", "Private"].includes(visibility) ? visibility : "Tutte";
     render();
