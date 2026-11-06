@@ -173,42 +173,78 @@ function pageHero(tag, title, intro) {
     <h1>${h(title)}</h1><p>${h(intro)}</p></div></section>`;
 }
 function catalogPage() {
-  const q = state.filter.toLocaleLowerCase("it").trim();
-  const plants = state.catalog.filter((item) => {
-    const matches = [item.name, item.scientificName, item.variety, item.category]
-      .some((s) => String(s || "").toLocaleLowerCase("it").includes(q));
-    return matches && (state.category === "Tutte" || item.category === state.category);
-  });
-  const options = ["Tutte", ...categories].map((c) => `<option value="${h(c)}" ${state.category === c ? "selected" : ""}>${h(c)}</option>`).join("");
-  return pageHero("La collezione", "Le nostre piante", "Esplora le specie presenti nel catalogo e scopri le caratteristiche di ogni pianta.") +
-    `<section class="section"><div class="container">${alertBox(state.dbError, true)}
-      <form id="search-form" class="toolbar" role="search">
-        <input class="input search-field" type="search" name="q" placeholder="Cerca nome, specie, varietà…" value="${h(state.filter)}" aria-label="Cerca piante">
-        <select class="select" name="category" aria-label="Categoria" style="max-width:215px">${options}</select>
+  const plants = filterCatalog(state.catalog, { query: state.filter, category: state.category });
+  const hasFilters = Boolean(state.filter.trim()) || state.category !== "Tutte";
+  const filters = ["Tutte", ...categories].map((category) => `<button type="button"
+      class="filter-option ${state.category === category ? "active" : ""}"
+      data-category-filter="${h(category)}" aria-pressed="${state.category === category}">
+      <span>${category === "Tutte" ? "Tutte le categorie" : h(category)}</span>
+      ${state.category === category ? `<span aria-hidden="true">✓</span>` : ""}
+    </button>`).join("");
+  return pageHero("La collezione", "Catalogo piante",
+    "Esplora le specie, le varietà e le informazioni disponibili per ogni pianta.") +
+    `<section class="section catalog-section"><div class="container">
+      ${alertBox(state.dbError, true)}
+      <form id="search-form" class="catalog-search" role="search">
+        <label class="sr-only" for="catalog-search-input">Cerca nel catalogo</label>
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="catalog-search-input" class="input" type="search" name="q"
+          placeholder="Cerca nome, specie o varietà" value="${h(state.filter)}" autocomplete="off">
         <button class="btn btn-primary" type="submit">Cerca</button>
-        <span class="results">${plants.length} ${plants.length === 1 ? "pianta" : "piante"}</span>
-      </form><div class="grid">${plants.length ? plants.map(card).join("") : empty(state.catalog.length ? "Nessuna pianta corrisponde ai filtri selezionati." : "Le piante pubblicate saranno visibili in questa pagina.")}</div>
+      </form>
+      <div class="catalog-toolbar">
+        <button type="button" class="btn btn-outline mobile-filter-button"
+          data-toggle-filters aria-controls="catalog-filters" aria-expanded="${state.filtersOpen}">
+          Filtri ${hasFilters ? "· Attivi" : ""} <span aria-hidden="true">☰</span>
+        </button>
+        <span class="results" role="status">${plants.length} ${plants.length === 1 ? "pianta trovata" : "piante trovate"}</span>
+        ${hasFilters ? `<button class="text-link reset-filters" type="button" data-reset-filters>Rimuovi filtri</button>` : ""}
+      </div>
+      <div class="catalog-layout">
+        <aside id="catalog-filters" class="catalog-filters ${state.filtersOpen ? "open" : ""}" aria-label="Filtra per categoria">
+          <h2>Filtra per categoria</h2>
+          <div class="filter-options">${filters}</div>
+        </aside>
+        <div class="catalog-content">
+          ${hasFilters ? `<p class="filter-summary">${state.category !== "Tutte" ? `<span class="filter-chip">${h(state.category)}</span>` : ""}
+            ${state.filter ? `<span class="filter-chip">Ricerca: ${h(state.filter)}</span>` : ""}</p>` : ""}
+          <div class="grid catalog-grid">${plants.length ? plants.map(card).join("") :
+            empty(state.catalog.length ? "Nessuna pianta corrisponde ai filtri. Prova a modificarli." :
+              "Il catalogo si riempirà quando pubblicherai le prime piante dal gestionale.")}</div>
+        </div>
+      </div>
     </div></section>`;
 }
 function detailPage(id) {
-  const item = state.catalog.find((p) => p.id === id);
+  const item = state.catalog.find((plant) => plant.id === id);
   if (!item) return pageHero("Catalogo", "Pianta non trovata", "Questa pianta non è presente nel catalogo pubblico.") +
     `<section class="section"><div class="container"><a class="btn btn-primary" href="/piante" data-nav>Torna al catalogo</a></div></section>`;
   const properties = [
     ["Nome scientifico", item.scientificName], ["Varietà", item.variety],
     ["Categoria", item.category], ["Origine", item.origin],
-    ["Esposizione", item.light], ["Irrigazione", item.water],
-    ["Disponibilità", item.availability], ["Prezzo indicativo", item.price]
-  ].filter(([, val]) => Boolean(val));
-  return `<section class="section"><div class="container">
-    <a class="text-link" href="/piante" data-nav>← Torna alle piante</a>
-    <div class="detail" style="margin-top:31px">${imageMarkup(item, true)}
-    <div><span class="eyebrow">${h(item.category || "Collezione")}</span>
-      <h1>${h(item.name)}</h1><p class="plant-latin">${h(item.scientificName || "")}</p>
-      <p class="detail-description">${h(item.description || "La scheda di questa pianta verrà arricchita con ulteriori informazioni.")}</p>
-      <div class="specs">${properties.map(([k, v]) => `<div class="spec-row"><span>${h(k)}</span><strong>${h(v)}</strong></div>`).join("")}</div>
-      <a href="/contatti" data-nav class="btn btn-primary">Richiedi informazioni →</a>
-    </div></div></div></section>`;
+    ["Esposizione", item.light], ["Irrigazione", item.water]
+  ].filter(([,value]) => Boolean(value));
+  return `<section class="section detail-section"><div class="container">
+    <nav class="breadcrumbs" aria-label="Percorso"><a href="/piante" data-nav>Catalogo</a><span aria-hidden="true">/</span><span>${h(item.name)}</span></nav>
+    <div class="detail">
+      ${imageMarkup(item, true)}
+      <div class="detail-info">
+        <span class="eyebrow">${h(item.category || "Collezione")}</span>
+        <h1>${h(item.name)}</h1>
+        ${item.scientificName ? `<p class="plant-latin">${h(item.scientificName)}</p>` : ""}
+        ${item.variety ? `<p class="detail-variety">Varietà: ${h(item.variety)}</p>` : ""}
+        ${item.price || item.availability ? `<div class="product-availability">
+          ${item.price ? `<div><span class="detail-label">Prezzo indicativo</span><strong class="detail-price">${h(item.price)}</strong></div>` : ""}
+          ${item.availability ? `<div><span class="detail-label">Disponibilità</span><strong>${h(item.availability)}</strong></div>` : ""}
+        </div>` : ""}
+        <p class="detail-description">${h(item.description || "La scheda di questa pianta verrà arricchita con altre informazioni.")}</p>
+        <a href="/contatti" data-nav class="btn btn-primary detail-contact">Informazioni e contatti <span aria-hidden="true">↗</span></a>
+        ${properties.length ? `<section class="detail-properties"><h2>Caratteristiche della pianta</h2><dl class="specs">
+          ${properties.map(([label,value]) => `<div class="spec-row"><dt>${h(label)}</dt><dd>${h(value)}</dd></div>`).join("")}
+        </dl></section>` : ""}
+      </div>
+    </div>
+  </div></section>`;
 }
 function aboutPage() {
   return pageHero("Il progetto", "Chi siamo", "Una collezione in evoluzione, nata dalla passione per le piante.") +
