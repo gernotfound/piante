@@ -14,6 +14,8 @@
 - MUST: non creare chiavi di servizio senza necessità verificata e approvazione; le variabili GitHub per WIF contengono identificativi non segreti.
 - MUST: non cambiare il piano Spark in Blaze, non attivare API a pagamento o nuovi servizi senza autorizzazione specifica.
 - MUST: usare `firebase.json` + `.firebaserc` per destinare il deploy solo al site ID `piantee`; un project ID `piante-a617e` non equivale al site ID.
+- MUST: proteggere `main` con PR e verifica `Canonical Verification` dopo attivazione e conferma del ruleset nel provider; gli workflow non sostituiscono un ruleset GitHub.
+- MUST: distinguere le `apiKey` pubbliche della Web App Firebase (restrizioni API necessarie) dalle credenziali private di amministrazione. Non ruotare automaticamente una chiave Firebase client a causa di un alert di pattern, né sopprimere secret scanning per `src/config.js`.
 - MUST: il workflow Hosting non pubblica Rules, indici, Functions o altri prodotti. L'emulatore Firestore è prova di test, non prova di deploy delle Rules.
 - VERIFY: controllare direttamente nel provider il ruolo IAM, il dominio autorizzato, la presenza del sito, le impostazioni Auth/Firestore e la quota quando queste influenzano un rilascio.
 
