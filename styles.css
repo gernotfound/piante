@@ -151,6 +151,15 @@ button:focus,a:focus,input:focus,select:focus,textarea:focus{outline:2px solid v
 .climate-form .btn{width:100%}
 .climate-form small,.climate-help{color:var(--muted);font-size:.77rem;line-height:1.6}
 .climate-help{margin:9px 0 0}
+.harvest-fieldset{border:1px solid var(--line);border-radius:11px;padding:14px;min-width:0;margin:12px 0}
+.harvest-fieldset legend{font-size:.86rem;font-weight:700;color:var(--forest);padding:0 6px}
+.harvest-fieldset p{margin:11px 0 0;color:var(--muted);font-size:.78rem;line-height:1.55}
+.harvest-months{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.harvest-months label{min-width:0;min-height:44px;display:flex;align-items:center;gap:7px;padding:9px;border:1px solid var(--line);background:var(--white);border-radius:7px;cursor:pointer;font-size:.81rem}
+.harvest-months input{width:18px;height:18px;accent-color:var(--forest);flex:0 0 18px;margin:0}
+.harvest-months label:has(input:checked){border-color:var(--leaf);background:var(--sage)}
+@media (min-width:600px){.harvest-months{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
 .plant-climate{margin:0 0 11px;font-size:.76rem;color:var(--forest);font-weight:600}
 .climate-detail{margin:18px 0;padding:17px;border:1px solid var(--line);border-radius:10px;background:var(--sage)}
 .climate-detail strong{color:var(--forest)}
