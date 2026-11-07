@@ -38,7 +38,7 @@ Aprire esplicitamente i file pertinenti: un rimando non equivale alla loro lettu
 - Non fare merge/deploy o modifiche irreversibili a provider live senza mandato appropriato; non sostituire indiscriminatamente Rules o dati Firestore.
 - Eseguire `npm run check`, `npm test` e `npm run test:rules` sulla versione candidata quando possibile; registrare lo SHA GitHub verificato. CI verde non certifica login, autorizzazioni live o Hosting aggiornato.
 - Per il deploy GitHub→Google Cloud preferire **Workload Identity Federation (WIF)** tramite service account Hosting dedicato, senza key JSON permanente. Separare l'identità di deploy da Firebase Authentication e dai dati Firestore.
-- Il workflow di produzione deploya **solo Firebase Hosting**. Qualsiasi modifica alle Rules richiede verifiche e pubblicazione separate, esplicite.
+- Il rilascio da main verifica prima le Firestore Rules del database `(default)` con un job e una WIF dedicati, poi avvia Hosting con la propria identità. I due job sono separati: nessun deploy di indici, dati o altri servizi. I cambi alle Rules richiedono test emulator, read-back live e conservazione della release precedente; un drift imprevisto blocca il deploy.
 - Prima di concludere distinguere: test locali, CI candidata, merge, CI main, deploy Hosting e smoke test browser sul sito reale.
 
 ## Strumenti e sicurezza

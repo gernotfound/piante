@@ -1,7 +1,7 @@
 name: Deploy in produzione su piantee.web.app
 
-# Solo una verifica riuscita di un push a main può avviare la pubblicazione.
-# Non distribuire codice di una PR, da workflow_dispatch o da un vecchio main.
+# Solo CI main verificata: prima riconciliazione Rules con identità dedicata,
+# poi deploy Hosting con identità distinta, mai da PR o commit superati.
 on:
   workflow_run:
     workflows: [Verifica codice]
@@ -17,7 +17,82 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  firestore-rules:
+    name: Verifica e pubblica Firestore Rules
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT }}
+    steps:
+      - name: Checkout del main verificato, con commit precedente
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Rifiuta SHA obsoleti prima di toccare Rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          current_main="$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" || "$current_main" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Le Rules non possono essere distribuite da un main superato."
+            exit 1
+          fi
+          git cat-file -e 'HEAD^:firestore.rules'
+
+      - name: Configura Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Richiedi identità Firestore separata
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" || -z "$GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT" ]]; then
+            echo "::error::Configurare il deployer Firestore dedicato prima del rilascio."
+            exit 1
+          fi
+
+      - name: Autentica il deployer Firestore via WIF
+        id: auth_firestore
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: piante-a617e
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT }}
+          token_format: access_token
+          create_credentials_file: false
+
+      - name: Confronta e pubblica solo Rules del database predefinito
+        id: reconcile
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth_firestore.outputs.access_token }}
+        run: node scripts/reconcile-firestore-rules.mjs reconcile
+
+      - name: Rileggi la release Firebase Rules
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth_firestore.outputs.access_token }}
+        run: node scripts/reconcile-firestore-rules.mjs verify
+
+      # Firebase documenta fino a 10 minuti di propagazione sui listener già aperti.
+      # Hosting deve seguire, non precedere, le nuove Rules.
+      - name: Attendi la propagazione delle nuove Rules
+        if: steps.reconcile.outputs.changed == 'true'
+        run: sleep 600
+
   deploy:
+    needs: [firestore-rules]
     name: Deploy Hosting verificato
     if: >-
       github.event.workflow_run.conclusion == 'success' &&

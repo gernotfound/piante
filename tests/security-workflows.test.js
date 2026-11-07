@@ -28,6 +28,20 @@ test("Deploy: vietata pubblicazione da PR, manual dispatch o branch non main", (
   assert.doesNotMatch(deploy, /--only\s+firestore/);
 });
 
+test("Deploy: Firestore precede Hosting con WIF separata e sola Rules API", () => {
+  assert.match(deploy, /firestore-rules:\s*\n/);
+  assert.match(deploy, /needs: \[firestore-rules\]/);
+  assert.match(deploy, /GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT/);
+  assert.match(deploy, /GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT/);
+  assert.match(deploy, /token_format: access_token/);
+  assert.match(deploy, /create_credentials_file: false/);
+  assert.match(deploy, /scripts\/reconcile-firestore-rules\.mjs reconcile/);
+  assert.match(deploy, /scripts\/reconcile-firestore-rules\.mjs verify/);
+  assert.match(deploy, /steps\.reconcile\.outputs\.changed == 'true'/);
+  assert.match(deploy, /sleep 600/);
+  assert.match(deploy, /fetch-depth: 2/);
+});
+
 test("Actions di terze parti fissate a commit SHA, senza persist-credentials", () => {
   for (const [name, yaml] of [["CI", ci], ["deploy", deploy]]) {
     const uses = [...yaml.matchAll(/\buses:\s*([^\s#]+)/g)].map((match) => match[1]);

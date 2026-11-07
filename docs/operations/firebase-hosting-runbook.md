@@ -7,7 +7,7 @@
 - Sito live: `https://piantee.web.app`; Firebase project ID: `piante-a617e`.
 - GitHub: `gernotfound/piante`; `main` è l'unico branch che può pubblicare.
 - Nessuna anteprima: il workflow distribuisce direttamente sul target `piantee` con `npx firebase deploy --only hosting:piantee`.
-- Il workflow NON modifica Firestore Rules, Auth, dati, Storage, billing o altri siti Hosting.
+- Il job Hosting distribuisce solo `piantee`; prima viene eseguito un job separato per riconciliare esclusivamente le Firestore Security Rules del database `(default)`, senza scrivere dati, indici, Storage, Auth o billing. Se il job Rules fallisce, Hosting non parte.
 
 ## Configurazione una tantum su Google Cloud
 
@@ -41,16 +41,35 @@ Aprire `https://github.com/gernotfound/piante/settings/variables/actions`, crear
 
 Nessun `FIREBASE_SERVICE_ACCOUNT` JSON è richiesto dal workflow WIF. Non caricare chiavi private nel repository o nel browser.
 
+## Identità Firestore Rules (da configurare separatamente)
+
+L'utente ha autorizzato il 2026-11-07 la creazione di un'identità separata, senza chiavi JSON e senza ampliare i privilegi del deployer Hosting.
+
+1. Nel progetto `piante-a617e`, creare il service account `github-piante-firestore-rules`, indirizzo atteso `github-piante-firestore-rules@piante-a617e.iam.gserviceaccount.com`. Non creare chiavi.
+2. Attribuire al nuovo service account, a livello di progetto, solo il ruolo predefinito **Firebase Rules Admin** (`roles/firebaserules.admin`). Questo ruolo amministra i ruleset di Firebase, non i documenti Firestore e non gli indici. È il ruolo predefinito pertinente; per limitare anche le operazioni di gestione Rules non utilizzate servirebbe un ruolo personalizzato, da valutare separatamente.
+3. Nel nuovo service account, scheda Autorizzazioni/Principali con accesso, aggiungere come principal WIF del solo repository Piante:
+   `principalSet://iam.googleapis.com/projects/401886801214/locations/global/workloadIdentityPools/github-piante/attribute.repository_id/1447170331`
+   con `roles/iam.workloadIdentityUser`. Verificare prima che il provider WIF corrente mappi `attribute.repository_id` e limiti GitHub a repository ID `1447170331`, owner ID `295053490` e ref `refs/heads/main`. Non concedere accesso a tutto il pool.
+4. In GitHub → Settings → Secrets and variables → Actions → Variables aggiungere la variabile non segreta `GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT` con l'email esatta del nuovo account. Riutilizzare la variabile `GCP_WORKLOAD_IDENTITY_PROVIDER` esistente, senza modificare quella Hosting. Confermare nella console valori salvati e binding effettivi.
+
+Connettori e repository GitHub non dimostrano né eseguono automaticamente queste impostazioni IAM. Non integrare la PR di automazione fino alla verifica dell'identità WIF.
+
 ## Rilascio
 
 1. Verificare PR e SHA candidato, eseguire `npm run check`, `npm test`, `npm run test:rules` (oppure esaminare i corrispondenti job CI sul medesimo SHA).
 2. Integrare la PR su `main` soltanto nel perimetro autorizzato.
-3. Il workflow `.github/workflows/deploy-production.yml` si avvia su push a `main`; può essere avviato manualmente soltanto da `main`. Controlla sintassi, test unitari e Rules emulator prima dell'autenticazione WIF.
-4. Il deployer verifica che `main` remoto coincida con lo SHA candidato e pubblica **solo Hosting** sul target `piantee`. Un errore ferma il job; non sostituire un fallimento WIF con un token personale.
-5. Controllare su GitHub Actions l'esito del job e su Firebase Console la release del site `piantee`.
-6. Eseguire smoke non distruttivi: Home e catalogo da browser anonimo, login proprietario, inventario riservato, logout, URL di una pianta. Per la scrittura usarne una sintetica soltanto se esplicitamente autorizzato; non modificare dati reali per diagnosticare.
+3. Il workflow `.github/workflows/deploy-production.yml` si avvia solo da CI riuscita di un `push` a `main` e verifica lo SHA corrente. Non è disponibile `workflow_dispatch` o preview PR.
+4. Il job `firestore-rules` autentica il service account dedicato con WIF, legge release e sorgente Rules live via Firebase Rules API, confronta i token con `firestore.rules` dell'ultimo main e del suo genitore. Commenti e spazi possono differire; una variazione di comportamento inattesa causa errore senza sovrascrivere. Solo se la sorgente live corrisponde alla versione precedente, crea un ruleset immutabile e aggiorna il release `cloud.firestore` (database default); rilegge la release e attende 10 minuti se effettivamente modificata, per prudenza durante la propagazione.
+5. Il job `deploy`, vincolato con `needs: [firestore-rules]`, usa il precedente account Hosting WIF per pubblicare soltanto `hosting:piantee`; controlla ancora lo SHA prima del deploy. Se manca la nuova variabile o un controllo Rules fallisce, Hosting viene bloccato.
+6. Verificare separatamente nei provider: versione Rules rilasciata, CI main sullo SHA, job Hosting completato e smoke HTTP. Non considerare il read-back della release una prova che ogni listener già aperto abbia ricevuto la modifica.
+7. Eseguire smoke non distruttivi: Home e catalogo anonimo, login proprietario, inventario riservato, logout, URL di una pianta. Non modificare dati reali per test senza autorizzazione specifica.
 
 ## Diagnosi e rollback
+
+- Una modifica manuale alle Rules live non presente su `main` provoca un arresto controllato (drift). Prima riconciliare la modifica e ripetere la CI; non bypassare i controlli.
+- Firebase mantiene la cronologia dei Ruleset: registrare release e SHA, poi ripristinare la versione appropriata dal provider quando necessario. Il rollback di Hosting non ripristina le Rules.
+- In un merge con nuovi campi pubblici (es. PR #9) il job Rules deve concludersi prima di Hosting, senza modifiche ai dati esistenti o a IAM.
+
 
 ### Prima pubblicazione riuscita — 2026-11-05
 
