@@ -1,0 +1,103 @@
+name: Piante Firestore Rules Production
+
+# Solo la verifica riuscita di un push su main può avviare Rules Production.
+# Un provider WIF e un pool separati impediscono impersonazioni incrociate con Hosting.
+on:
+  workflow_run:
+    workflows: [Verifica codice]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: firestore-rules-production-piantee
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Verifica e pubblica Firestore Rules
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT }}
+    steps:
+      - name: Checkout del commit verificato e della cronologia Rules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Rifiuta un main superato prima del deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          current_main="$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" || "$current_main" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Le Rules non possono essere distribuite da un main superato."
+            exit 1
+          fi
+
+      - name: Configura Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+
+      - name: Richiedi la configurazione WIF dedicata a Firestore
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_provider="projects/401886801214/locations/global/workloadIdentityPools/github-piante-firestore/providers/github-actions"
+          expected_sa="github-piante-firestore-rules@piante-a617e.iam.gserviceaccount.com"
+          if [[ "$GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER" != "$expected_provider" ||
+                "$GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT" != "$expected_sa" ]]; then
+            echo "::error::Il provider o il service account Firestore non corrispondono all'identità dedicata."
+            exit 1
+          fi
+
+      - name: Autentica Firestore con token temporaneo
+        id: auth_firestore
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: piante-a617e
+          workload_identity_provider: ${{ env.GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT }}
+          token_format: access_token
+          create_credentials_file: false
+
+      - name: Rifiuta avanzamenti di main prima delle scritture
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_main="$(git ls-remote --exit-code origin refs/heads/main | awk '{print $1}')"
+          if [[ "$current_main" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Main è avanzato durante l'autenticazione: Rules non pubblicate."
+            exit 1
+          fi
+
+      - name: Riconcilia solo le Firestore Security Rules
+        id: reconcile
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth_firestore.outputs.access_token }}
+        run: node scripts/reconcile-firestore-rules.mjs reconcile
+
+      - name: Verifica la release effettivamente attiva
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth_firestore.outputs.access_token }}
+        run: node scripts/reconcile-firestore-rules.mjs verify
+
+      # Il read-back non certifica l'immediata propagazione ai listener preesistenti.
+      - name: Attendi la propagazione dopo una modifica
+        if: steps.reconcile.outputs.changed == 'true'
+        run: sleep 600

@@ -62,9 +62,15 @@ test("Il confronto ignora soltanto commenti e spazi, conservando le stringhe", (
 });
 
 test("Il confronto impedisce drift non autorizzato", () => {
-  assert.equal(decideReconciliation(formatted, baseline, baseline), "unchanged");
-  assert.equal(decideReconciliation(formatted, baseline, candidate), "deploy");
-  assert.throws(() => decideReconciliation("allow read: if true;", baseline, "allow write: if false;"), /differ/);
+  assert.equal(decideReconciliation(formatted, [baseline], baseline), "unchanged");
+  assert.equal(decideReconciliation(formatted, [baseline], candidate), "deploy");
+  assert.throws(() => decideReconciliation("allow read: if true;", [baseline], "allow write: if false;"), /differ/);
+});
+
+test("Una release approvata ma saltata in un precedente deploy è recuperabile", () => {
+  assert.equal(decideReconciliation(formatted, [candidate, baseline], candidate), "deploy");
+  assert.throws(() => decideReconciliation(formatted, [], candidate), /Missing approved/);
+  assert.throws(() => decideReconciliation("allow write: if true;", [baseline, candidate], candidate), /differ/);
 });
 
 test("Ruleset non valido viene rifiutato", () => {
@@ -75,7 +81,7 @@ test("Ruleset non valido viene rifiutato", () => {
 
 test("Policy semanticamente identica: nessun rilascio o scrittura", async () => {
   const api = mockRulesApi();
-  const result = await reconcileRules({ desired: baseline, previous: baseline, request: api.request });
+  const result = await reconcileRules({ desired: baseline, approvedHistory: [baseline], request: api.request });
   assert.equal(result.changed, false);
   assert.equal(api.actions.length, 2);
   assert.deepEqual(api.actions.map((a) => a.method), ["GET", "GET"]);
@@ -83,34 +89,34 @@ test("Policy semanticamente identica: nessun rilascio o scrittura", async () => 
 
 test("Cambio autorizzato: crea ruleset, aggiorna release e rilegge sorgente", async () => {
   const api = mockRulesApi();
-  const result = await reconcileRules({ desired: candidate, previous: baseline, request: api.request });
+  const result = await reconcileRules({ desired: candidate, approvedHistory: [baseline], request: api.request });
   assert.equal(result.changed, true);
   assert.equal(result.rulesetName, NEW);
   assert.deepEqual(api.actions.map((a) => a.method), ["GET", "GET", "POST", "GET", "PATCH", "GET", "GET"]);
-  const verify = await reconcileRules({ desired: candidate, previous: baseline, request: api.request, mode: "verify" });
+  const verify = await reconcileRules({ desired: candidate, approvedHistory: [baseline], request: api.request, mode: "verify" });
   assert.equal(verify.changed, false);
 });
 
 test("Policy estranea e aggiornamento concorrente bloccano la pubblicazione", async () => {
   const drift = mockRulesApi({ source: "allow write: if true;" });
   await assert.rejects(reconcileRules({
-    desired: candidate, previous: baseline, request: drift.request
+    desired: candidate, approvedHistory: [baseline], request: drift.request
   }), /differ/);
   assert.equal(drift.actions.some((a) => a.method === "PATCH"), false);
 
   const concurrent = mockRulesApi({ concurrentChange: true });
   await assert.rejects(reconcileRules({
-    desired: candidate, previous: baseline, request: concurrent.request
+    desired: candidate, approvedHistory: [baseline], request: concurrent.request
   }), /concurrently/);
   assert.equal(concurrent.actions.some((a) => a.method === "PATCH"), false);
 });
 
 test("Una risposta Ruleset o release inattesa blocca la scrittura", async () => {
   const wrong = mockRulesApi({ invalidStructure: true });
-  await assert.rejects(reconcileRules({ desired: candidate, previous: baseline, request: wrong.request }), /Unexpected/);
+  await assert.rejects(reconcileRules({ desired: candidate, approvedHistory: [baseline], request: wrong.request }), /Unexpected/);
   assert.equal(wrong.actions.length, 2);
   await assert.rejects(reconcileRules({
-    desired: candidate, previous: baseline,
+    desired: candidate, approvedHistory: [baseline],
     request: async () => ({ name: "projects/other/releases/cloud.firestore", rulesetName: OLD })
   }), /Unexpected Firestore release/);
 });

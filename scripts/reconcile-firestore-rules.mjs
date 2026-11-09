@@ -54,10 +54,13 @@ export function rulesEquivalent(a, b) {
   return JSON.stringify(tokenizeRules(a)) === JSON.stringify(tokenizeRules(b));
 }
 
-export function decideReconciliation(live, previous, desired) {
+export function decideReconciliation(live, approvedHistory, desired) {
+  if (!Array.isArray(approvedHistory) || approvedHistory.length === 0) {
+    throw new Error("Missing approved Firestore Rules history: refusing deployment");
+  }
   if (rulesEquivalent(live, desired)) return "unchanged";
-  if (rulesEquivalent(live, previous)) return "deploy";
-  throw new Error("Live Firestore Rules differ from both desired and previous main: refusing overwrite");
+  if (approvedHistory.some((source) => rulesEquivalent(live, source))) return "deploy";
+  throw new Error("Live Firestore Rules differ from approved repository history: refusing overwrite");
 }
 
 export function extractRulesSource(ruleset) {
@@ -69,7 +72,7 @@ export function extractRulesSource(ruleset) {
   return files[0].content;
 }
 
-export async function reconcileRules({ desired, previous, request, mode = "reconcile" }) {
+export async function reconcileRules({ desired, approvedHistory = [], request, mode = "reconcile" }) {
   const release = await request("GET", RELEASE_NAME);
   if (release?.name !== RELEASE_NAME || !/^projects\/piante-a617e\/rulesets\/[\w-]+$/.test(release.rulesetName ?? "")) {
     throw new Error("Unexpected Firestore release; only (default) is authorized");
@@ -82,7 +85,7 @@ export async function reconcileRules({ desired, previous, request, mode = "recon
     return { changed: false, rulesetName: release.rulesetName };
   }
   if (mode !== "reconcile") throw new Error("Unsupported mode");
-  const decision = decideReconciliation(liveSource, previous, desired);
+  const decision = decideReconciliation(liveSource, approvedHistory, desired);
   if (decision === "unchanged") return { changed: false, rulesetName: release.rulesetName };
 
   const created = await request("POST", `projects/${FIREBASE_PROJECT}/rulesets`, {
@@ -92,7 +95,7 @@ export async function reconcileRules({ desired, previous, request, mode = "recon
     throw new Error("Firebase returned an invalid created Ruleset name");
   }
 
-  // Prevent accidental overwriting of a console update made during this release.
+  // Recheck narrows the race but the Firebase Releases API has no conditional CAS update.
   const again = await request("GET", RELEASE_NAME);
   if (again?.rulesetName !== release.rulesetName) {
     throw new Error("Firestore Rules release changed concurrently; refusing to publish");
@@ -114,15 +117,24 @@ export async function reconcileRules({ desired, previous, request, mode = "recon
   return { changed: true, rulesetName: created.name };
 }
 
+function readApprovedRulesHistory() {
+  // Historical source files are the approved baselines even if previous main releases failed.
+  const commits = execFileSync("git", ["log", "--format=%H", "--", "firestore.rules"], {
+    encoding: "utf8"
+  }).trim().split("\n").filter(Boolean);
+  if (commits.length === 0) throw new Error("No approved Firestore Rules history");
+  return commits.map((sha) => execFileSync("git", ["show", `${sha}:firestore.rules`], {
+    encoding: "utf8"
+  }));
+}
+
 async function main() {
   const mode = process.argv[2] || "reconcile";
   if (!["reconcile", "verify"].includes(mode)) throw new Error("Invalid operation");
   const token = process.env.GCP_ACCESS_TOKEN;
   if (!token) throw new Error("A short-lived Workload Identity access token is required");
   const desired = readFileSync("firestore.rules", "utf8");
-  const previous = mode === "reconcile"
-    ? execFileSync("git", ["show", "HEAD^:firestore.rules"], { encoding: "utf8" })
-    : desired;
+  const approvedHistory = mode === "reconcile" ? readApprovedRulesHistory() : [];
 
   const request = async (method, resource, body) => {
     const response = await fetch(API_ROOT + resource, {
@@ -139,7 +151,7 @@ async function main() {
     return response.json();
   };
 
-  const result = await reconcileRules({ desired, previous, request, mode });
+  const result = await reconcileRules({ desired, approvedHistory, request, mode });
   console.log(`Firestore Rules ${mode}: ${result.changed ? "release updated" : "verified/no change"}`);
   if (process.env.GITHUB_OUTPUT && mode === "reconcile") {
     appendFileSync(process.env.GITHUB_OUTPUT, `changed=${result.changed}\n`);
