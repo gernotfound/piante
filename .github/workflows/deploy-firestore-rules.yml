@@ -19,11 +19,6 @@ concurrency:
 jobs:
   deploy:
     name: Verifica e pubblica Firestore Rules
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -31,6 +26,22 @@ jobs:
       GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT }}
     steps:
+      - name: Rifiuta esplicitamente eventi CI non autorizzati
+        env:
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CI_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          THIS_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$CI_CONCLUSION" != "success" || "$CI_EVENT" != "push" ||
+                "$CI_BRANCH" != "main" || "$CI_REPO" != "$THIS_REPO" ]]; then
+            echo "::error::Una CI non valida non può pubblicare Rules e non deve sbloccare Hosting."
+            exit 1
+          fi
+
       - name: Checkout del commit verificato e della cronologia Rules
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

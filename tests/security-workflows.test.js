@@ -33,9 +33,12 @@ test("Hosting segue Firestore Production, non una CI generica o una PR", () => {
 test("Firestore segue solo CI main e usa provider e account isolati", () => {
   assert.match(firestore, /name: Piante Firestore Rules Production/);
   assert.match(firestore, /workflows: \[Verifica codice\]/);
-  assert.match(firestore, /workflow_run\.event == 'push'/);
-  assert.match(firestore, /head_branch == 'main'/);
-  assert.match(firestore, /head_repository\.full_name == github\.repository/);
+  assert.match(firestore, /CI_CONCLUSION/);
+  assert.match(firestore, /CI_EVENT/);
+  assert.match(firestore, /CI_BRANCH/);
+  assert.match(firestore, /CI_REPO/);
+  assert.match(firestore, /exit 1/);
+  assert.doesNotMatch(firestore, /^    if:/m);
   assert.match(firestore, /current_main.*EXPECTED_SHA/);
   assert.match(firestore, /fetch-depth: 0/);
   assert.match(firestore, /GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER/);
