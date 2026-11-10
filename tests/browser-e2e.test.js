@@ -138,8 +138,13 @@ async function openPage(context, route) {
 }
 
 async function login(page) {
+  // Il primo onAuthStateChanged può ridisegnare il form: non compilare i campi prima della sua conclusione.
+  await page.waitForFunction(() => window.__pianteDebug?.().authReady === true,
+    null, { timeout: 30000 });
   await page.locator('input[name="identity"]').fill(EMAIL);
   await page.locator('input[name="password"]').fill(PASSWORD);
+  assert.equal(await page.locator('input[name="identity"]').inputValue(), EMAIL);
+  assert.equal(await page.locator('input[name="password"]').inputValue(), PASSWORD);
   await page.locator('#login-form button[type="submit"]').click();
   try {
     await page.locator(".stat-grid").waitFor({ state: "visible", timeout: 25000 });
