@@ -632,7 +632,11 @@ async function login(form) {
   }
 }
 async function savePlant(form, id) {
-  if (plantSaveInProgress || !firebase || !state.inventoryReady || state.inventoryError) return;
+  if (plantSaveInProgress || !firebase) return;
+  if (!state.inventoryReady || state.inventoryError) {
+    showFormError("Inventario non disponibile. I dati non sono stati salvati: verifica la connessione e riprova.");
+    return;
+  }
   const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
@@ -667,7 +671,11 @@ async function savePlant(form, id) {
   }
 }
 async function deletePlant(id) {
-  if (plantSaveInProgress || !firebase || !state.inventoryReady || state.inventoryError) return;
+  if (plantSaveInProgress || !firebase) return;
+  if (!state.inventoryReady || state.inventoryError) {
+    showFormError("Inventario non disponibile. Nessuna eliminazione eseguita: verifica la connessione e riprova.");
+    return;
+  }
   if (!window.confirm("Eliminare definitivamente questa pianta dall'inventario e dal catalogo pubblico?")) return;
   const expectedVersion = editBaseline?.id === id ? editBaseline.version : null;
   const editor = document.querySelector("#plant-form");
