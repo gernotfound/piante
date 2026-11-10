@@ -73,6 +73,12 @@ function renderUnlessEditing() {
       (inventoryVisibility && inventoryVisibility.value !== state.inventoryVisibility)) return;
   render();
 }
+function renderAfterAuthChange() {
+  // Le pagine private devono riflettere immediatamente l'autenticazione;
+  // quelle pubbliche non devono perdere ricerche in compilazione.
+  if (state.route.startsWith("/admin") || state.route === "/login") render();
+  else renderUnlessEditing();
+}
 function showFormError(message, conflict = false) {
   state.error = message;
   const container = document.querySelector(".admin-body");
@@ -587,7 +593,7 @@ async function startFirebase() {
       if (privateListener) { privateListener(); privateListener = null; }
       state.user = user; state.owner = false; state.username = ""; state.inventory = [];
       state.inventoryReady = false; state.inventoryError = ""; editBaseline = null;
-      state.authReady = false; render();
+      state.authReady = false; renderAfterAuthChange();
       if (user) {
         try {
           const ownerDoc = await firebase.getDoc(firebase.doc(firebase.db, "siteOwner", "primary"));
@@ -612,9 +618,9 @@ async function startFirebase() {
           await firebase.signOut(firebase.auth);
         }
       }
-      if (serial === authCheckSerial) { state.authReady = true; render(); }
+      if (serial === authCheckSerial) { state.authReady = true; renderAfterAuthChange(); }
     });
-    render();
+    renderUnlessEditing();
   } catch {
     state.dbError = "Connessione Firebase non disponibile.";
     state.error = "Non è stato possibile inizializzare Firebase.";
