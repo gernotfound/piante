@@ -227,6 +227,14 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       }
       await page.setViewportSize({ width: 320, height: 740 });
       await page.locator('input[name="name"]').fill("Avocado da browser");
+      await page.locator('select[name="category"]').selectOption("Tropicali da frutto");
+      await page.locator('select[name="plantGroup"]').selectOption("Piante da frutto");
+      await page.locator('select[name="fruitType"]').selectOption("Tropicali e subtropicali");
+      await page.locator('select[name="pollination"]').selectOption("Variabile");
+      await page.locator('select[name="potSuitability"]').selectOption("Con accorgimenti");
+      await page.locator('input[name="harvestMonth"][value="9"]').check();
+      await page.locator('input[name="minColdC"]').fill("-5");
+      await page.locator('input[name="searchAliases"]').fill("aguacate");
       await page.locator('textarea[name="internalNotes"]').fill("Nota privata di test");
       await page.locator('input[name="published"]').check();
       await page.locator('#plant-form button[type="submit"]').click();
@@ -247,11 +255,28 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal((await getDoc(doc(owner, "privatePlants", id))).data().internalNotes, "Nota privata di test");
       const publicDoc = await getDoc(doc(guest, "catalog", id));
       assert.equal(publicDoc.data().name, "Avocado da browser");
+      assert.equal(publicDoc.data().minColdC, -5);
+      assert.deepEqual(publicDoc.data().harvestMonths, [9]);
+      assert.equal(publicDoc.data().pollination, "Variabile");
       assert.equal(publicDoc.data().internalNotes, undefined);
       await page.goto(baseUrl + "/piante", { waitUntil: "domcontentloaded" });
       await page.locator(".plant-card").filter({ hasText: "Avocado da browser" })
         .waitFor({ timeout: 45000 });
       assert.equal((await page.locator("#app").innerText()).includes("Nota privata di test"), false);
+      await page.locator("#catalog-search-input").fill("aguacate");
+      await page.locator('#search-form button[type="submit"]').click();
+      assert.match(new URL(page.url()).searchParams.get("q"), /aguacate/);
+      assert.equal(await page.locator(".plant-card").count(), 1);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.locator(".plant-card").filter({ hasText: "Avocado da browser" }).waitFor();
+      await page.locator("[data-toggle-filters]").click();
+      await page.locator("#climate-minimum").selectOption("-10");
+      await page.locator('#climate-form button[type="submit"]').click();
+      assert.equal(await page.locator(".plant-card").count(), 0);
+      await page.goto(baseUrl + "/piante?gruppo=Piante+da+frutto&freddo=-5",
+        { waitUntil: "domcontentloaded" });
+      await page.locator(".plant-card").filter({ hasText: "Avocado da browser" }).waitFor();
+      await noOverflow(page, "Filtri climatici 320px");
 
       await page.goto(baseUrl + "/admin/modifica/" + encodeURIComponent(id),
         { waitUntil: "domcontentloaded" });
