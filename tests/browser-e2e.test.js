@@ -193,6 +193,7 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
       await noOverflow(page, "Catalogo " + width + "px");
     }
     await page.locator("#catalog-search-input").fill("ricerca in corso");
+    await page.locator("#catalog-search-input").evaluate((input) => input.blur());
     await page.evaluate(() => window.__pianteTestSnapshotRerender());
     assert.equal(await page.locator("#catalog-search-input").inputValue(), "ricerca in corso");
     assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
@@ -228,6 +229,17 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.locator('input[name="published"]').check();
       await page.locator('#plant-form button[type="submit"]').click();
       await page.waitForURL("**/admin/piante", { timeout: 45000 });
+      await page.locator("#inventory-search-input").fill("ricerca privata non applicata");
+      await page.locator("#inventory-search-input").evaluate((input) => input.blur());
+      await page.evaluate(() => window.__pianteTestSnapshotRerender());
+      assert.equal(await page.locator("#inventory-search-input").inputValue(),
+        "ricerca privata non applicata");
+      await page.locator("#inventory-search-input").fill("");
+      await page.locator("#inventory-visibility").selectOption("Pubblicate");
+      await page.locator("#inventory-visibility").evaluate((select) => select.blur());
+      await page.evaluate(() => window.__pianteTestSnapshotRerender());
+      assert.equal(await page.locator("#inventory-visibility").inputValue(), "Pubblicate");
+      await page.locator("#inventory-visibility").selectOption("Tutte");
       const link = await page.locator('a[href^="/admin/modifica/"]').first().getAttribute("href");
       const id = decodeURIComponent(link.split("/").pop());
       assert.equal((await getDoc(doc(owner, "privatePlants", id))).data().internalNotes, "Nota privata di test");
