@@ -22,6 +22,6 @@ test("asset senza hash non restano obsoleti nella cache e i documenti interni no
   assert.match(cache?.value ?? "", /must-revalidate/);
   for (const required of [
     "AGENTS.md", "docs/**", ".agents/**", ".github/**",
-    "tests/**", "README.md", "firestore.rules", "gha-creds-*.json"
+    "tests/**", "scripts/**", "README.md", "firestore.rules", "gha-creds-*.json"
   ]) assert.ok(hosting.ignore.includes(required), "Ignore mancante: " + required);
 });

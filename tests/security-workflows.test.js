@@ -8,6 +8,14 @@ const deploy = read("../.github/workflows/deploy-production.yml");
 const firestore = read("../.github/workflows/deploy-firestore-rules.yml");
 const dependabot = read("../.github/dependabot.yml");
 
+test("I workflow usano una versione Node compatibile con le dipendenze Firebase", () => {
+  const pkg = JSON.parse(read("../package.json"));
+  assert.equal(pkg.engines.node, ">=24.12.0");
+  for (const [name, yaml] of [["CI", ci], ["Hosting", deploy], ["Firestore", firestore]]) {
+    assert.match(yaml, /node-version: '24\.12\.0'/, name + ": versione Node non coerente con il progetto");
+  }
+});
+
 test("CI: permessi minimi e gate obbligatorio aggregato", () => {
   assert.match(ci, /permissions:\s*\n\s+contents: read/);
   assert.match(ci, /name: Canonical Verification/);
