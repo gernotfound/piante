@@ -25,7 +25,8 @@ const sandboxMain = originalMain.replace(hook, hook + '\n' +
   ' inventoryReady: state.inventoryReady, inventoryError: state.inventoryError,' +
   ' error: state.error, flash: state.flash});' +
   '\nwindow.__pianteTestSetInventoryError = (value) => {' +
-  ' state.inventoryError = value; renderUnlessEditing(); };';
+  ' state.inventoryError = value; renderUnlessEditing(); };' +
+  '\nwindow.__pianteTestSnapshotRerender = () => renderUnlessEditing();';
 const sandboxConfig = [
   "export const firebaseConfig = {",
   '  apiKey: "demo-key",',
@@ -152,6 +153,7 @@ async function login(page) {
     null, { timeout: 30000 });
   await page.locator('input[name="identity"]').fill(EMAIL);
   await page.locator('input[name="password"]').fill(PASSWORD);
+  await page.evaluate(() => window.__pianteTestSnapshotRerender());
   assert.equal(await page.locator('input[name="identity"]').inputValue(), EMAIL);
   assert.equal(await page.locator('input[name="password"]').inputValue(), PASSWORD);
   await page.locator('#login-form button[type="submit"]').click();
@@ -190,6 +192,9 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
       await page.locator("#search-form").waitFor();
       await noOverflow(page, "Catalogo " + width + "px");
     }
+    await page.locator("#catalog-search-input").fill("ricerca in corso");
+    await page.evaluate(() => window.__pianteTestSnapshotRerender());
+    assert.equal(await page.locator("#catalog-search-input").inputValue(), "ricerca in corso");
     assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
   } finally {
     await context.close();
@@ -268,6 +273,9 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal((await getDoc(doc(guest, "catalog", id))).exists(), false);
 
       await page.goto(baseUrl + "/admin/impostazioni", { waitUntil: "domcontentloaded" });
+      await page.locator('input[name="username"]').fill("nuovonome");
+      await page.evaluate(() => window.__pianteTestSnapshotRerender());
+      assert.equal(await page.locator('input[name="username"]').inputValue(), "nuovonome");
       await page.locator(".settings-logout [data-action='logout']").click();
       await page.waitForURL("**/login", { timeout: 45000 });
       assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
