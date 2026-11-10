@@ -60,6 +60,10 @@ function confirmDiscard() {
 }
 function renderUnlessEditing() {
   if ((formDirty || plantSaveInProgress) && document.querySelector("#plant-form")) return;
+  // Gli snapshot asincroni non devono sostituire i moduli durante la compilazione.
+  if (document.querySelector("#login-form, #username-form")) return;
+  const focusedForm = document.activeElement?.closest?.("form");
+  if (["search-form", "inventory-search-form"].includes(focusedForm?.id)) return;
   render();
 }
 function showFormError(message, conflict = false) {
@@ -549,7 +553,8 @@ function render() {
   else if (path.startsWith("/piante/")) page = detailPage(decodeURIComponent(path.slice(8)));
   else if (path === "/chi-siamo") page = aboutPage();
   else if (path === "/contatti") page = contactPage();
-  else if (path === "/login") page = loginPage();
+  else if (path === "/login") page = !state.authReady && firebaseConfigured
+    ? `<div class="boot" role="status">Verifica della sessione…</div>` : loginPage();
   else if (path.startsWith("/admin")) page = adminPage();
   else page = pageHero("Pagina inesistente", "Pagina non trovata", "Il collegamento richiesto non esiste.") +
     `<section class="section"><div class="container"><a href="/" data-nav class="btn btn-primary">Torna alla home</a></div></section>`;
