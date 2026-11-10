@@ -28,9 +28,9 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 
 ## Pubblicazione automatica diretta — `piantee.web.app`
 
-Il workflow `.github/workflows/deploy-production.yml` avvia la pubblicazione soltanto su `main`, dopo test di sintassi, unitari e Rules sull'emulatore. Pubblica **solo il target Hosting `piantee`**, non Firestore Rules o dati. Non crea anteprime.
+La CI `.github/workflows/ci.yml` verifica sintassi, test unitari, Firestore Emulator e CodeQL su `main`. Dopo `Canonical Verification` riuscita, `.github/workflows/deploy-firestore-rules.yml` riconcilia le Rules del database `(default)` e ne verifica la release attiva. Solo dopo il suo successo `.github/workflows/deploy-production.yml` pubblica **il target Hosting `piantee`**. Non ci sono anteprime PR né deploy automatici di dati o indici.
 
-Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza chiavi JSON permanenti. La sua configurazione reale è esterna a Git: account di servizio dedicato, pool/provider GitHub OIDC e binding di impersonazione. Il workflow richiede due repository variables GitHub: `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT`. Se mancano, non pubblica.
+Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza chiavi JSON permanenti, con identità distinte per Firestore Rules e Hosting. I workflow richiedono le repository variables `GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT` per le Rules, oltre a `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` per Hosting. Le identità e i privilegi effettivi devono essere verificati nel provider.
 
 La configurazione passo per passo, le autorizzazioni minime, i controlli e il rollback sono nel [runbook Firebase Hosting](docs/operations/firebase-hosting-runbook.md). Le conferme e le verifiche mancanti sono nel [registro dei servizi esterni](docs/operations/external-services-register.md).
 
@@ -57,6 +57,8 @@ Su Spark, **Cloud Storage for Firebase non è accessibile**: dal 3 febbraio 2026
 - La CLI, la configurazione della console, la verifica delle regole rispetto al database reale e i test end-to-end nel browser sono ancora necessari prima di considerare pronto il rilascio in produzione.
 
 ## Test
+
+Per i test locali serve **Node.js 24.12.0 o superiore**, coerentemente con i requisiti delle dipendenze Firebase.
 
 ```sh
 npm install
