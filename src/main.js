@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, plantGroupOf, fruitTypeOf, coldMinimumOf, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
 import { filterCatalog, filterInventory } from "./catalog.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "./plant-store.js";
 
@@ -18,11 +18,18 @@ const state = {
   username: "",
   error: "",
   flash: "",
-  filter: "",
+  filter: new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "",
   category: getCategoryFromUrl(),
+  group: getGroupFromUrl(),
+  fruitType: getFruitTypeFromUrl(),
+  minTempC: getColdFromUrl(),
+  pollination: getPollinationFromUrl(),
+  potSuitability: getPotFromUrl(),
+  harvestMonth: getHarvestFromUrl(),
   filtersOpen: false,
   inventoryQuery: "",
   inventoryVisibility: "Tutte",
+  inventoryGroup: "Tutte",
   dbError: ""
 };
 let firebase = null;
@@ -54,6 +61,55 @@ const heroArt = `<svg class="botanical-art" viewBox="0 0 450 495" role="img" ari
 function getCategoryFromUrl() {
   const value = new URLSearchParams(window.location.search).get("categoria");
   return categories.includes(value) ? value : "Tutte";
+}
+function getGroupFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("gruppo");
+  return plantGroups.includes(value) ? value : "Tutte";
+}
+function getFruitTypeFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("tipo");
+  return fruitTypes.includes(value) ? value : "Tutte";
+}
+const coldOptions = ["", "5", "0", "-3", "-5", "-10", "-15", "-20"];
+function getColdFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("freddo") || "";
+  return coldOptions.includes(value) ? value : "";
+}
+function getPollinationFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("impollinazione");
+  return pollinationTypes.includes(value) ? value : "Tutte";
+}
+function getPotFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("vaso");
+  return potSuitabilityTypes.includes(value) ? value : "Tutte";
+}
+function getHarvestFromUrl() {
+  const value = new URLSearchParams(window.location.search).get("raccolta") || "";
+  return /^(?:[1-9]|1[012])$/.test(value) ? value : "";
+}
+function readCatalogUrl() {
+  state.category = getCategoryFromUrl();
+  state.group = getGroupFromUrl();
+  state.fruitType = getFruitTypeFromUrl();
+  state.minTempC = getColdFromUrl();
+  state.pollination = getPollinationFromUrl();
+  state.potSuitability = getPotFromUrl();
+  state.harvestMonth = getHarvestFromUrl();
+  state.filter = new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "";
+}
+function syncCatalogUrl() {
+  const params = new URLSearchParams();
+  if (state.category !== "Tutte") params.set("categoria", state.category);
+  if (state.group !== "Tutte") params.set("gruppo", state.group);
+  if (state.fruitType !== "Tutte") params.set("tipo", state.fruitType);
+  if (state.minTempC !== "") params.set("freddo", state.minTempC);
+  if (state.pollination !== "Tutte") params.set("impollinazione", state.pollination);
+  if (state.potSuitability !== "Tutte") params.set("vaso", state.potSuitability);
+  if (state.harvestMonth !== "") params.set("raccolta", state.harvestMonth);
+  if (state.filter) params.set("q", state.filter);
+  const path = "/piante" + (params.size ? "?" + params.toString() : "");
+  window.history.replaceState({}, "", path);
+  currentPath = path;
 }
 function confirmDiscard() {
   return !formDirty || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
@@ -109,10 +165,7 @@ function go(path) {
   currentPath = target.pathname + target.search;
   window.history.pushState({}, "", currentPath);
   state.route = target.pathname;
-  if (state.route === "/piante") {
-    state.category = getCategoryFromUrl();
-    state.filter = "";
-  }
+  if (state.route === "/piante") readCatalogUrl();
   state.menuOpen = false;
   state.filtersOpen = false;
   state.error = "";
@@ -173,10 +226,11 @@ function card(item) {
   return `<a class="plant-card" href="/piante/${encodeURIComponent(item.id)}" data-nav>
     ${imageMarkup(item)}
     <div class="plant-info">
-      <span class="plant-category">${h(item.category || "Pianta")}</span>
+      <span class="plant-category">${h(plantGroupOf(item) === "Piante da frutto" ? fruitTypeOf(item) : item.category || "Pianta")}</span>
       <h3 class="plant-name">${h(item.name)}</h3>
       <p class="plant-latin">${h(item.scientificName || item.variety || "")}</p>
       ${item.availability ? `<p class="plant-availability">${h(item.availability)}</p>` : ""}
+      ${coldMinimumOf(item) !== null ? `<p class="plant-climate">Freddo indicativo: ${h(coldMinimumOf(item))} °C</p>` : ""}
       <div class="plant-bottom"><strong>${item.price ? h(item.price) : "Scopri la pianta"}</strong><span aria-hidden="true">↗</span></div>
     </div>
   </a>`;
@@ -186,9 +240,9 @@ function empty(message) {
     <p>${h(message)}</p></div>`;
 }
 function homepage() {
-  const featured = state.catalog.slice(0, 3);
-  const photo = state.catalog.find((item) => safeImageUrl(item.imageUrl));
-  const categoriesToShow = ["Tropicali da frutto", "Agrumi", "Succulente", "Ornamentali"];
+  const featured = filterCatalog(state.catalog).slice(0, 3);
+  const photo = featured.find((item) => safeImageUrl(item.imageUrl)) || state.catalog.find((item) => safeImageUrl(item.imageUrl));
+  const categoriesToShow = ["Piante da frutto", "Tropicali da frutto", "Agrumi", "Orto e tuberi"];
   return `<section class="hero">
     <div class="container hero-inner">
       <div class="hero-copy">
@@ -214,8 +268,11 @@ function homepage() {
       <a class="text-link" href="/piante" data-nav>Vedi tutto il catalogo <span aria-hidden="true">↗</span></a>
     </div>
     <div class="category-grid">${categoriesToShow.map((category, index) => {
-      const representative = state.catalog.find((item) => item.category === category && safeImageUrl(item.imageUrl));
-      return `<a class="category-tile category-tile-${index + 1}" href="/piante?categoria=${encodeURIComponent(category)}" data-nav>
+      const byGroup = category === "Piante da frutto" || category === "Orto e tuberi";
+      const representative = state.catalog.find((item) =>
+        (byGroup ? plantGroupOf(item) === category : item.category === category) && safeImageUrl(item.imageUrl));
+      const queryKey = byGroup ? "gruppo" : "categoria";
+      return `<a class="category-tile category-tile-${index + 1}" href="/piante?${queryKey}=${encodeURIComponent(category)}" data-nav>
         <span class="category-media">${representative ? `<img src="${h(safeImageUrl(representative.imageUrl))}" alt="" loading="lazy" decoding="async" data-photo>` : leafArt}</span>
         <span class="category-copy"><strong>${h(category)}</strong><span aria-hidden="true">↗</span></span>
       </a>`;
@@ -248,8 +305,29 @@ function pageHero(tag, title, intro) {
     <h1>${h(title)}</h1><p>${h(intro)}</p></div></section>`;
 }
 function catalogPage() {
-  const plants = filterCatalog(state.catalog, { query: state.filter, category: state.category });
-  const hasFilters = Boolean(state.filter.trim()) || state.category !== "Tutte";
+  const plants = filterCatalog(state.catalog, {
+    query: state.filter, category: state.category, group: state.group,
+    fruitType: state.fruitType, minTempC: state.minTempC,
+    pollination: state.pollination, potSuitability: state.potSuitability,
+    harvestMonth: state.harvestMonth
+  });
+  const hasFilters = Boolean(state.filter.trim()) || state.category !== "Tutte" ||
+    state.group !== "Tutte" || state.fruitType !== "Tutte" || state.minTempC !== "" ||
+    state.pollination !== "Tutte" || state.potSuitability !== "Tutte" || state.harvestMonth !== "";
+  const groupFilters = ["Tutte", ...plantGroups].map((group) => `<button type="button"
+    class="filter-option ${state.group === group ? "active" : ""}" data-group-filter="${h(group)}"
+    aria-pressed="${state.group === group}">${h(group === "Tutte" ? "Tutte le piante" : group)}</button>`).join("");
+  const fruitFilters = ["Tutte", ...fruitTypes].map((type) => `<button type="button"
+    class="filter-option ${state.fruitType === type ? "active" : ""}" data-fruit-filter="${h(type)}"
+    aria-pressed="${state.fruitType === type}">${h(type === "Tutte" ? "Tutte le fruttifere" : type)}</button>`).join("");
+  const coldSelect = coldOptions.map((value) => `<option value="${value}" ${state.minTempC === value ? "selected" : ""}>
+    ${value === "" ? "Qualsiasi temperatura" : "Fino a " + (Number(value) > 0 ? "+" : "") + value + " °C"}</option>`).join("");
+  const pollinationOptions = ["Tutte", ...pollinationTypes].map((value) =>
+    `<option value="${h(value)}" ${state.pollination === value ? "selected" : ""}>${h(value === "Tutte" ? "Qualsiasi / non specificata" : value)}</option>`).join("");
+  const potOptions = ["Tutte", ...potSuitabilityTypes].map((value) =>
+    `<option value="${h(value)}" ${state.potSuitability === value ? "selected" : ""}>${h(value === "Tutte" ? "Qualsiasi / non specificata" : value)}</option>`).join("");
+  const harvestOptions = ["", ...monthNames.map((_, i) => String(i + 1))].map((value) =>
+    `<option value="${value}" ${state.harvestMonth === value ? "selected" : ""}>${h(value === "" ? "Qualsiasi mese" : monthNames[Number(value) - 1])}</option>`).join("");
   const filters = ["Tutte", ...categories].map((category) => `<button type="button"
       class="filter-option ${state.category === category ? "active" : ""}"
       data-category-filter="${h(category)}" aria-pressed="${state.category === category}">
@@ -264,7 +342,7 @@ function catalogPage() {
         <label class="sr-only" for="catalog-search-input">Cerca nel catalogo</label>
         <span class="search-icon" aria-hidden="true">⌕</span>
         <input id="catalog-search-input" class="input" type="search" name="q"
-          placeholder="Cerca nome, specie o varietà" value="${h(state.filter)}" autocomplete="off">
+          placeholder="Es. maracujà, avocado, Opuntia" value="${h(state.filter)}" maxlength="120" autocomplete="off">
         <button class="btn btn-primary" type="submit">Cerca</button>
       </form>
       <div class="catalog-toolbar">
@@ -276,13 +354,43 @@ function catalogPage() {
         ${hasFilters ? `<button class="text-link reset-filters" type="button" data-reset-filters>Rimuovi filtri</button>` : ""}
       </div>
       <div class="catalog-layout">
-        <aside id="catalog-filters" class="catalog-filters ${state.filtersOpen ? "open" : ""}" aria-label="Filtra per categoria">
-          <h2>Filtra per categoria</h2>
+        <aside id="catalog-filters" class="catalog-filters ${state.filtersOpen ? "open" : ""}" aria-label="Filtri del catalogo">
+          <h2>Tipologia</h2>
+          <div class="filter-options">${groupFilters}</div>
+          <h2>Piante da frutto</h2>
+          <div class="filter-options">${fruitFilters}</div>
+          <h2>Resistenza al freddo</h2>
+          <form id="climate-form" class="climate-form">
+            <label for="climate-minimum">La pianta resiste almeno a</label>
+            <select id="climate-minimum" name="minimum" class="select">${coldSelect}</select>
+            <button class="btn btn-outline btn-small" type="submit">Applica temperatura</button>
+            <small>Si considerano solo schede con una temperatura indicativa inserita. Le piante giovani e in vaso possono essere meno resistenti.</small>
+          </form>
+          <h2>Raccolta e impollinazione</h2>
+          <form id="traits-form" class="climate-form">
+            <label for="pollination-filter">Autofertilità</label>
+            <select id="pollination-filter" name="pollination" class="select">${pollinationOptions}</select>
+            <label for="harvest-filter">Mese di raccolta</label>
+            <select id="harvest-filter" name="harvestMonth" class="select">${harvestOptions}</select>
+            <label for="pot-filter">Coltivazione in vaso</label>
+            <select id="pot-filter" name="potSuitability" class="select">${potOptions}</select>
+            <button class="btn btn-outline btn-small" type="submit">Applica caratteristiche</button>
+            <small>Mostriamo solo caratteristiche documentate. L'impollinazione, il raccolto e l'idoneità al vaso variano anche secondo la cultivar e il luogo.</small>
+          </form>
+          <h2>Categorie specifiche</h2>
           <div class="filter-options">${filters}</div>
         </aside>
         <div class="catalog-content">
-          ${hasFilters ? `<p class="filter-summary">${state.category !== "Tutte" ? `<span class="filter-chip">${h(state.category)}</span>` : ""}
-            ${state.filter ? `<span class="filter-chip">Ricerca: ${h(state.filter)}</span>` : ""}</p>` : ""}
+          ${hasFilters ? `<p class="filter-summary">
+            ${state.group !== "Tutte" ? `<span class="filter-chip">${h(state.group)}</span>` : ""}
+            ${state.fruitType !== "Tutte" ? `<span class="filter-chip">${h(state.fruitType)}</span>` : ""}
+            ${state.category !== "Tutte" ? `<span class="filter-chip">${h(state.category)}</span>` : ""}
+            ${state.minTempC !== "" ? `<span class="filter-chip">Almeno ${h(state.minTempC)} °C</span>` : ""}
+            ${state.pollination !== "Tutte" ? `<span class="filter-chip">${h(state.pollination)}</span>` : ""}
+            ${state.harvestMonth !== "" ? `<span class="filter-chip">Raccolta: ${h(monthNames[Number(state.harvestMonth) - 1])}</span>` : ""}
+            ${state.potSuitability !== "Tutte" ? `<span class="filter-chip">Vaso: ${h(state.potSuitability)}</span>` : ""}
+            ${state.filter ? `<span class="filter-chip">Ricerca: ${h(state.filter)}</span>` : ""}
+          </p>` : ""}
           <div class="grid catalog-grid">${plants.length ? plants.map(card).join("") :
             empty(state.catalog.length ? "Nessuna pianta corrisponde ai filtri. Prova a modificarli." :
               "Il catalogo si riempirà quando pubblicherai le prime piante dal gestionale.")}</div>
@@ -297,7 +405,11 @@ function detailPage(id) {
   const properties = [
     ["Nome scientifico", item.scientificName], ["Varietà", item.variety],
     ["Categoria", item.category], ["Origine", item.origin],
-    ["Esposizione", item.light], ["Irrigazione", item.water]
+    ["Esposizione", item.light], ["Irrigazione", item.water],
+    ["Impollinazione", item.pollination], ["Coltivazione in vaso", item.potSuitability],
+    ["Raccolta indicativa", Array.isArray(item.harvestMonths)
+      ? item.harvestMonths.filter((m) => Number.isInteger(m) && m >= 1 && m <= 12)
+        .map((m) => monthNames[m - 1]).join(", ") : ""]
   ].filter(([,value]) => Boolean(value));
   return `<section class="section detail-section"><div class="container">
     <nav class="breadcrumbs" aria-label="Percorso"><a href="/piante" data-nav>Catalogo</a><span aria-hidden="true">/</span><span>${h(item.name)}</span></nav>
@@ -313,6 +425,12 @@ function detailPage(id) {
           ${item.availability ? `<div><span class="detail-label">Disponibilità</span><strong>${h(item.availability)}</strong></div>` : ""}
         </div>` : ""}
         <p class="detail-description">${h(item.description || "La scheda di questa pianta verrà arricchita con altre informazioni.")}</p>
+        ${coldMinimumOf(item) !== null ? `<div class="climate-detail">
+          <strong>Temperatura minima indicativa: ${h(coldMinimumOf(item))} °C</strong>
+          <p>Dato orientativo per piante adulte acclimatate in piena terra. La resistenza dipende da durata del freddo, cultivar, esposizione e protezione.</p>
+          ${item.coldNotes ? `<p>${h(item.coldNotes)}</p>` : ""}
+          ${safeImageUrl(item.coldSource) ? `<a href="${h(safeImageUrl(item.coldSource))}" target="_blank" rel="noopener noreferrer">Consulta la fonte</a>` : ""}
+        </div>` : ""}
         <a href="/contatti" data-nav class="btn btn-primary detail-contact">Informazioni e contatti <span aria-hidden="true">↗</span></a>
         ${properties.length ? `<section class="detail-properties"><h2>Caratteristiche della pianta</h2><dl class="specs">
           ${properties.map(([label,value]) => `<div class="spec-row"><dt>${h(label)}</dt><dd>${h(value)}</dd></div>`).join("")}
@@ -423,7 +541,7 @@ function overviewPage() {
 }
 function inventoryPage() {
   const plants = filterInventory(state.inventory, {
-    query: state.inventoryQuery, visibility: state.inventoryVisibility
+    query: state.inventoryQuery, visibility: state.inventoryVisibility, group: state.inventoryGroup
   });
   const rows = plants.map((plant) => `<tr>
     <td data-label="Pianta"><div class="inventory-name">
@@ -438,6 +556,10 @@ function inventoryPage() {
     <form id="inventory-search-form" class="inventory-filters" role="search">
       <label class="sr-only" for="inventory-search-input">Cerca nel tuo inventario</label>
       <input id="inventory-search-input" class="input" type="search" name="q" value="${h(state.inventoryQuery)}" placeholder="Cerca una pianta" autocomplete="off">
+      <label class="sr-only" for="inventory-group">Filtra per tipologia</label>
+      <select id="inventory-group" class="select" name="group">
+        ${["Tutte", ...plantGroups].map((value) => `<option value="${h(value)}" ${state.inventoryGroup === value ? "selected" : ""}>${h(value === "Tutte" ? "Tutte le tipologie" : value)}</option>`).join("")}
+      </select>
       <label class="sr-only" for="inventory-visibility">Filtra per visibilità</label>
       <select id="inventory-visibility" class="select" name="visibility">
         ${["Tutte", "Pubblicate", "Private"].map((value) =>
@@ -455,7 +577,7 @@ function inventoryPage() {
     </section>`, "Inventario", "Tutte le tue piante, pubbliche e private, in un unico spazio.");
 }
 function inputField(label, name, value, opts = "") {
-  return `<label class="form-field"><span>${h(label)}</span><input class="input" name="${name}" value="${h(value || "")}" ${opts}></label>`;
+  return `<label class="form-field"><span>${h(label)}</span><input class="input" name="${name}" value="${h(value ?? "")}" ${opts}></label>`;
 }
 function textareaField(label, name, value, opts = "") {
   return `<label class="form-field"><span>${h(label)}</span><textarea class="textarea" name="${name}" ${opts}>${h(value || "")}</textarea></label>`;
@@ -474,8 +596,35 @@ function editPage(id) {
   } else {
     editBaseline = null;
   }
+  const selectedHarvestMonths = new Set(Array.isArray(p.harvestMonths) ? p.harvestMonths : []);
+  const pollinationSelect = `<label class="form-field"><span>Autofertilità</span><select class="select" name="pollination">
+    ${["", ...pollinationTypes].map((value) => `<option value="${h(value)}" ${(p.pollination || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
+  </select></label>`;
+  const potSelect = `<label class="form-field"><span>Coltivazione in vaso</span><select class="select" name="potSuitability">
+    ${["", ...potSuitabilityTypes].map((value) => `<option value="${h(value)}" ${(p.potSuitability || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
+  </select></label>`;
+  const harvestSelector = `<fieldset class="harvest-fieldset full-width">
+    <legend>Mesi indicativi della raccolta (facoltativi)</legend>
+    <div class="harvest-months">
+      ${monthNames.map((name, i) => `<label>
+        <input type="checkbox" name="harvestMonth" value="${i + 1}" ${selectedHarvestMonths.has(i + 1) ? "checked" : ""}>
+        <span>${h(name)}</span></label>`).join("")}
+    </div>
+    <p>Il calendario è indicativo per il clima locale e non determina la data effettiva di maturazione.</p>
+  </fieldset>`;
+  const selectedGroup = p.plantGroup || (id ? plantGroupOf(p) : "Piante da frutto");
+  const selectedFruitType = p.fruitType || (id ? fruitTypeOf(p) : "Altre fruttifere");
+  const groupSelect = `<label class="form-field"><span>Gruppo principale</span><select class="select" name="plantGroup">
+    ${plantGroups.map((group) => `<option value="${h(group)}" ${selectedGroup === group ? "selected" : ""}>${h(group)}</option>`).join("")}
+  </select></label>`;
+  const fruitSelect = `<label class="form-field"><span>Tipo di fruttifera (se applicabile)</span><select class="select" name="fruitType">
+    ${["", ...fruitTypes].map((type) => `<option value="${h(type)}" ${selectedFruitType === type ? "selected" : ""}>${h(type || "Non applicabile")}</option>`).join("")}
+  </select></label>`;
+  const habitSelect = `<label class="form-field"><span>Forma della pianta</span><select class="select" name="growthHabit">
+    ${["", ...growthHabits].map((type) => `<option value="${h(type)}" ${p.growthHabit === type ? "selected" : ""}>${h(type || "Da indicare")}</option>`).join("")}
+  </select></label>`;
   const select = `<label class="form-field"><span>Categoria</span><select class="select" name="category">
-    ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Tropicali da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
+    ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Piante da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
   </select></label>`;
   return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}">
     <div class="editor-heading"><div><h2>${id ? "Dettagli della pianta" : "Nuova scheda"}</h2>
@@ -489,8 +638,15 @@ function editPage(id) {
         ${inputField("Nome comune *", "name", p.name, "required maxlength='100'")}
         ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
         ${select}
+        ${groupSelect}
+        ${fruitSelect}
+        ${habitSelect}
         ${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
+        <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", p.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
         ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
+        ${pollinationSelect}
+        ${potSelect}
+        ${harvestSelector}
       </div>
     </section>
     <section class="editor-section">
@@ -506,14 +662,27 @@ function editPage(id) {
     </section>
     <section class="editor-section">
       <div class="editor-section-heading"><span class="editor-step">03</span><div>
+        <h3>Clima e resistenza al freddo</h3>
+        <p>Facoltativo. Non assegnare valori presunti: il filtro pubblico utilizza solo soglie registrate.</p></div></div>
+      <div class="form-grid">
+        ${inputField("Temperatura minima indicativa (°C)", "minColdC", p.minColdC,
+          "type='number' step='0.5' min='-40' max='25' inputmode='decimal' placeholder='Es. -3'")}
+        ${inputField("Fonte HTTPS (facoltativa)", "coldSource", p.coldSource,
+          "type='url' inputmode='url' maxlength='500' placeholder='https://...'")}
+        <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", p.coldNotes, "maxlength='250'")}</div>
+      </div>
+      <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">04</span><div>
         <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
       <div class="form-grid">
-        <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' placeholder='https://...'")}</div>
+        <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>
       </div>
       ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
     </section>
     <section class="editor-section">
-      <div class="editor-section-heading"><span class="editor-step">04</span><div>
+      <div class="editor-section-heading"><span class="editor-step">05</span><div>
         <h3>Visibilità e note riservate</h3><p>Le note private non vengono mai copiate nel catalogo pubblico.</p></div></div>
       <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
         <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
@@ -655,9 +824,13 @@ async function savePlant(form, id) {
     showFormError("Inventario non disponibile. I dati non sono stati salvati: verifica la connessione e riprova.");
     return;
   }
-  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes"];
+  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "plantGroup", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
+  plant.harvestMonths = [...new Set(form.getAll("harvestMonth").map(Number))].sort((a, b) => a - b);
+  const coldRaw = String(form.get("minColdC") || "").trim();
+  // null cancella anche un precedente valore: la scrittura privata usa update, non set.
+  plant.minColdC = coldRaw ? Number(coldRaw.replace(",", ".")) : null;
   const validation = validatePlant(plant);
   if (validation) { showFormError(validation); return; }
   const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
@@ -773,19 +946,48 @@ async function handleClick(event) {
     const category = categoryButton.dataset.categoryFilter;
     if (!["Tutte", ...categories].includes(category)) return;
     state.category = category;
+    state.group = "Tutte";
+    state.fruitType = "Tutte";
     state.filtersOpen = false;
-    const path = category === "Tutte" ? "/piante" : `/piante?categoria=${encodeURIComponent(category)}`;
-    window.history.replaceState({}, "", path);
-    currentPath = path;
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  const groupButton = event.target.closest("[data-group-filter]");
+  if (groupButton) {
+    const group = groupButton.dataset.groupFilter;
+    if (!["Tutte", ...plantGroups].includes(group)) return;
+    state.group = group;
+    state.category = "Tutte";
+    state.fruitType = "Tutte";
+    state.filtersOpen = false;
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  const fruitButton = event.target.closest("[data-fruit-filter]");
+  if (fruitButton) {
+    const type = fruitButton.dataset.fruitFilter;
+    if (!["Tutte", ...fruitTypes].includes(type)) return;
+    state.fruitType = type;
+    state.group = "Piante da frutto";
+    state.category = "Tutte";
+    state.filtersOpen = false;
+    syncCatalogUrl();
     render();
     return;
   }
   if (event.target.closest("[data-reset-filters]")) {
     state.category = "Tutte";
+    state.group = "Tutte";
+    state.fruitType = "Tutte";
+    state.minTempC = "";
+    state.pollination = "Tutte";
+    state.potSuitability = "Tutte";
+    state.harvestMonth = "";
     state.filter = "";
     state.filtersOpen = false;
-    window.history.replaceState({}, "", "/piante");
-    currentPath = "/piante";
+    syncCatalogUrl();
     render();
     document.querySelector("#catalog-search-input")?.focus();
     return;
@@ -809,16 +1011,39 @@ async function handleClick(event) {
 }
 function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
+  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
-    state.filter = String(data.get("q") || "").trim();
+    state.filter = String(data.get("q") || "").trim().slice(0, 120);
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  if (form.id === "climate-form") {
+    const minimum = String(data.get("minimum") || "");
+    state.minTempC = coldOptions.includes(minimum) ? minimum : "";
+    state.filtersOpen = false;
+    syncCatalogUrl();
+    render();
+    return;
+  }
+  if (form.id === "traits-form") {
+    const pollination = String(data.get("pollination") || "Tutte");
+    const pot = String(data.get("potSuitability") || "Tutte");
+    const month = String(data.get("harvestMonth") || "");
+    state.pollination = ["Tutte", ...pollinationTypes].includes(pollination) ? pollination : "Tutte";
+    state.potSuitability = ["Tutte", ...potSuitabilityTypes].includes(pot) ? pot : "Tutte";
+    state.harvestMonth = /^(?:[1-9]|1[012])$/.test(month) ? month : "";
+    state.filtersOpen = false;
+    syncCatalogUrl();
     render();
     return;
   }
   if (form.id === "inventory-search-form") {
     state.inventoryQuery = String(data.get("q") || "").trim();
+    const group = String(data.get("group") || "Tutte");
+    state.inventoryGroup = ["Tutte", ...plantGroups].includes(group) ? group : "Tutte";
     const visibility = String(data.get("visibility") || "Tutte");
     state.inventoryVisibility = ["Tutte", "Pubblicate", "Private"].includes(visibility) ? visibility : "Tutte";
     render();
@@ -840,7 +1065,7 @@ function handlePopState() {
   formDirty = false;
   currentPath = window.location.pathname + window.location.search;
   state.route = window.location.pathname;
-  if (state.route === "/piante") state.category = getCategoryFromUrl();
+  if (state.route === "/piante") readCatalogUrl();
   state.error = "";
   state.menuOpen = false;
   state.filtersOpen = false;
