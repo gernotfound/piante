@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
-import { collection, deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "../src/plant-store.js";
 
 let environment;
@@ -53,7 +53,7 @@ test("creazione privata: scrive solo nell'inventario, con timestamp, senza pubbl
   assert.ok(privatePlant.createdAt);
   assert.ok(privatePlant.updatedAt);
   assert.equal(await data(guest, "catalog", id), null);
-  await assert.rejects(getDoc(doc(guest, "privatePlants", id)), /permission-denied/);
+  await assert.rejects(getDoc(doc(guest, "privatePlants", id)), { code: "permission-denied" });
 });
 
 test("pubblicazione, modifica e rimozione dalla vetrina sono atomiche", async () => {
@@ -120,11 +120,15 @@ test("il controllo di versione non si affida soltanto ad updatedAt", async () =>
 });
 
 test("una transazione rifiutata dalle Rules non crea una scheda privata orfana", async () => {
-  const id = "denied-" + doc(collection(owner, "privatePlants")).id;
-  // Anche il client fidato può ricevere input invalido; la Rules deve bloccare l'intera transazione.
-  await assert.rejects(savePlantRecord(adapter(owner), { id: "", plant: { ...plant, name: "", published: true } }));
-  await assert.rejects(savePlantRecord(adapter(guest), { plant: { ...plant, published: true } }));
-  assert.equal(await data(guest, "catalog", id), null);
+  const privateBefore = (await getDocs(collection(owner, "privatePlants"))).size;
+  const publicBefore = (await getDocs(collection(guest, "catalog"))).size;
+  // Anche il client fidato può ricevere input invalido; le Rules devono bloccare l'intera transazione.
+  await assert.rejects(savePlantRecord(adapter(owner), { plant: { ...plant, name: "", published: true } }),
+    { code: "permission-denied" });
+  await assert.rejects(savePlantRecord(adapter(guest), { plant: { ...plant, published: true } }),
+    { code: "permission-denied" });
+  assert.equal((await getDocs(collection(owner, "privatePlants"))).size, privateBefore);
+  assert.equal((await getDocs(collection(guest, "catalog"))).size, publicBefore);
 });
 
 test("assenza della versione iniziale impedisce modifiche distruttive", async () => {
