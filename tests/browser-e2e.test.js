@@ -119,7 +119,7 @@ async function openPage(context, route) {
   const diagnostic = [];
   page.on("pageerror", (err) => diagnostic.push("JavaScript: " + err.message));
   page.on("response", (response) => {
-    if (/127\\.0\\.0\\.1:9099/.test(response.url())) {
+    if (new URL(response.url()).origin === "http://127.0.0.1:9099") {
       diagnostic.push("Auth emulator: " + response.status() + " " +
         new URL(response.url()).pathname);
     }
@@ -129,9 +129,16 @@ async function openPage(context, route) {
   });
   page.diagnostic = diagnostic;
   const forbidden = [];
-  await page.route(/https:\/\/(?:firestore|identitytoolkit|securetoken)\.googleapis\.com\//, async (intercept) => {
-    forbidden.push(intercept.request().url());
-    await intercept.abort();
+  await page.route("**/*", async (intercept) => {
+    const url = new URL(intercept.request().url());
+    if (url.protocol === "https:" && [
+      "firestore.googleapis.com", "identitytoolkit.googleapis.com", "securetoken.googleapis.com"
+    ].includes(url.hostname)) {
+      forbidden.push(url.href);
+      await intercept.abort();
+    } else {
+      await intercept.continue();
+    }
   });
   page.sandboxRequests = forbidden;
   await page.goto(baseUrl + route, { waitUntil: "domcontentloaded" });
