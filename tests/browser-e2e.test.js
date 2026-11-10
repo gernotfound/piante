@@ -96,7 +96,9 @@ test.before(async () => {
   httpServer = createServer(routeFile);
   await new Promise((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
   baseUrl = "http://127.0.0.1:" + httpServer.address().port;
-  browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+  browser = await chromium.launch({ headless: true,
+    ...(process.env.PIANTE_CHROME_CHANNEL === "chrome" ? { channel: "chrome" } : {}),
+    args: ["--no-sandbox"] });
 });
 
 test.after(async () => {
