@@ -30,8 +30,8 @@ I breakpoint seguono la larghezza utile, non modelli o produttori di smartphone.
 - La vetrina ha Home, Catalogo, Il vivaio e Contatti. Le tessere delle categorie collegano a `/piante?categoria=...` (condivisione/refresh preservano la categoria).
 - Ricerca e filtri del catalogo operano solo sui documenti già pubblici in `catalog`. Il prezzo e la disponibilità compaiono soltanto quando presenti nei dati, senza interpretare testo libero come quantità o stati certificati.
 - La dashboard mostra totale, pubblicate, private ed elementi modificati di recente. La lista non introduce nuove raccolte o scritture.
-- Il gestionale mantiene l'invariante `privatePlants` / `catalogProjection` e la pubblicazione atomica esistenti. I moduli sono raggruppati per informazioni, foto, visibilità e note riservate; salvare una pianta esegue lo stesso batch Firebase.
-- In un editor con modifiche, la navigazione chiede conferma e gli snapshot Firestore non rigenerano il form, prevenendo la perdita silenziosa di input. Non esiste salvataggio automatico.
+- Il gestionale mantiene l'invariante `privatePlants` / `catalogProjection`: salvare o eliminare una pianta usa una transazione atomica che verifica la versione aperta nell'editor; una seconda scheda non può sovrascrivere la prima senza ricaricare.
+- In un editor con modifiche, la navigazione chiede conferma e gli snapshot Firestore non rigenerano il form. Su conflitto i dati compilati restano nel modulo e compare «Ricarica la scheda» (con conferma prima di scartare le modifiche). Durante una scrittura i controlli sono disabilitati e la navigazione interna bloccata. Non esiste salvataggio automatico.
 
 ## Supporto dei dispositivi più vecchi
 
@@ -42,4 +42,4 @@ L'obiettivo di layout copre anche smartphone intorno a 320 px diffusi nell'ultim
 - Sintassi e filtri puri: `npm run check`, `npm test`.
 - Rules: `npm run test:rules`. Il redesign non pubblica Rules.
 - Test manuali prima di rilasciare: 320/360/390/430/768/1024/1440 CSS px, orientamento, zoom testo, tastiera; navigazione, menu, filtri, schede vuote e con foto, URL categoria con reload, bottone Torna, sidebar/bottom nav, editor con modifiche non salvate, salvataggio successo/fallimento e logout.
-- I test CI non sostituiscono il collaudo visivo su browser e dispositivi. Il deploy Hosting avviene solo con merge su `main`, non dalla PR.
+- I test CI includono ora le operazioni di modifica/pubblicazione/rimozione e i conflitti attraverso Firestore Emulator. La copertura Mobile First tramite controlli statici non sostituisce il collaudo visivo su browser e dispositivi (in particolare 320 px, tastiera e zoom). Il deploy Hosting avviene solo con merge su `main`, non dalla PR.
