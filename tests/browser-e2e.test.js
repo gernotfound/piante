@@ -107,6 +107,12 @@ test.after(async () => {
 
 async function openPage(context, route) {
   const page = await context.newPage();
+  const diagnostic = [];
+  page.on("pageerror", (err) => diagnostic.push("JavaScript: " + err.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") diagnostic.push("Console: " + message.text());
+  });
+  page.diagnostic = diagnostic;
   const forbidden = [];
   await page.route(/https:\/\/(?:firestore|identitytoolkit|securetoken)\.googleapis\.com\//, async (intercept) => {
     forbidden.push(intercept.request().url());
@@ -122,7 +128,16 @@ async function login(page) {
   await page.locator('input[name="identity"]').fill(EMAIL);
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.locator('#login-form button[type="submit"]').click();
-  await page.locator(".stat-grid").waitFor({ state: "visible", timeout: 45000 });
+  try {
+    await page.locator(".stat-grid").waitFor({ state: "visible", timeout: 25000 });
+  } catch (err) {
+    const ui = (await page.locator("#app").innerText()).slice(0, 1300);
+    throw new Error("Dashboard non visibile. URL: " + page.url() +
+      "; UI: " + ui +
+      "; diagnostica: " + JSON.stringify(page.diagnostic.slice(-12)) +
+      "; richieste cloud proibite: " + JSON.stringify(page.sandboxRequests) +
+      "; causa: " + err.message);
+  }
 }
 
 async function noOverflow(page, label) {
