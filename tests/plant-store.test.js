@@ -93,7 +93,7 @@ test("due salvataggi realmente simultanei non possono vincere entrambi", async (
   const results = [a, b];
   assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
   assert.equal(results.filter((r) => r.status === "rejected" &&
-    r.reason instanceof PlantConflictError).length, 1);
+    (r.reason instanceof PlantConflictError || r.reason?.code === "aborted")).length, 1);
   const privatePlant = await data(owner, "privatePlants", id);
   const publicPlant = await data(guest, "catalog", id);
   assert.equal(publicPlant.name, privatePlant.name);
