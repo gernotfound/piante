@@ -26,7 +26,7 @@ jobs:
       - name: Configura Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version: '24.12.0'
       - name: Verifica sintassi
         run: npm run check
       - name: Test unitari
@@ -44,7 +44,7 @@ jobs:
       - name: Configura Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version: '24.12.0'
       - name: Configura Java
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
