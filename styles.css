@@ -206,6 +206,7 @@ button:focus,a:focus,input:focus,select:focus,textarea:focus{outline:2px solid v
 .full-width{grid-column:1/-1}
 .notice{background:#EDF4EB;border-left:4px solid var(--leaf);padding:13px 15px;color:#35563C;border-radius:6px;font-size:.88rem;line-height:1.6;margin-bottom:20px}
 .notice.error{background:#FCEBE6;border-color:#B84D38;color:#8A352A}
+.notice.error .btn{display:block;width:max-content;max-width:100%;margin-top:12px;white-space:normal;text-align:center;overflow-wrap:anywhere}
 .flash{margin-bottom:20px}
 /* Gestionale: mobile come layout di base */
 .admin-shell{background:var(--paper);min-height:100vh}
