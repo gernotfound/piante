@@ -12,7 +12,7 @@ test("I workflow usano una versione Node compatibile con le dipendenze Firebase"
   const pkg = JSON.parse(read("../package.json"));
   assert.equal(pkg.engines.node, ">=24.12.0");
   for (const [name, yaml] of [["CI", ci], ["Hosting", deploy], ["Firestore", firestore]]) {
-    assert.match(yaml, /node-version: '24\\.12\\.0'/, name + ": versione Node non coerente con il progetto");
+    assert.match(yaml, /node-version: '24\.12\.0'/, name + ": versione Node non coerente con il progetto");
   }
 });
 
