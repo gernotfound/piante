@@ -64,6 +64,13 @@ function renderUnlessEditing() {
   if (document.querySelector("#login-form, #username-form")) return;
   const focusedForm = document.activeElement?.closest?.("form");
   if (["search-form", "inventory-search-form"].includes(focusedForm?.id)) return;
+  // Le ricerche non ancora confermate non vanno perse se l'utente esce dal campo.
+  const catalogSearch = document.querySelector("#catalog-search-input");
+  if (catalogSearch && catalogSearch.value !== state.filter) return;
+  const inventorySearch = document.querySelector("#inventory-search-input");
+  const inventoryVisibility = document.querySelector("#inventory-visibility");
+  if ((inventorySearch && inventorySearch.value !== state.inventoryQuery) ||
+      (inventoryVisibility && inventoryVisibility.value !== state.inventoryVisibility)) return;
   render();
 }
 function showFormError(message, conflict = false) {
