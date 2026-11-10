@@ -8,8 +8,8 @@ function normalized(value) {
   if (typeof value.seconds === "number" && typeof value.nanoseconds === "number") {
     return ["timestamp", value.seconds, value.nanoseconds];
   }
-  if (Array.isArray(value)) return value.map(normalized);
-  return Object.keys(value).sort().map((key) => [key, normalized(value[key])]);
+  if (Array.isArray(value)) return ["array", value.map(normalized)];
+  return ["object", Object.keys(value).sort().map((key) => [key, normalized(value[key])])];
 }
 
 export function plantVersion(plant) {
