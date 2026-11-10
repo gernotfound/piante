@@ -198,6 +198,16 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
     await page.evaluate(() => window.__pianteTestSnapshotRerender());
     await page.evaluate(() => window.__pianteTestAuthRerender());
     assert.equal(await page.locator("#catalog-search-input").inputValue(), "ricerca in corso");
+    await page.locator("#catalog-search-input").fill("");
+    await page.locator("#climate-minimum").selectOption("-5");
+    await page.locator("#pollination-filter").selectOption("Autofertile");
+    await page.locator("#harvest-filter").selectOption("9");
+    await page.locator("#pot-filter").selectOption("Adatta");
+    await page.evaluate(() => window.__pianteTestSnapshotRerender());
+    assert.equal(await page.locator("#climate-minimum").inputValue(), "-5");
+    assert.equal(await page.locator("#pollination-filter").inputValue(), "Autofertile");
+    assert.equal(await page.locator("#harvest-filter").inputValue(), "9");
+    assert.equal(await page.locator("#pot-filter").inputValue(), "Adatta");
     assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
   } finally {
     await context.close();
@@ -250,6 +260,10 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.evaluate(() => window.__pianteTestSnapshotRerender());
       assert.equal(await page.locator("#inventory-visibility").inputValue(), "Pubblicate");
       await page.locator("#inventory-visibility").selectOption("Tutte");
+      await page.locator("#inventory-group").selectOption("Piante da frutto");
+      await page.locator("#inventory-group").evaluate((select) => select.blur());
+      await page.evaluate(() => window.__pianteTestSnapshotRerender());
+      assert.equal(await page.locator("#inventory-group").inputValue(), "Piante da frutto");
       const link = await page.locator('a[href^="/admin/modifica/"]').first().getAttribute("href");
       const id = decodeURIComponent(link.split("/").pop());
       assert.equal((await getDoc(doc(owner, "privatePlants", id))).data().internalNotes, "Nota privata di test");
