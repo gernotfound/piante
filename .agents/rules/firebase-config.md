@@ -23,4 +23,4 @@ La configurazione Web in `src/config.js` (`apiKey`, `authDomain`, `projectId`, `
 
 La produzione pubblica è `https://piantee.web.app`, site ID `piantee`. Il progetto Google Cloud/Firebase è `piante-a617e` (identificatori diversi). Si distribuisce da GitHub Actions quando viene aggiornato `main`, solo dopo i controlli, senza canali preview.
 
-Il deployer deve autenticarsi via WIF e avere privilegi Hosting minimi, non privilegi di gestione Firestore. Il [runbook](../../docs/operations/firebase-hosting-runbook.md) descrive setup, gate e rollback.
+Il deployer Hosting mantiene soltanto i propri privilegi minimi. Il workflow `deploy-firestore-rules.yml` usa un pool WIF e un service account separati, riconcilia soltanto le Rules di `(default)` dopo la CI di main e verifica che la policy live corrisponda a una versione approvata nella storia Git prima di pubblicare. Rilegge la release e attende fino a 10 minuti se cambia. Hosting (`deploy-production.yml`) è attivato soltanto dopo il successo Firestore sullo stesso SHA. Gli indici e i dati non sono nel perimetro. Il [runbook](../../docs/operations/firebase-hosting-runbook.md) descrive setup, gate e rollback.

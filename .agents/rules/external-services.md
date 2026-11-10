@@ -16,7 +16,8 @@
 - MUST: usare `firebase.json` + `.firebaserc` per destinare il deploy solo al site ID `piantee`; un project ID `piante-a617e` non equivale al site ID.
 - MUST: proteggere `main` con PR e verifica `Canonical Verification` dopo attivazione e conferma del ruleset nel provider; gli workflow non sostituiscono un ruleset GitHub.
 - MUST: distinguere le `apiKey` pubbliche della Web App Firebase (restrizioni API necessarie) dalle credenziali private di amministrazione. Non ruotare automaticamente una chiave Firebase client a causa di un alert di pattern, né sopprimere secret scanning per `src/config.js`.
-- MUST: il workflow Hosting non pubblica Rules, indici, Functions o altri prodotti. L'emulatore Firestore è prova di test, non prova di deploy delle Rules.
+- MUST: Hosting pubblica soltanto Hosting, dopo il successo del workflow `deploy-firestore-rules.yml` separato. Firestore usa un diverso pool WIF e un diverso service account con `roles/firebaserules.admin` (non dati o indici), per la sola release Rules di `(default)` tramite API ufficiale. La verifica accetta solo Rules live equivalenti alla sorgente desiderata o a una versione approvata nella storia Git; drift estraneo blocca. Il read-back e la propagazione precedono Hosting. Non assegnare privilegi Rules al deployer Hosting.
+- MUST: non creare nuove identità, concedere IAM o attivare API senza mandato. Firestore richiede le variabili GitHub non segrete `GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT`, senza cambiare le variabili Hosting. Il pool Firestore distinto evita collisioni tra provider e riuso del principal Hosting. Nessuna chiave JSON. L'emulatore prova il candidato, non il runtime.
 - VERIFY: controllare direttamente nel provider il ruolo IAM, il dominio autorizzato, la presenza del sito, le impostazioni Auth/Firestore e la quota quando queste influenzano un rilascio.
 
 ## Failure e ripristino
