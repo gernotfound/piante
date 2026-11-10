@@ -1,6 +1,7 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
 import { categories, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
 import { filterCatalog, filterInventory } from "./catalog.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "./plant-store.js";
 
 const appRoot = document.querySelector("#app");
 const h = escapeHtml;
@@ -9,6 +10,8 @@ const state = {
   menuOpen: false,
   catalog: [],
   inventory: [],
+  inventoryReady: false,
+  inventoryError: "",
   user: null,
   owner: false,
   authReady: !firebaseConfigured,
@@ -27,6 +30,7 @@ let privateListener = null;
 let authCheckSerial = 0;
 let formDirty = false;
 let plantSaveInProgress = false;
+let editBaseline = null;
 let currentPath = window.location.pathname + window.location.search;
 
 const leafArt = `<svg viewBox="0 0 140 140" fill="none" aria-hidden="true"><path d="M67 128C67 84 83 54 106 17" stroke="#2f6b4c" stroke-width="3" stroke-linecap="round"/><path d="M72 100C37 106 19 86 17 57c29 0 55 14 55 43ZM85 65C82 30 106 11 132 9c0 29-16 54-47 56ZM66 119C34 134 12 119 6 97c27-5 49 0 60 22Z" fill="#3e7c55" stroke="#296543" stroke-width="2"/><path d="M71 100 26 66M86 64l36-44M64 118 17 104" stroke="#a2c5a0" stroke-width="2"/></svg>`;
@@ -55,10 +59,10 @@ function confirmDiscard() {
   return !formDirty || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
 }
 function renderUnlessEditing() {
-  if (formDirty && document.querySelector("#plant-form")) return;
+  if ((formDirty || plantSaveInProgress) && document.querySelector("#plant-form")) return;
   render();
 }
-function showFormError(message) {
+function showFormError(message, conflict = false) {
   state.error = message;
   const container = document.querySelector(".admin-body");
   if (!container) return;
@@ -70,9 +74,18 @@ function showFormError(message) {
     container.prepend(notice);
   }
   notice.textContent = message;
+  if (conflict) {
+    const reload = document.createElement("button");
+    reload.type = "button";
+    reload.className = "btn btn-outline btn-small";
+    reload.dataset.action = "reload-editor";
+    reload.textContent = "Ricarica la scheda";
+    notice.append(reload);
+  }
   notice.scrollIntoView({ block: "nearest" });
 }
 function go(path) {
+  if (plantSaveInProgress) return false;
   const target = new URL(path, window.location.href);
   if (target.origin !== window.location.origin || !confirmDiscard()) return false;
   formDirty = false;
@@ -436,6 +449,14 @@ function editPage(id) {
     `<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`,
     "Scheda non trovata", "La pianta non è presente nell'inventario.");
   const p = item || {};
+  // La versione rimane quella mostrata quando l'editor è stato aperto.
+  // Le notifiche Firestore non devono sostituirla mentre il modulo è modificato.
+  if (item) {
+    const { id: documentId, ...data } = item;
+    editBaseline = { id: documentId, version: plantVersion(data) };
+  } else {
+    editBaseline = null;
+  }
   const select = `<label class="form-field"><span>Categoria</span><select class="select" name="category">
     ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Tropicali da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
   </select></label>`;
@@ -506,6 +527,14 @@ function settingsPage() {
 function adminPage() {
   if (!state.authReady) return `<div class="boot">Verifica autorizzazioni…</div>`;
   if (!state.owner) return loginPage();
+  if (state.route !== "/admin/impostazioni" && state.inventoryError) {
+    return adminFrame(`<div class="panel" role="alert">Impossibile caricare l'inventario privato. Ricarica la pagina e verifica la connessione.</div>`,
+      "Inventario non disponibile", "Nessuna operazione sulle piante è stata eseguita.");
+  }
+  if (state.route !== "/admin/impostazioni" && !state.inventoryReady) {
+    return adminFrame(`<div class="panel" role="status">Caricamento dell'inventario…</div>`,
+      "Caricamento", "Verifica in corso dei dati privati.");
+  }
   if (state.route === "/admin/nuova") return editPage("");
   if (state.route.startsWith("/admin/modifica/")) return editPage(decodeURIComponent(state.route.slice("/admin/modifica/".length)));
   if (state.route === "/admin/piante") return inventoryPage();
@@ -545,6 +574,7 @@ async function startFirebase() {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
       state.user = user; state.owner = false; state.username = ""; state.inventory = [];
+      state.inventoryReady = false; state.inventoryError = ""; editBaseline = null;
       state.authReady = false; render();
       if (user) {
         try {
@@ -557,8 +587,9 @@ async function startFirebase() {
             state.username = profile.exists() ? profile.data().username || "" : "";
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
               state.inventory = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it")); renderUnlessEditing();
-            }, () => { state.error = "Impossibile leggere l'inventario privato."; renderUnlessEditing(); });
+                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
+              state.inventoryReady = true; state.inventoryError = ""; renderUnlessEditing();
+            }, () => { state.inventoryError = "Impossibile leggere l'inventario privato."; renderUnlessEditing(); });
           } else {
             state.error = "Questo account non è autorizzato a gestire il sito.";
             await firebase.signOut(firebase.auth);
@@ -601,23 +632,13 @@ async function login(form) {
   }
 }
 async function savePlant(form, id) {
-  if (plantSaveInProgress) return;
+  if (plantSaveInProgress || !firebase || !state.inventoryReady || state.inventoryError) return;
   const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.published = form.has("published");
   const validation = validatePlant(plant);
   if (validation) { showFormError(validation); return; }
-  const docId = id || firebase.doc(firebase.collection(firebase.db, "privatePlants")).id;
-  const previous = state.inventory.find((p) => p.id === docId);
-  const privateDoc = firebase.doc(firebase.db, "privatePlants", docId);
-  const publicDoc = firebase.doc(firebase.db, "catalog", docId);
-  const batch = firebase.writeBatch(firebase.db);
-  batch.set(privateDoc, {
-    ...plant, createdAt: previous?.createdAt || firebase.serverTimestamp(),
-    updatedAt: firebase.serverTimestamp()
-  });
-  if (plant.published) batch.set(publicDoc, catalogProjection(plant));
-  else batch.delete(publicDoc);
+  const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
   const editor = document.querySelector("#plant-form");
   const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
     .map((control) => ({ control, wasDisabled: control.disabled }));
@@ -625,32 +646,52 @@ async function savePlant(form, id) {
   plantSaveInProgress = true;
   controls.forEach(({ control }) => { control.disabled = true; });
   if (button) button.textContent = "Salvataggio…";
+  let completed = false;
   try {
-    await batch.commit();
-    state.error = "";
-    state.flash = "Pianta salvata correttamente.";
-    formDirty = false;
-    go("/admin/piante");
-  } catch {
-    showFormError("Salvataggio non riuscito. Controlla le autorizzazioni o la connessione.");
+    await savePlantRecord(firebase, { id, plant, expectedVersion });
+    completed = true;
+  } catch (err) {
+    showFormError(err instanceof PlantConflictError ? err.message :
+      "Salvataggio non riuscito. I dati inseriti sono ancora nel modulo. Controlla la connessione e riprova.",
+      err instanceof PlantConflictError);
   } finally {
     plantSaveInProgress = false;
     controls.forEach(({ control, wasDisabled }) => { if (control.isConnected) control.disabled = wasDisabled; });
     if (button?.isConnected) button.textContent = "Salva pianta";
+    if (completed) {
+      state.error = "";
+      state.flash = "Pianta salvata correttamente.";
+      formDirty = false;
+      go("/admin/piante");
+    }
   }
 }
 async function deletePlant(id) {
+  if (plantSaveInProgress || !firebase || !state.inventoryReady || state.inventoryError) return;
   if (!window.confirm("Eliminare definitivamente questa pianta dall'inventario e dal catalogo pubblico?")) return;
+  const expectedVersion = editBaseline?.id === id ? editBaseline.version : null;
+  const editor = document.querySelector("#plant-form");
+  const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
+    .map((control) => ({ control, wasDisabled: control.disabled }));
+  plantSaveInProgress = true;
+  controls.forEach(({ control }) => { control.disabled = true; });
+  let completed = false;
   try {
-    const batch = firebase.writeBatch(firebase.db);
-    batch.delete(firebase.doc(firebase.db, "privatePlants", id));
-    batch.delete(firebase.doc(firebase.db, "catalog", id));
-    await batch.commit();
-    state.error = ""; state.flash = "Pianta eliminata.";
-    formDirty = false;
-    go("/admin/piante");
-  } catch {
-    showFormError("Impossibile eliminare la pianta.");
+    await deletePlantRecord(firebase, { id, expectedVersion });
+    completed = true;
+  } catch (err) {
+    showFormError(err instanceof PlantConflictError ? err.message :
+      "Eliminazione non riuscita. La scheda non è stata modificata da questa operazione.",
+      err instanceof PlantConflictError);
+  } finally {
+    plantSaveInProgress = false;
+    controls.forEach(({ control, wasDisabled }) => { if (control.isConnected) control.disabled = wasDisabled; });
+    if (completed) {
+      state.error = "";
+      state.flash = "Pianta eliminata.";
+      formDirty = false;
+      go("/admin/piante");
+    }
   }
 }
 async function saveUsername(form) {
@@ -724,10 +765,16 @@ async function handleClick(event) {
     return;
   }
   const action = event.target.closest("[data-action]");
+  if (action?.dataset.action === "reload-editor" && state.owner && !plantSaveInProgress) {
+    if (!confirmDiscard()) return;
+    formDirty = false; state.error = ""; state.flash = "";
+    render();
+    return;
+  }
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
     await deletePlant(action.dataset.id);
   }
-  if (action?.dataset.action === "logout" && firebase && confirmDiscard()) {
+  if (action?.dataset.action === "logout" && firebase && !plantSaveInProgress && confirmDiscard()) {
     formDirty = false;
     await firebase.signOut(firebase.auth);
     state.flash = "Hai effettuato la disconnessione.";
@@ -760,7 +807,7 @@ function markPlantDirty(event) {
   if (event.target.closest?.("#plant-form")) formDirty = true;
 }
 function handlePopState() {
-  if (!confirmDiscard()) {
+  if (plantSaveInProgress || !confirmDiscard()) {
     window.history.pushState({}, "", currentPath);
     return;
   }
@@ -784,7 +831,7 @@ document.addEventListener("error", (event) => {
 }, true);
 window.addEventListener("popstate", handlePopState);
 window.addEventListener("beforeunload", (event) => {
-  if (!formDirty) return;
+  if (!formDirty && !plantSaveInProgress) return;
   event.preventDefault();
   event.returnValue = "";
 });
