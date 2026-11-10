@@ -36,7 +36,7 @@ Aprire esplicitamente i file pertinenti: un rimando non equivale alla loro lettu
 
 - Nuovo lavoro su branch e PR; verificare prima PR esistenti. `main` è l'unico branch sorgente del deploy live verso **`piantee.web.app`**. Niente canali di anteprima o deploy automatico da PR.
 - Non fare merge/deploy o modifiche irreversibili a provider live senza mandato appropriato; non sostituire indiscriminatamente Rules o dati Firestore.
-- Eseguire `npm run check`, `npm test` e `npm run test:rules` sulla versione candidata quando possibile; registrare lo SHA GitHub verificato. CI verde non certifica login, autorizzazioni live o Hosting aggiornato.
+- Eseguire `npm run check`, `npm test`, `npm run test:rules` e `npm run test:browser` sulla versione candidata secondo l'ambiente disponibile; registrare lo SHA GitHub verificato. Il browser E2E usa esclusivamente i Firebase Emulator e una configurazione client fittizia. CI verde non certifica login, autorizzazioni live o Hosting aggiornato.
 - Per il deploy GitHub→Google Cloud preferire **Workload Identity Federation (WIF)** tramite service account Hosting dedicato, senza key JSON permanente. Separare l'identità di deploy da Firebase Authentication e dai dati Firestore.
 - Il rilascio da main attiva `deploy-firestore-rules.yml` dopo la CI e solo dopo il suo successo attiva `deploy-production.yml` (solo Hosting). Le identità WIF usano pool distinti, con condizioni dedicate ai rispettivi workflow. Nessun deploy di indici, dati o altri servizi. Le Rules richiedono test Emulator, confronto con la cronologia approvata, read-back live e arresto su drift estraneo.
 - Prima di concludere distinguere: test locali, CI candidata, merge, CI main, deploy Hosting e smoke test browser sul sito reale.
