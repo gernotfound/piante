@@ -18,7 +18,12 @@ assert.equal(originalMain.split(hook).length, 2, "Il bootstrap Firebase è cambi
 const sandboxMain = originalMain.replace(hook, hook + '\n' +
   'authMod.connectAuthEmulator(firebase.auth, "http://127.0.0.1:9099", { disableWarnings: true });\n' +
   'dbMod.connectFirestoreEmulator(firebase.db, "127.0.0.1", 8080);\n' +
-  'window.__pianteTestReady = true;');
+  'window.__pianteTestReady = true;') +
+  '\nwindow.__pianteDebug = () => ({route: state.route, owner: state.owner,' +
+  ' authReady: state.authReady, user: state.user?.uid || null,' +
+  ' authUser: firebase?.auth.currentUser?.uid || null,' +
+  ' inventoryReady: state.inventoryReady, inventoryError: state.inventoryError,' +
+  ' error: state.error, flash: state.flash});';
 const sandboxConfig = [
   "export const firebaseConfig = {",
   '  apiKey: "demo-key",',
@@ -111,6 +116,12 @@ async function openPage(context, route) {
   const page = await context.newPage();
   const diagnostic = [];
   page.on("pageerror", (err) => diagnostic.push("JavaScript: " + err.message));
+  page.on("response", (response) => {
+    if (/127\\.0\\.0\\.1:9099/.test(response.url())) {
+      diagnostic.push("Auth emulator: " + response.status() + " " +
+        new URL(response.url()).pathname);
+    }
+  });
   page.on("console", (message) => {
     if (message.type() === "error") diagnostic.push("Console: " + message.text());
   });
@@ -134,7 +145,9 @@ async function login(page) {
     await page.locator(".stat-grid").waitFor({ state: "visible", timeout: 25000 });
   } catch (err) {
     const ui = (await page.locator("#app").innerText()).slice(0, 1300);
-    throw new Error("Dashboard non visibile. URL: " + page.url() +
+    const state = await page.evaluate(() => window.__pianteDebug?.());
+    throw new Error("Dashboard non visibile. Stato: " + JSON.stringify(state) +
+      "; URL: " + page.url() +
       "; UI: " + ui +
       "; diagnostica: " + JSON.stringify(page.diagnostic.slice(-12)) +
       "; richieste cloud proibite: " + JSON.stringify(page.sandboxRequests) +
