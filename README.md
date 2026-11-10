@@ -65,7 +65,7 @@ npm install
 npm run check
 npm test
 npm run test:rules
-npx playwright install --with-deps chromium
+npx playwright install chromium # Solo su PC senza Chrome configurato per i test
 npm run test:browser
 ```
 
