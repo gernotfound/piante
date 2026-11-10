@@ -178,12 +178,12 @@ async function noOverflow(page, label) {
     label + ": overflow orizzontale " + JSON.stringify(dimensions));
 }
 
-test("vetrina Mobile First: 320, 390, 768 e 1024 CSS px senza overflow", { timeout: 90000 }, async () => {
+test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout: 90000 }, async () => {
   const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: true });
   try {
     const page = await openPage(context, "/");
     await page.locator(".hero").waitFor();
-    for (const width of [320, 390, 768, 1024]) {
+    for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 700 });
       await noOverflow(page, "Home " + width + "px");
       await page.goto(baseUrl + "/piante", { waitUntil: "domcontentloaded" });
@@ -202,10 +202,22 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
     try {
       const page = await openPage(context, "/login");
       await login(page);
-      await noOverflow(page, "Dashboard 320px");
+      for (const width of [320, 390, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 740 });
+        await noOverflow(page, "Dashboard " + width + "px");
+        assert.equal(await page.locator(".admin-bottom-nav").isVisible(), width < 1000,
+          "Navigazione inferiore errata a " + width + "px");
+        assert.equal(await page.locator(".admin-sidebar").isVisible(), width >= 1000,
+          "Sidebar errata a " + width + "px");
+      }
+      await page.setViewportSize({ width: 320, height: 740 });
       await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-      await noOverflow(page, "Editor 320px");
+      for (const width of [320, 390, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 740 });
+        await noOverflow(page, "Editor " + width + "px");
+      }
+      await page.setViewportSize({ width: 320, height: 740 });
       await page.locator('input[name="name"]').fill("Avocado da browser");
       await page.locator('textarea[name="internalNotes"]').fill("Nota privata di test");
       await page.locator('input[name="published"]').check();
