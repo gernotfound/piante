@@ -68,9 +68,9 @@ La temperatura non è una garanzia di sopravvivenza: cultivar, durata, vento, te
 
 `catalogProjection` copia solo i metadati pubblici consentiti; non copia `internalNotes`. La nuova allowlist in `firestore.rules` richiede numeri, stringhe, liste di mesi ed enum validi e continua a negare scritture anonime e letture private. I campi nuovi sono facoltativi, preservando le vecchie schede.
 
-**CRITICAL:** le Rules live non sono aggiornate dalla pipeline Hosting. Se si distribuisse soltanto la nuova UI, i salvataggi di schede pubblicate fallirebbero, perché `catalogProjection` aggiunge campi non ammessi dalle vecchie Rules. Non eseguire merge/deploy Hosting prima di pianificare e verificare separatamente l'aggiornamento delle Rules su database reale, oppure implementare una fase compatibile senza nuovi campi.
+**CRITICAL:** la pipeline corrente esegue **CI → Firestore Rules Production → Hosting Production** sullo stesso commit di `main`. Il reconciler usa l'identità WIF Firestore dedicata, riconcilia soltanto le Rules di `(default)`, interrompe il rilascio su drift sconosciuto, verifica con read-back e attende la propagazione quando necessario. Solo dopo una fase Rules riuscita parte Hosting: senza la nuova allowlist i salvataggi che pubblicano i metadati fallirebbero con `permission-denied`. Non saltare questa sequenza, non allargare privilegi e non correggere gli errori rendendo più permissive le Rules.
 
-I test emulator della PR provano soltanto il file Rules candidato, non lo stato live. Nessuna modifica o popolamento dei dati di produzione per testing.
+I test con Firestore Emulator e Chrome E2E locale non dimostrano che le Rules siano attive in produzione o che il login reale funzioni. Nessun popolamento di schede da dati storici, né scritture distruttive sull'inventario live. La rimozione di una soglia climatica impostata in precedenza salva `minColdC: null` nella scheda privata e omette il campo nel catalogo pubblico, evitando filtri basati su valori obsoleti.
 
 ## Verifica manuale necessaria
 
