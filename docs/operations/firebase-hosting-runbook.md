@@ -118,7 +118,7 @@ a un account che attualmente dispone soltanto di `roles/firebaserules.admin`.
 
 - Una modifica manuale alle Rules live non presente su `main` provoca un arresto controllato (drift). Prima riconciliare la modifica e ripetere la CI; non bypassare i controlli.
 - Firebase mantiene la cronologia dei Ruleset: registrare release e SHA, poi ripristinare la versione appropriata dal provider quando necessario. Il rollback di Hosting non ripristina le Rules.
-- In un merge con nuovi campi pubblici (es. PR #9) il job Rules deve concludersi prima di Hosting, senza modifiche ai dati esistenti o a IAM.
+- In un merge con nuovi campi pubblici (come la reintroduzione delle funzioni di ricerca dalla PR #9 attraverso la PR #16) il job Rules deve concludersi e rileggere la policy aggiornata **prima** di Hosting, senza modificare dati esistenti o IAM. Se la riconciliazione fallisce, interrompere la catena: non pubblicare il frontend con nuovi metadati contro Rules vecchie.
 
 
 ### Prima pubblicazione riuscita — 2026-11-05

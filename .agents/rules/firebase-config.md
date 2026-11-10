@@ -9,12 +9,12 @@ La configurazione Web in `src/config.js` (`apiKey`, `authDomain`, `projectId`, `
 - Le password stanno in Firebase Authentication, non in Firestore.
 - Il proprietario è riconosciuto quando `request.auth.uid` corrisponde al campo stringa `uid` del documento `siteOwner/primary`. Solo la console con accesso amministrativo deve poter modificare quel documento; le Rules lo proteggono dalla scrittura client.
 - Il primo login si effettua con email/password. Gli alias in `loginAliases` servono a risolvere email, NON concedono privilegi. La lettura puntuale pubblica di un alias può esporre l'email associata: non considerarla privata.
-- `privatePlants` contiene anche `internalNotes`; `catalog` contiene soltanto i campi di `catalogProjection` (vedere `src/domain.js`). Un documento non pubblicato non deve comparire in `catalog`.
+- `privatePlants` contiene anche `internalNotes`; `catalog` contiene soltanto i campi di `catalogProjection` (vedere `src/domain.js`). Un documento non pubblicato non deve comparire in `catalog`. Le informazioni pubblicabili su rusticità, impollinazione, raccolta, forma di crescita e sinonimi sono facoltative: non inferire valori sconosciuti. `minColdC: null` nella scheda privata indica la cancellazione di una vecchia soglia e viene omesso dalla proiezione pubblica.
 - Il client usa transazioni Firestore per modificare o eliminare schede, verificando che la versione letta nell'editor sia ancora attuale; copia privata e proiezione pubblica vengono aggiornate o rimosse atomicamente. Non sostituire le transazioni con scritture non condizionali: eliminazioni e cambio visibilità devono restare coerenti.
 
 ## Sicurezza e test
 
-- Test `tests/domain.test.js` per validazione e proiezione; test `tests/rules.test.js` contro emulatore Firestore. Dopo cambiamenti a auth/Rules pubblicazione, aggiungere test pertinenti.
+- Test `tests/domain.test.js` e `tests/search-filters.test.js` per validazione, ricerca e proiezione; test `tests/rules.test.js` e `tests/plant-store.test.js` sull'emulatore Firestore; `tests/browser-e2e.test.js` sui due emulatori e Chrome. Dopo cambiamenti a auth/Rules pubblicazione, aggiungere test pertinenti. La CI del candidato non dimostra l'applicazione delle Rules live.
 - Non dedurre che Rules siano pubblicate perché un file esiste o i test passano. La console Firebase costituisce un sistema live distinto; anche le dichiarazioni dell'utente vanno registrate come tali.
 - Per modifiche alle Rules, confrontare database e collezioni reali. Un deploy Rules sovrascrive la policy per il database configurato e non è incluso nel workflow Hosting.
 - I record `siteOwner`, il catalogo e gli alias sono dati di produzione: non eliminarli, reimpostarli o seminarli automaticamente durante un test.

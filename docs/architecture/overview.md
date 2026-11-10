@@ -1,6 +1,6 @@
 # Architettura attuale — Piante
 
-**Stato:** il redesign commerciale Mobile First e l'automazione CI → Firestore Rules → Hosting sono integrati in `main`. Gli interventi di concorrenza del gestionale sono verificati separatamente su PR prima di ogni rilascio.
+**Stato:** redesign Mobile First, gestione concorrente dell'inventario e automazione CI → Firestore Rules → Hosting risultano integrati in `main` fino alla PR #14. I filtri botanici avanzati sono candidati su branch separato: richiedono aggiornamento delle Rules prima di Hosting.
 
 ## Obiettivo
 
@@ -10,10 +10,10 @@ Sito pubblico del futuro vivaio e area privata amministrativa: Home, Piante, Chi
 
 - `index.html` e `styles.css`: interfaccia statica responsive.
 - `src/main.js`: routing, Firebase Web SDK, form, login, navigazione pubblica e gestionale, visualizzazione e sincronizzazione client.
-- `src/catalog.js`: filtri puri riutilizzati da catalogo pubblico e inventario, testabili senza dipendenze Firebase.
+- `src/catalog.js`: ricerca botanica locale, classificazione fruttifere e filtri puri riutilizzati dal catalogo pubblico e dall'inventario, testabili senza dipendenze Firebase.
 - `src/plant-store.js`: transazioni atomiche su inventario e catalogo, protezione contro modifiche concorrenti e versioni delle schede.
 - `docs/design/mobile-first.md`: decisioni visual e limiti di supporto ai browser datati.
-- `src/domain.js`: validazione, escaping e proiezione pubblicabile dei dati.
+- `src/domain.js`: validazione, escaping, classificazioni botaniche e proiezione allowlist pubblicabile dei dati.
 - `src/config.js`: valori pubblici della Web App Firebase (non credenziali amministrative).
 - `firestore.rules`: controlli server-side per i documenti.
 - `firebase.json` e `.firebaserc`: target Hosting `piantee`, Rules e configurazione emulatori.

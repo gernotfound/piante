@@ -70,6 +70,34 @@ test("pubblicazione, modifica e rimozione dalla vetrina sono atomiche", async ()
   assert.equal((await data(owner, "privatePlants", id)).description, "Ritorna privata");
 });
 
+test("clima: aggiornamento atomico, rimozione della soglia e nessuna fuga delle note private", async () => {
+  const id = await savePlantRecord(adapter(owner), { plant: {
+    ...plant, published: true, plantGroup: "Piante da frutto",
+    fruitType: "Tropicali e subtropicali", minColdC: -5,
+    coldSource: "https://example.test/studio", coldNotes: "Dato indicativo",
+    searchAliases: "aguacate", harvestMonths: [8, 9], pollination: "Variabile"
+  } });
+  const oldPrivate = await data(owner, "privatePlants", id);
+  const oldPublic = await data(guest, "catalog", id);
+  assert.equal(oldPublic.minColdC, -5);
+  assert.deepEqual(oldPublic.harvestMonths, [8, 9]);
+  assert.equal(oldPublic.internalNotes, undefined);
+  assert.equal(oldPrivate.internalNotes, plant.internalNotes);
+
+  await savePlantRecord(adapter(owner), { id, expectedVersion: plantVersion(oldPrivate),
+    plant: { ...plant, published: true, plantGroup: "Piante da frutto",
+      fruitType: "Tropicali e subtropicali", minColdC: null, harvestMonths: [],
+      pollination: "", coldSource: "", coldNotes: "" }
+  });
+  const updatedPrivate = await data(owner, "privatePlants", id);
+  const updatedPublic = await data(guest, "catalog", id);
+  assert.equal(updatedPrivate.minColdC, null);
+  assert.equal(updatedPublic.minColdC, undefined);
+  assert.deepEqual(updatedPublic.harvestMonths, []);
+  assert.equal(updatedPublic.coldSource, "");
+  assert.equal(updatedPublic.internalNotes, undefined);
+});
+
 test("due editor: il secondo non sovrascrive né l'inventario né il catalogo", async () => {
   const id = await savePlantRecord(adapter(owner), { plant: { ...plant, published: true } });
   const version = plantVersion(await data(owner, "privatePlants", id));
