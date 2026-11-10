@@ -10,7 +10,7 @@ La configurazione Web in `src/config.js` (`apiKey`, `authDomain`, `projectId`, `
 - Il proprietario è riconosciuto quando `request.auth.uid` corrisponde al campo stringa `uid` del documento `siteOwner/primary`. Solo la console con accesso amministrativo deve poter modificare quel documento; le Rules lo proteggono dalla scrittura client.
 - Il primo login si effettua con email/password. Gli alias in `loginAliases` servono a risolvere email, NON concedono privilegi. La lettura puntuale pubblica di un alias può esporre l'email associata: non considerarla privata.
 - `privatePlants` contiene anche `internalNotes`; `catalog` contiene soltanto i campi di `catalogProjection` (vedere `src/domain.js`). Un documento non pubblicato non deve comparire in `catalog`.
-- Il client usa batch Firestore per aggiornare la copia privata e quella pubblica come una sola operazione; mantenere coerenza anche nei casi di delete e cambio visibilità.
+- Il client usa transazioni Firestore per modificare o eliminare schede, verificando che la versione letta nell'editor sia ancora attuale; copia privata e proiezione pubblica vengono aggiornate o rimosse atomicamente. Non sostituire le transazioni con scritture non condizionali: eliminazioni e cambio visibilità devono restare coerenti.
 
 ## Sicurezza e test
 

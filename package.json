@@ -4,14 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/domain.test.js tests/hosting.test.js tests/catalog.test.js tests/mobile-ui.test.js tests/security-workflows.test.js tests/brand-metadata.test.js tests/firestore-deploy.test.js",
-    "test:rules": "firebase emulators:exec --project demo-piante --only firestore 'node --test tests/rules.test.js'",
-    "check": "node --check src/main.js && node --check src/domain.js && node --check src/config.js && node --check tests/domain.test.js && node --check tests/rules.test.js && node --check tests/hosting.test.js && node --check src/catalog.js && node --check tests/catalog.test.js && node --check tests/mobile-ui.test.js && node --check tests/security-workflows.test.js && node --check tests/brand-metadata.test.js && node --check scripts/reconcile-firestore-rules.mjs && node --check tests/firestore-deploy.test.js"
+    "test": "node --test tests/domain.test.js tests/hosting.test.js tests/catalog.test.js tests/mobile-ui.test.js tests/security-workflows.test.js tests/brand-metadata.test.js tests/firestore-deploy.test.js tests/plant-store-unit.test.js",
+    "test:rules": "firebase emulators:exec --project demo-piante --only firestore 'node --test tests/rules.test.js tests/plant-store.test.js'",
+    "check": "node --check src/main.js && node --check src/domain.js && node --check src/config.js && node --check tests/domain.test.js && node --check tests/rules.test.js && node --check tests/hosting.test.js && node --check src/catalog.js && node --check tests/catalog.test.js && node --check tests/mobile-ui.test.js && node --check tests/security-workflows.test.js && node --check tests/brand-metadata.test.js && node --check scripts/reconcile-firestore-rules.mjs && node --check tests/firestore-deploy.test.js && node --check src/plant-store.js && node --check tests/plant-store-unit.test.js && node --check tests/plant-store.test.js && node --check tests/browser-e2e.test.js",
+    "test:browser": "firebase emulators:exec --project demo-piante-browser --only auth,firestore 'node --test tests/browser-e2e.test.js'"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "6.0.0",
     "firebase": "13.2.0",
-    "firebase-tools": "15.34.2"
+    "firebase-tools": "15.34.2",
+    "playwright": "1.65.0"
   },
   "engines": {
     "node": ">=24.12.0"

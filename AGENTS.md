@@ -27,7 +27,7 @@ Aprire esplicitamente i file pertinenti: un rimando non equivale alla loro lettu
 
 - Frontend statico in JavaScript, HTML e CSS; nessun backend custom. Leggere `src/main.js`, `src/domain.js`, `src/config.js`, `firebase.json` e `.firebaserc` prima di cambiare runtime o deploy.
 - Firebase Authentication gestisce password e sessioni. L'autorizzazione admin dipende dall'UID in `siteOwner/primary`; non dal nome utente né da controlli della sola UI.
-- `privatePlants/{id}` è solo proprietario; `catalog/{id}` è pubblico. `catalogProjection` è l'allowlist dei campi pubblicabili. Le note private NON devono mai comparire nel catalogo. Pubblicazione e rimozione devono restare coerenti fra raccolte, con batch atomici.
+- `privatePlants/{id}` è solo proprietario; `catalog/{id}` è pubblico. `catalogProjection` è l'allowlist dei campi pubblicabili. Le note private NON devono mai comparire nel catalogo. Pubblicazione e rimozione devono restare coerenti fra raccolte, con transazioni atomiche e controllo delle modifiche concorrenti.
 - Le Firestore Security Rules devono negare gli accessi non esplicitamente permessi. Non estendere i privilegi in risposta a `permission-denied` senza identificarne la causa.
 - I dati della configurazione Web Firebase sono pubblici; password, UID reali, chiavi di servizio, token, cookie e JSON di autenticazione non vanno committati né riprodotti in documenti pubblici.
 - Le foto usano URL HTTPS esterni nella baseline corrente. Non introdurre Firebase Storage, Cloud Functions, billing Blaze o altri servizi a pagamento senza decisione esplicita.
@@ -36,7 +36,7 @@ Aprire esplicitamente i file pertinenti: un rimando non equivale alla loro lettu
 
 - Nuovo lavoro su branch e PR; verificare prima PR esistenti. `main` è l'unico branch sorgente del deploy live verso **`piantee.web.app`**. Niente canali di anteprima o deploy automatico da PR.
 - Non fare merge/deploy o modifiche irreversibili a provider live senza mandato appropriato; non sostituire indiscriminatamente Rules o dati Firestore.
-- Eseguire `npm run check`, `npm test` e `npm run test:rules` sulla versione candidata quando possibile; registrare lo SHA GitHub verificato. CI verde non certifica login, autorizzazioni live o Hosting aggiornato.
+- Eseguire `npm run check`, `npm test`, `npm run test:rules` e `npm run test:browser` sulla versione candidata secondo l'ambiente disponibile; registrare lo SHA GitHub verificato. Il browser E2E usa esclusivamente i Firebase Emulator e una configurazione client fittizia. CI verde non certifica login, autorizzazioni live o Hosting aggiornato.
 - Per il deploy GitHub→Google Cloud preferire **Workload Identity Federation (WIF)** tramite service account Hosting dedicato, senza key JSON permanente. Separare l'identità di deploy da Firebase Authentication e dai dati Firestore.
 - Il rilascio da main attiva `deploy-firestore-rules.yml` dopo la CI e solo dopo il suo successo attiva `deploy-production.yml` (solo Hosting). Le identità WIF usano pool distinti, con condizioni dedicate ai rispettivi workflow. Nessun deploy di indici, dati o altri servizi. Le Rules richiedono test Emulator, confronto con la cronologia approvata, read-back live e arresto su drift estraneo.
 - Prima di concludere distinguere: test locali, CI candidata, merge, CI main, deploy Hosting e smoke test browser sul sito reale.

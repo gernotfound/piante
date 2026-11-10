@@ -13,7 +13,7 @@ Per lavorare nel repository leggere [AGENTS.md](AGENTS.md); per lo stato delle c
 
 Il design usa la palette botanico-commerciale approvata e parte da viewport di 320 px. La strategia, le verifiche mobile e i limiti dei browser datati sono documentati in [Frontend Mobile First](docs/design/mobile-first.md). Non sono presenti carrello o pagamenti.
 
-Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. La pubblicazione/rimozione avviene tramite un batch atomico.
+Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. Le modifiche e le rimozioni usano transazioni Firestore: se la scheda è cambiata da un'altra sessione, l'editor blocca la scrittura e conserva i campi compilati fino alla scelta esplicita di ricaricare. Gli aggiornamenti asincroni Firestore e Authentication non azzerano i moduli di login/impostazioni e i filtri ancora da applicare. Inventario e catalogo restano atomici.
 
 ## Configurazione iniziale (necessaria)
 
@@ -28,7 +28,7 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 
 ## Pubblicazione automatica diretta — `piantee.web.app`
 
-La CI `.github/workflows/ci.yml` verifica sintassi, test unitari, Firestore Emulator e CodeQL su `main`. Dopo `Canonical Verification` riuscita, `.github/workflows/deploy-firestore-rules.yml` riconcilia le Rules del database `(default)` e ne verifica la release attiva. Solo dopo il suo successo `.github/workflows/deploy-production.yml` pubblica **il target Hosting `piantee`**. Non ci sono anteprime PR né deploy automatici di dati o indici.
+La CI `.github/workflows/ci.yml` verifica sintassi, test unitari, Firestore Emulator, browser E2E isolato e CodeQL su `main`. Dopo `Canonical Verification` riuscita, `.github/workflows/deploy-firestore-rules.yml` riconcilia le Rules del database `(default)` e ne verifica la release attiva. Solo dopo il suo successo `.github/workflows/deploy-production.yml` pubblica **il target Hosting `piantee`**. Non ci sono anteprime PR né deploy automatici di dati o indici.
 
 Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza chiavi JSON permanenti, con identità distinte per Firestore Rules e Hosting. I workflow richiedono le repository variables `GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT` per le Rules, oltre a `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` per Hosting. Le identità e i privilegi effettivi devono essere verificati nel provider.
 
@@ -65,6 +65,8 @@ npm install
 npm run check
 npm test
 npm run test:rules
+npx playwright install chromium # Solo su PC senza Chrome configurato per i test
+npm run test:browser
 ```
 
-I test unitari coprono normalizzazione alias, URL immagini, escaping HTML, separazione delle note interne e validazione. I test Firestore con emulatore verificano accesso pubblico, account non proprietario, protezione UID, pubblicazione atomica, blocco dei campi interni e alias. La CI esegue entrambi. Rimangono necessari i test end-to-end sul browser e la verifica della configurazione del progetto reale.
+I test unitari coprono normalizzazione alias, URL immagini, escaping HTML, separazione delle note interne e validazione. I test Firestore con emulatore verificano accesso pubblico, account non proprietario, protezione UID, creazione/aggiornamento/pubblicazione/rimozione atomici, conflitti tra editor, blocco dei campi interni e alias. La CI include inoltre Chrome in modalità automatizzata, con Firebase Auth e Firestore Emulator e una configurazione locale fittizia: verifica login, creazione/pubblicazione, modifiche concorrenti, recupero del modulo, eliminazione, logout e overflow da 320 a 1440 CSS px e navigazione mobile/desktop. Non scrive dati nel progetto reale. Rimangono necessari i collaudi su dispositivi effettivi e la verifica della configurazione del progetto reale.

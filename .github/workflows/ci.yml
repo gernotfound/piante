@@ -55,6 +55,36 @@ jobs:
       - name: Verifica Security Rules
         run: npm run test:rules
 
+  browser-e2e:
+    name: Browser E2E (isolated emulators)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout candidato
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Configura Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.12.0'
+      - name: Configura Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Installa dipendenze
+        run: npm install --no-audit --no-fund
+      - name: Verifica Chrome preinstallato nel runner
+        run: |
+          set -euo pipefail
+          test -x /opt/google/chrome/chrome
+          /opt/google/chrome/chrome --version
+      - name: Verifica interfaccia e flussi reali sul browser isolato
+        env:
+          PIANTE_CHROME_CHANNEL: chrome
+        run: npm run test:browser
+
   codeql:
     name: Security / CodeQL
     runs-on: ubuntu-24.04
@@ -82,20 +112,22 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: ${{ always() }}
-    needs: [check, firestore-rules, codeql]
+    needs: [check, firestore-rules, browser-e2e, codeql]
     steps:
       - name: Richiedi controlli e analisi di sicurezza riusciti
         shell: bash
         env:
           CHECK_RESULT: ${{ needs.check.result }}
           RULES_RESULT: ${{ needs.firestore-rules.result }}
+          BROWSER_RESULT: ${{ needs.browser-e2e.result }}
           CODEQL_RESULT: ${{ needs.codeql.result }}
         run: |
           set -euo pipefail
           echo "Sintassi e unit test: ${CHECK_RESULT}"
           echo "Firestore Rules:      ${RULES_RESULT}"
+          echo "Browser E2E:          ${BROWSER_RESULT}"
           echo "CodeQL:               ${CODEQL_RESULT}"
-          if [[ "${CHECK_RESULT}" != "success" || "${RULES_RESULT}" != "success" || "${CODEQL_RESULT}" != "success" ]]; then
+          if [[ "${CHECK_RESULT}" != "success" || "${RULES_RESULT}" != "success" || "${BROWSER_RESULT}" != "success" || "${CODEQL_RESULT}" != "success" ]]; then
             echo "::error::Almeno un controllo richiesto non è riuscito: nessuna release è consentita."
             exit 1
           fi
