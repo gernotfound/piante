@@ -5,6 +5,7 @@ import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } 
 
 const appRoot = document.querySelector("#app");
 const h = escapeHtml;
+const coldOptions = ["", "5", "0", "-3", "-5", "-10", "-15", "-20"];
 const state = {
   route: window.location.pathname,
   menuOpen: false,
@@ -70,7 +71,6 @@ function getFruitTypeFromUrl() {
   const value = new URLSearchParams(window.location.search).get("tipo");
   return fruitTypes.includes(value) ? value : "Tutte";
 }
-const coldOptions = ["", "5", "0", "-3", "-5", "-10", "-15", "-20"];
 function getColdFromUrl() {
   const value = new URLSearchParams(window.location.search).get("freddo") || "";
   return coldOptions.includes(value) ? value : "";
