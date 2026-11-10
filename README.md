@@ -28,7 +28,7 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 
 ## Pubblicazione automatica diretta — `piantee.web.app`
 
-La CI `.github/workflows/ci.yml` verifica sintassi, test unitari, Firestore Emulator e CodeQL su `main`. Dopo `Canonical Verification` riuscita, `.github/workflows/deploy-firestore-rules.yml` riconcilia le Rules del database `(default)` e ne verifica la release attiva. Solo dopo il suo successo `.github/workflows/deploy-production.yml` pubblica **il target Hosting `piantee`**. Non ci sono anteprime PR né deploy automatici di dati o indici.
+La CI `.github/workflows/ci.yml` verifica sintassi, test unitari, Firestore Emulator, browser E2E isolato e CodeQL su `main`. Dopo `Canonical Verification` riuscita, `.github/workflows/deploy-firestore-rules.yml` riconcilia le Rules del database `(default)` e ne verifica la release attiva. Solo dopo il suo successo `.github/workflows/deploy-production.yml` pubblica **il target Hosting `piantee`**. Non ci sono anteprime PR né deploy automatici di dati o indici.
 
 Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza chiavi JSON permanenti, con identità distinte per Firestore Rules e Hosting. I workflow richiedono le repository variables `GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT` per le Rules, oltre a `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` per Hosting. Le identità e i privilegi effettivi devono essere verificati nel provider.
 
@@ -65,6 +65,8 @@ npm install
 npm run check
 npm test
 npm run test:rules
+npx playwright install --with-deps chromium
+npm run test:browser
 ```
 
-I test unitari coprono normalizzazione alias, URL immagini, escaping HTML, separazione delle note interne e validazione. I test Firestore con emulatore verificano accesso pubblico, account non proprietario, protezione UID, creazione/aggiornamento/pubblicazione/rimozione atomici, conflitti tra editor, blocco dei campi interni e alias. La CI esegue entrambi. Rimangono necessari i test end-to-end sul browser e la verifica della configurazione del progetto reale.
+I test unitari coprono normalizzazione alias, URL immagini, escaping HTML, separazione delle note interne e validazione. I test Firestore con emulatore verificano accesso pubblico, account non proprietario, protezione UID, creazione/aggiornamento/pubblicazione/rimozione atomici, conflitti tra editor, blocco dei campi interni e alias. La CI include inoltre Chrome in modalità automatizzata, con Firebase Auth e Firestore Emulator e una configurazione locale fittizia: verifica login, creazione/pubblicazione, modifiche concorrenti, recupero del modulo, eliminazione, logout e overflow a più viewport. Non scrive dati nel progetto reale. Rimangono necessari i collaudi su dispositivi effettivi e la verifica della configurazione del progetto reale.
