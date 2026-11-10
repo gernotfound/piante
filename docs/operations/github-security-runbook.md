@@ -73,8 +73,9 @@ In Settings → Advanced Security (o sezione sicurezza equivalente):
 ## Contratto del rilascio nel repository
 
 - Il CI `.github/workflows/ci.yml` usa permessi `contents: read` per default. Test sintattici/unitari, Firestore emulator e CodeQL sono requisiti cumulativi del job `Canonical Verification`.
-- Il deploy `.github/workflows/deploy-production.yml` non si avvia da PR né manualmente: soltanto da un `workflow_run` CI concluso con successo per evento `push` su `main` del repository corrente.
-- Il deployer controlla ancora che SHA verificato, checkout e `main` remoto corrispondano, prima di usare la federazione GitHub OIDC e pubblicare solo Hosting.
+- La PR #11 candidata separa i workflow: `.github/workflows/deploy-firestore-rules.yml` accetta solo l'esito positivo della CI `Verifica codice` originata da `push` su `main`, controlla repository e SHA corrente e usa soltanto l'identità WIF Firestore. Riconcilia le sole Security Rules; se la verifica fallisce, Hosting non parte.
+- `.github/workflows/deploy-production.yml` parte soltanto da un `workflow_run` Firestore Production riuscito sullo stesso `main` ancora corrente. Usa l'identità WIF Hosting preesistente e pubblica solo Hosting. Nessuno dei due workflow accetta PR o dispatch manuale.
+- I due pool, provider e service account sono distinti. Le condizioni CEL limitano ciascuna identità al proprio workflow e a repository/ref autorizzati. Il riscontro IAM live, la CI e la prova di autenticazione su GitHub sono evidenze separate; il candidato di PR non prova lo stato Production.
 - Le Actions esterne sono referenziate tramite commit SHA immutabili; Dependabot segnalerà aggiornamenti.
 - `github/codeql-action/init` e `github/codeql-action/analyze` condividono lo stesso SHA di release: CodeQL richiede versioni identiche nello stesso job. Dependabot le raggruppa tramite `groups.codeql` in `.github/dependabot.yml`, evitando aggiornamenti indipendenti che interrompono `Canonical Verification`.
 - `npm install` rimane **non riproducibile** senza `package-lock.json`; il prossimo incremento di sicurezza deve generare un lockfile reale da una versione effettivamente risolta e usare `npm ci`. Non inventare un lockfile. Fino ad allora, pin SHA delle Actions non fissa le dipendenze npm.
