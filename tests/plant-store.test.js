@@ -81,6 +81,24 @@ test("due editor: il secondo non sovrascrive né l'inventario né il catalogo", 
   assert.equal((await data(guest, "catalog", id)).name, "Versione A");
 });
 
+test("due salvataggi realmente simultanei non possono vincere entrambi", async () => {
+  const id = await savePlantRecord(adapter(owner), { plant: { ...plant, published: true } });
+  const expectedVersion = plantVersion(await data(owner, "privatePlants", id));
+  const [a, b] = await Promise.allSettled([
+    savePlantRecord(adapter(owner), { id, expectedVersion,
+      plant: { ...plant, name: "Prima versione", published: true } }),
+    savePlantRecord(adapter(owner), { id, expectedVersion,
+      plant: { ...plant, name: "Seconda versione", published: true } })
+  ]);
+  const results = [a, b];
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal(results.filter((r) => r.status === "rejected" &&
+    r.reason instanceof PlantConflictError).length, 1);
+  const privatePlant = await data(owner, "privatePlants", id);
+  const publicPlant = await data(guest, "catalog", id);
+  assert.equal(publicPlant.name, privatePlant.name);
+});
+
 test("un editor obsoleto non può cancellare una scheda aggiornata altrove", async () => {
   const id = await savePlantRecord(adapter(owner), { plant: { ...plant, published: true } });
   const oldVersion = plantVersion(await data(owner, "privatePlants", id));
