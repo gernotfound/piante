@@ -82,6 +82,71 @@ test("catalogo: non ammette l'esposizione delle note interne", async () => {
   await assertFails(setDoc(doc(db, "catalog", "senza-nome"), { ...published, name: "" }));
 });
 
+test("metadati climatici pubblici: allowlist e tipi validati, nessun campo privato", async () => {
+  const db = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
+  const guest = environment.unauthenticatedContext().firestore();
+  const docRef = doc(db, "catalog", "clima");
+  const valid = {
+    ...published, plantGroup: "Piante da frutto", fruitType: "Tropicali e subtropicali",
+    growthHabit: "Albero", searchAliases: "avocado, aguacate",
+    minColdC: -3, coldSource: "https://example.test/source", coldNotes: "Solo piante adulte",
+    pollination: "Autofertile", potSuitability: "Con accorgimenti",
+    harvestMonths: [7, 8, 9]
+  };
+  await assertSucceeds(setDoc(docRef, valid));
+  await assertSucceeds(getDoc(doc(guest, "catalog", "clima")));
+  await assertFails(setDoc(docRef, { ...valid, internalNotes: "Privato" }));
+  await assertFails(setDoc(docRef, { ...valid, minColdC: "-3" }));
+  await assertFails(setDoc(docRef, { ...valid, minColdC: -55 }));
+  await assertFails(setDoc(docRef, { ...valid, minColdC: null }));
+  await assertFails(setDoc(docRef, { ...valid, coldSource: "http://example.test" }));
+  await assertFails(setDoc(docRef, { ...valid, coldNotes: "x".repeat(251) }));
+  await assertFails(setDoc(docRef, { ...valid, plantGroup: "Privato" }));
+  await assertFails(setDoc(docRef, { ...valid, pollination: "Certamente autofertile" }));
+  await assertFails(setDoc(docRef, { ...valid, potSuitability: "Indefinita" }));
+  await assertFails(setDoc(docRef, { ...valid, harvestMonths: [0] }));
+  await assertFails(setDoc(docRef, { ...valid, harvestMonths: [1, "2"] }));
+  await assertFails(setDoc(docRef, { ...valid, harvestMonths: "Luglio" }));
+  await assertSucceeds(setDoc(docRef, { ...valid, harvestMonths: [] }));
+  await assertSucceeds(setDoc(docRef, { ...published, plantGroup: "Piante da frutto" }));
+});
+
+test("catalogo: controlli di tipo e lunghezza per i campi pubblici esistenti", async () => {
+  const db = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
+  const ref = doc(db, "catalog", "schema");
+  await assertSucceeds(setDoc(ref, { ...published, imageUrl: "https://example.test/fruit.jpg" }));
+  await assertSucceeds(setDoc(ref, { name: "Scheda precedente", description: "" }));
+  await assertFails(setDoc(ref, { ...published, scientificName: 123 }));
+  await assertFails(setDoc(ref, { ...published, category: { value: "Agrumi" } }));
+  await assertFails(setDoc(ref, { ...published, variety: null }));
+  await assertFails(setDoc(ref, { ...published, origin: true }));
+  await assertFails(setDoc(ref, { ...published, light: ["sole"] }));
+  await assertFails(setDoc(ref, { ...published, water: 3 }));
+  await assertFails(setDoc(ref, { ...published, availability: ["disponibile"] }));
+  await assertFails(setDoc(ref, { ...published, price: 15 }));
+  await assertFails(setDoc(ref, { ...published, price: "x".repeat(51) }));
+  await assertFails(setDoc(ref, { ...published, scientificName: "x".repeat(151) }));
+  await assertFails(setDoc(ref, { ...published, category: "x".repeat(101) }));
+  await assertFails(setDoc(ref, { ...published, imageUrl: "http://example.test/fruit.jpg" }));
+  await assertFails(setDoc(ref, { ...published, imageUrl: "javascript:alert(1)" }));
+  await assertFails(setDoc(ref, { ...published, imageUrl: 2 }));
+  await assertFails(setDoc(ref, { ...published, imageUrl: "https://example.test/" + "a".repeat(4090) }));
+  await assertSucceeds(setDoc(ref, { ...published, category: "Nuova categoria", origin: "Italia" }));
+});
+
+test("catalogo: i mesi devono essere distinti e i campi facoltativi restano retrocompatibili", async () => {
+  const db = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
+  const ref = doc(db, "catalog", "raccolta");
+  await assertSucceeds(setDoc(ref, { ...published, harvestMonths: [1, 12] }));
+  await assertSucceeds(setDoc(ref, { ...published, harvestMonths: [] }));
+  await assertSucceeds(setDoc(ref, { ...published, coldSource: "" }));
+  await assertFails(setDoc(ref, { ...published, harvestMonths: [8, 8] }));
+  await assertFails(setDoc(ref, { ...published, searchAliases: 18 }));
+  await assertFails(setDoc(ref, { ...published, coldNotes: null }));
+  await assertFails(setDoc(ref, { ...published, coldSource: 18 }));
+  await assertFails(setDoc(ref, { ...published, coldSource: "https://example.test/" + "a".repeat(510) }));
+});
+
 test("alias: singolo lookup pubblico, elenco negato, scrittura solo dal proprietario", async () => {
   const owner = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
   const guest = environment.unauthenticatedContext().firestore();
