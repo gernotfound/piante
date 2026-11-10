@@ -23,7 +23,9 @@ const sandboxMain = originalMain.replace(hook, hook + '\n' +
   ' authReady: state.authReady, user: state.user?.uid || null,' +
   ' authUser: firebase?.auth.currentUser?.uid || null,' +
   ' inventoryReady: state.inventoryReady, inventoryError: state.inventoryError,' +
-  ' error: state.error, flash: state.flash});';
+  ' error: state.error, flash: state.flash});' +
+  '\nwindow.__pianteTestSetInventoryError = (value) => {' +
+  ' state.inventoryError = value; renderUnlessEditing(); };';
 const sandboxConfig = [
   "export const firebaseConfig = {",
   '  apiKey: "demo-key",',
@@ -217,6 +219,15 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
         { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
       await page.locator('textarea[name="description"]').fill("Bozza locale da conservare");
+
+      // Un errore del listener non deve rigenerare né svuotare un editor già modificato.
+      await page.evaluate(() => window.__pianteTestSetInventoryError("Connessione interrotta"));
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.locator(".notice.error").waitFor({ state: "visible" });
+      assert.match(await page.locator(".notice.error").innerText(), /Inventario non disponibile/);
+      assert.equal(await page.locator('textarea[name="description"]').inputValue(),
+        "Bozza locale da conservare");
+      await page.evaluate(() => window.__pianteTestSetInventoryError(""));
 
       const other = await openPage(context, "/admin/modifica/" + encodeURIComponent(id));
       await other.locator("#plant-form").waitFor({ timeout: 45000 });
