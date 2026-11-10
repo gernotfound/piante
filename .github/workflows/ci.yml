@@ -75,9 +75,14 @@ jobs:
           java-version: '21'
       - name: Installa dipendenze
         run: npm install --no-audit --no-fund
-      - name: Installa Chromium e librerie di sistema
-        run: npx playwright install --with-deps chromium
+      - name: Verifica Chrome preinstallato nel runner
+        run: |
+          set -euo pipefail
+          test -x /opt/google/chrome/chrome
+          /opt/google/chrome/chrome --version
       - name: Verifica interfaccia e flussi reali sul browser isolato
+        env:
+          PIANTE_CHROME_CHANNEL: chrome
         run: npm run test:browser
 
   codeql:
