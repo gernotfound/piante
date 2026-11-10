@@ -123,10 +123,20 @@ function renderUnlessEditing() {
   // Le ricerche non ancora confermate non vanno perse se l'utente esce dal campo.
   const catalogSearch = document.querySelector("#catalog-search-input");
   if (catalogSearch && catalogSearch.value !== state.filter) return;
-  const inventorySearch = document.querySelector("#inventory-search-input");
-  const inventoryVisibility = document.querySelector("#inventory-visibility");
-  if ((inventorySearch && inventorySearch.value !== state.inventoryQuery) ||
-      (inventoryVisibility && inventoryVisibility.value !== state.inventoryVisibility)) return;
+  // I filtri nuovi, come la ricerca, restano bozze fino al comando Applica.
+  const pendingFilters = [
+    ["#climate-minimum", state.minTempC],
+    ["#pollination-filter", state.pollination],
+    ["#harvest-filter", state.harvestMonth],
+    ["#pot-filter", state.potSuitability],
+    ["#inventory-group", state.inventoryGroup],
+    ["#inventory-visibility", state.inventoryVisibility],
+    ["#inventory-search-input", state.inventoryQuery]
+  ];
+  if (pendingFilters.some(([selector, value]) => {
+    const field = document.querySelector(selector);
+    return field && field.value !== value;
+  })) return;
   render();
 }
 function renderAfterAuthChange() {
