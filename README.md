@@ -7,11 +7,11 @@ Per lavorare nel repository leggere [AGENTS.md](AGENTS.md); per lo stato delle c
 ## Sezioni
 
 - **Home:** presentazione commerciale, categorie e anteprima delle piante pubblicate.
-- **Catalogo:** ricerca, filtri per categoria e schede botaniche con disponibilità e prezzi solo quando registrati.
+- **Catalogo:** ricerca botanica locale (accenti, sinonimi, piccoli refusi), fruttifere in evidenza e filtri per tipologia, resistenza al freddo, impollinazione, mese di raccolta e coltivazione in vaso. Disponibilità e prezzi vengono mostrati solo quando registrati.
 - **Chi siamo / Contatti:** pagine informative, senza dati aziendali inventati.
-- **Area riservata:** dashboard, inventario filtrabile, moduli a sezioni, pubblicazione, rimozione e configurazione del nome utente. Sidebar desktop e navigazione inferiore mobile.
+- **Area riservata:** dashboard, inventario filtrabile, metadati botanici opzionali (senza compilazione automatica), moduli a sezioni, pubblicazione, rimozione e configurazione del nome utente. Sidebar desktop e navigazione inferiore mobile.
 
-Il design usa la palette botanico-commerciale approvata e parte da viewport di 320 px. La strategia, le verifiche mobile e i limiti dei browser datati sono documentati in [Frontend Mobile First](docs/design/mobile-first.md). Non sono presenti carrello o pagamenti.
+La progettazione dei filtri climatici e la cautela sui dati botanici sono descritte in [Ricerca fruttifere](docs/design/ricerca-fruttifere.md). Il design usa la palette botanico-commerciale approvata e parte da viewport di 320 px. La strategia, le verifiche mobile e i limiti dei browser datati sono documentati in [Frontend Mobile First](docs/design/mobile-first.md). Non sono presenti carrello o pagamenti.
 
 Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. Le modifiche e le rimozioni usano transazioni Firestore: se la scheda è cambiata da un'altra sessione, l'editor blocca la scrittura e conserva i campi compilati fino alla scelta esplicita di ricaricare. Gli aggiornamenti asincroni Firestore e Authentication non azzerano i moduli di login/impostazioni e i filtri ancora da applicare. Inventario e catalogo restano atomici.
 
