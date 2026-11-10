@@ -27,7 +27,7 @@ Aprire esplicitamente i file pertinenti: un rimando non equivale alla loro lettu
 
 - Frontend statico in JavaScript, HTML e CSS; nessun backend custom. Leggere `src/main.js`, `src/domain.js`, `src/config.js`, `firebase.json` e `.firebaserc` prima di cambiare runtime o deploy.
 - Firebase Authentication gestisce password e sessioni. L'autorizzazione admin dipende dall'UID in `siteOwner/primary`; non dal nome utente né da controlli della sola UI.
-- `privatePlants/{id}` è solo proprietario; `catalog/{id}` è pubblico. `catalogProjection` è l'allowlist dei campi pubblicabili. Le note private NON devono mai comparire nel catalogo. Pubblicazione e rimozione devono restare coerenti fra raccolte, con batch atomici.
+- `privatePlants/{id}` è solo proprietario; `catalog/{id}` è pubblico. `catalogProjection` è l'allowlist dei campi pubblicabili. Le note private NON devono mai comparire nel catalogo. Pubblicazione e rimozione devono restare coerenti fra raccolte, con transazioni atomiche e controllo delle modifiche concorrenti.
 - Le Firestore Security Rules devono negare gli accessi non esplicitamente permessi. Non estendere i privilegi in risposta a `permission-denied` senza identificarne la causa.
 - I dati della configurazione Web Firebase sono pubblici; password, UID reali, chiavi di servizio, token, cookie e JSON di autenticazione non vanno committati né riprodotti in documenti pubblici.
 - Le foto usano URL HTTPS esterni nella baseline corrente. Non introdurre Firebase Storage, Cloud Functions, billing Blaze o altri servizi a pagamento senza decisione esplicita.
