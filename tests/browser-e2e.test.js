@@ -26,7 +26,8 @@ const sandboxMain = originalMain.replace(hook, hook + '\n' +
   ' error: state.error, flash: state.flash});' +
   '\nwindow.__pianteTestSetInventoryError = (value) => {' +
   ' state.inventoryError = value; renderUnlessEditing(); };' +
-  '\nwindow.__pianteTestSnapshotRerender = () => renderUnlessEditing();';
+  '\nwindow.__pianteTestSnapshotRerender = () => renderUnlessEditing();' +
+  '\nwindow.__pianteTestAuthRerender = () => renderAfterAuthChange();';
 const sandboxConfig = [
   "export const firebaseConfig = {",
   '  apiKey: "demo-key",',
@@ -195,6 +196,7 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
     await page.locator("#catalog-search-input").fill("ricerca in corso");
     await page.locator("#catalog-search-input").evaluate((input) => input.blur());
     await page.evaluate(() => window.__pianteTestSnapshotRerender());
+    await page.evaluate(() => window.__pianteTestAuthRerender());
     assert.equal(await page.locator("#catalog-search-input").inputValue(), "ricerca in corso");
     assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
   } finally {
