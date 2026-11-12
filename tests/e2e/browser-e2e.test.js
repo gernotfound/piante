@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
-import { catalogProjection } from "../../src/domain.js";
+import { catalogProjection, specimenCodeOf } from "../../src/domain.js";
 import { taxonId } from "../../src/taxonomy.js";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
@@ -233,6 +233,43 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
   }
 });
 
+test("vetrina: piante omonime mostrano codici brevi distinti in scheda e dettaglio",
+  { timeout: 90000 }, async () => {
+    const ids = ["public-avocado-a", "public-avocado-b"];
+    const codes = ids.map(id => specimenCodeOf({ id }));
+    assert.notEqual(codes[0], codes[1], "I fixture devono produrre codici distinti");
+    const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: true });
+    try {
+      for (const id of ids) {
+        await setDoc(doc(owner, "catalog", id), {
+          name: "Avocado", description: "", category: "Tropicali da frutto"
+        });
+      }
+      const page = await openPage(context, "/piante");
+      await page.locator(".plant-card").filter({ hasText: "Avocado" }).first().waitFor();
+      await page.waitForFunction(() =>
+        document.querySelectorAll(".plant-card .public-specimen-code").length >= 2);
+      for (const width of [320, 390, 768]) {
+        await page.setViewportSize({ width, height: 700 });
+        await noOverflow(page, "Codici omonimi " + width + "px");
+        const shown = await page.locator(".plant-card .public-specimen-code").allInnerTexts();
+        assert.deepEqual(new Set(shown), new Set(codes));
+        for (const id of ids) {
+          const card = page.locator('a.plant-card[href="/piante/' + id + '"]');
+          assert.equal(await card.locator(".plant-name").innerText(),
+            "Avocado\n" + specimenCodeOf({ id }));
+        }
+      }
+      await page.goto(baseUrl + "/piante/" + ids[1], { waitUntil: "domcontentloaded" });
+      await page.locator(".detail-title .public-specimen-code").waitFor();
+      assert.equal(await page.locator(".detail-title .public-specimen-code").innerText(), codes[1]);
+      assert.deepEqual(page.sandboxRequests, []);
+    } finally {
+      await context.close();
+      for (const id of ids) await deleteDoc(doc(owner, "catalog", id));
+    }
+  });
+
 test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, eliminazione e logout",
   { timeout: 180000 }, async () => {
     const context = await browser.newContext({ viewport: { width: 320, height: 740 }, hasTouch: true });
@@ -342,7 +379,7 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(await page.locator("#inventory-group").inputValue(), "Piante da frutto");
       const link = await page.locator('a[href^="/admin/modifica/"]').first().getAttribute("href");
       const id = decodeURIComponent(link.split("/").pop());
-      assert.equal(await page.locator(".inventory-name .specimen-code").first().innerText(), "#" + id);
+      assert.equal(await page.locator(".inventory-name .specimen-code").first().innerText(), specimenCodeOf({ id }));
       const savedPrivate = (await getDoc(doc(owner, "privatePlants", id))).data();
       assert.equal(savedPrivate.internalNotes, "Nota privata di test");
       assert.equal(savedPrivate.specimenLabel, undefined);
@@ -369,6 +406,14 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.goto(baseUrl + "/piante", { waitUntil: "domcontentloaded" });
       await page.locator(".plant-card").filter({ hasText: "Avocado da browser" })
         .waitFor({ timeout: 45000 });
+      assert.equal(await page.locator(".plant-card .public-specimen-code").first().innerText(),
+        specimenCodeOf({ id }), "Il codice pubblico deve coincidere con quello dell'inventario");
+      await page.goto(baseUrl + "/piante/" + encodeURIComponent(id), { waitUntil: "domcontentloaded" });
+      await page.locator(".detail-title .public-specimen-code").waitFor();
+      assert.equal(await page.locator(".detail-title .public-specimen-code").innerText(),
+        specimenCodeOf({ id }), "Il dettaglio deve mostrare lo stesso codice");
+      await page.goto(baseUrl + "/piante", { waitUntil: "domcontentloaded" });
+      await page.locator(".plant-card").filter({ hasText: "Avocado da browser" }).waitFor();
       assert.equal((await page.locator("#app").innerText()).includes("Nota privata di test"), false);
       await page.locator("#catalog-search-input").fill("aguacate");
       await page.locator('#search-form button[type="submit"]').click();
@@ -389,7 +434,7 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
         { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
       await expandEditor(page);
-      assert.equal(await page.locator('input.specimen-code[readonly]').inputValue(), "#" + id);
+      assert.equal(await page.locator('input.specimen-code[readonly]').inputValue(), specimenCodeOf({ id }));
       assert.equal(await page.locator('input[name="specimenLabel"]').count(), 0);
       await page.locator('textarea[name="description"]').fill("Bozza locale da conservare");
 
@@ -453,7 +498,7 @@ test("scheda legacy: ID documentale autorevole e gruppo/fruttifera preservati", 
     assert.equal(await page.locator('input[name="name"]').inputValue(), "Fico d'India legacy");
     assert.equal(await page.locator('[data-fruit-type-field]').isVisible(), true);
     assert.equal(await page.locator('select[name="fruitType"]').inputValue(), "Mediterranee");
-    assert.match(await page.locator("input.specimen-code").inputValue(), /^#Z[0-9A-F]+$/);
+    assert.match(await page.locator("input.specimen-code").inputValue(), /^#[A-Z0-9]{6}$/);
     await page.locator('textarea[name="description"]').fill("Scheda storica aggiornata");
     assert.equal(await page.locator('textarea[name="description"]').inputValue(), "Scheda storica aggiornata");
     await page.locator('#plant-form button[type="submit"]').click();
