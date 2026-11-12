@@ -15,7 +15,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         ${current(path) ? `aria-current="page"` : ""}>
         <span class="admin-link-icon" aria-hidden="true">${symbol}</span><span>${label}</span></a>`;
     return `<aside class="admin-sidebar">
-      <a class="brand admin-brand" href="/admin" data-nav><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+      <a class="brand admin-brand" href="/admin" data-nav><img class="brand-symbol" src="/favicon.svg" width="36" height="36" alt="" aria-hidden="true">Piantee</a>
       <span class="sidebar-label">GESTIONALE PRIVATO</span>
       <nav class="admin-side-links" aria-label="Navigazione gestionale">
         ${adminLink("/admin", "Panoramica", "⌂")}

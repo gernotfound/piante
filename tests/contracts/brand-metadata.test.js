@@ -52,7 +52,7 @@ test("Open Graph e Twitter sono accessibili ai crawler senza eseguire JavaScript
   }
   assert.equal(meta("og:type"), "website");
   assert.equal(meta("og:locale"), "it_IT");
-  assert.equal(meta("og:site_name"), "Piante");
+  assert.equal(meta("og:site_name"), "Piantee");
   assert.equal(meta("og:url"), "https://piantee.web.app/");
   assert.equal(meta("og:image"), "https://piantee.web.app/social-preview-v1.png");
   assert.equal(meta("og:image:secure_url"), meta("og:image"));
@@ -64,4 +64,18 @@ test("Open Graph e Twitter sono accessibili ai crawler senza eseguire JavaScript
   assert.deepEqual(pngSize("social-preview-v1.png"), [1200, 630]);
   assert.equal(meta("og:description"), meta("description", "name"));
   assert.equal(meta("og:title"), html.match(/<title>(.*?)<\/title>/)?.[1]);
+});
+
+test("Il marchio usa la favicon SVG già approvata e il nome Piantee", () => {
+  const publicUi = readFileSync(join(root, "src/ui/public.js"), "utf8");
+  const adminUi = readFileSync(join(root, "src/ui/admin.js"), "utf8");
+  const css = readFileSync(join(root, "styles/public.css"), "utf8");
+  const brandIcon = /<img class="brand-symbol" src="\/favicon\.svg" width="36" height="36" alt="" aria-hidden="true">Piantee/g;
+  assert.equal([...publicUi.matchAll(brandIcon)].length, 2, "Intestazione e footer usano il marchio condiviso");
+  assert.equal([...adminUi.matchAll(brandIcon)].length, 1, "La sidebar usa il marchio condiviso");
+  assert.match(publicUi, /aria-label="Piantee, torna alla home"/);
+  assert.doesNotMatch(publicUi + adminUi, /class="brand-symbol"[^>]*>✳|brand-dot/);
+  assert.match(css, /\.brand-symbol\{[^}]*object-fit:contain/);
+  assert.match(html, /<title>Piantee — Vivaio e catalogo botanico<\/title>/);
+  assert.equal(meta("og:title"), "Piantee — Vivaio e catalogo botanico");
 });
