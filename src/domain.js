@@ -99,14 +99,6 @@ export function coldMinimumOf(plant) {
     ? plant.minColdC : null;
 }
 
-export function normalizeUsername(input) {
-  return String(input ?? "").trim().toLowerCase();
-}
-
-export function validUsername(input) {
-  return /^[a-z0-9._-]{3,32}$/.test(normalizeUsername(input));
-}
-
 export function safeImageUrl(input) {
   try {
     const url = new URL(String(input ?? "").trim());
