@@ -89,7 +89,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
             <span class="recent-arrow" aria-hidden="true">↗</span>
           </a>`).join("")}</div>` : empty("Non hai ancora aggiunto piante. Inizia creando la tua prima scheda.") }
       </section>`,
-      "Panoramica", `Benvenuto${state.username ? ", " + state.username : ""}. Qui trovi i dati essenziali della tua collezione.`);
+      "Panoramica", "Qui trovi i dati essenziali della tua collezione.");
   }
   function inventoryPage() {
     const plants = filterInventory(state.inventory, {
@@ -381,16 +381,11 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
   }
   function settingsPage() {
     return adminFrame(`<div class="panel" style="max-width:660px">
-      <h2>Nome utente per l'accesso</h2><p class="section-sub" style="margin-bottom:25px">
-        Imposta un nome utente da usare al posto dell'email nel modulo di accesso. La password continua a essere gestita da Firebase Authentication.</p>
+      <h2>Accesso al gestionale</h2><p class="section-sub" style="margin-bottom:25px">
+        Per accedere utilizza l'email e la password del tuo account Firebase Authentication.</p>
       <p class="status">Email dell'account: <strong>${h(state.user?.email || "")}</strong></p>
-      <form id="username-form" style="margin-top:22px"><label class="form-field"><span>Nome utente</span>
-        <input class="input" name="username" value="${h(state.username)}" pattern="[a-zA-Z0-9._-]{3,32}" minlength="3" maxlength="32"
-        autocomplete="off" required><small>Da 3 a 32 caratteri: lettere, numeri, punto, trattino e underscore.</small></label>
-      <button type="submit" class="btn btn-primary">Salva nome utente</button></form>
-      <div class="notice" style="margin-top:25px;margin-bottom:0">Chi conosce il nome utente può ricavare l'email dell'account usato per accedere. Se preferisci riservatezza, puoi continuare ad accedere soltanto con la tua email.</div>
       <div class="settings-logout"><button type="button" class="btn btn-outline" data-action="logout">Esci dall\u0027account</button></div>
-      </div>`, "Impostazioni accesso", "Personalizza le credenziali di accesso al tuo gestionale.");
+      </div>`, "Impostazioni accesso", "Consulta il tuo accesso o esci dal gestionale.");
   }
   function adminPage() {
     if (!state.authReady) return `<div class="boot">Verifica autorizzazioni…</div>`;
