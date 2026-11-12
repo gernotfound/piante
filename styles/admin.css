@@ -107,6 +107,6 @@
 .profile-edit-warning{border:1px solid #C7D8C1;background:#F0F5ED;border-radius:8px;padding:11px 12px;margin:0 0 14px;font-size:.8rem;line-height:1.55;color:var(--forest)}
 .profile-edit-warning[hidden]{display:none}
 [data-species-status]:empty{display:none}
-.editor-panel .editor-actions{position:sticky;bottom:calc(70px + env(safe-area-inset-bottom, 0px));z-index:20;background:var(--white);padding:12px 0;border-top:1px solid var(--line);box-shadow:0 -10px 14px -14px rgba(17,43,33,.4)}
-.editor-panel .editor-actions .btn{flex:1}
-@media (min-width:1000px){.editor-panel .editor-actions{bottom:0}}
+.editor-panel .editor-actions{position:static;flex-direction:row;gap:8px;padding:16px 0 0;background:transparent;box-shadow:none}
+.editor-panel .editor-actions .btn{flex:1 1 0;min-width:0;padding:10px 8px}
+@media (min-width:600px){.editor-panel .editor-actions{justify-content:flex-end}.editor-panel .editor-actions .btn{flex:0 1 auto;min-width:140px}}
