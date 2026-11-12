@@ -1,4 +1,4 @@
-import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, propagationMethods, materialSources, specimenSexes, groupForEditedPlant, decodeRouteId, specimenCodeOf, safeImageUrl, escapeHtml } from "../domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, propagationMethods, materialSources, specimenSexes, groupForEditedPlant, decodeRouteId, specimenCodeOf, varietyLabel, safeImageUrl, escapeHtml } from "../domain.js";
 import { filterInventory } from "../catalog.js";
 import { plantVersion } from "../plant-store.js";
 import { lifeStages, journalKinds, profileForPlant, preparePlantDuplicate } from "../taxonomy.js";
@@ -65,7 +65,9 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         ${recent.length ? `<div class="recent-list">${recent.map((plant) => `
           <a href="/admin/modifica/${encodeURIComponent(plant.id)}" data-nav class="recent-row">
             ${imageMarkup(plant)}
-            <span class="recent-name"><span class="plant-title-line"><strong>${h(plant.name)}</strong><span class="specimen-code">${h(specimenCodeOf(plant))}</span></span><small>${h(plant.category || "")}</small></span>
+            <span class="recent-name"><span class="plant-title-line"><strong>${h(plant.name)}</strong><span class="specimen-code">${h(specimenCodeOf(plant))}</span></span>
+              ${varietyLabel(plant) ? `<small>${h(varietyLabel(plant))}</small>` : ""}
+              <small>${h(plant.category || "")}</small></span>
             <span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span>
             <span class="recent-arrow" aria-hidden="true">↗</span>
           </a>`).join("")}</div>` : empty("Non hai ancora aggiunto piante. Inizia creando la tua prima scheda.") }
@@ -80,7 +82,8 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
     const rows = plants.map((plant) => `<tr>
       <td data-label="Pianta"><div class="inventory-name">
         ${imageMarkup(plant)}<div><div class="plant-title-line"><strong>${h(plant.name)}</strong><span class="specimen-code">${h(specimenCodeOf(plant))}</span></div>
-        <small>${h(plant.scientificName || plant.variety || "")}</small>
+        ${plant.scientificName ? `<small>${h(plant.scientificName)}</small>` : ""}
+        ${varietyLabel(plant) ? `<small class="inventory-variety">${h(varietyLabel(plant))}</small>` : ""}
         ${plant.lifeStage ? `<small>Stato: ${h(plant.lifeStage)}</small>` : ""}
         ${plant.lotName ? `<small>Lotto: ${h(plant.lotName)}</small>` : ""}
         ${plant.sourceDetails ? `<small>${h(plant.sourceDetails)}</small>` : ""}</div>
@@ -207,7 +210,9 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
     </select></label>`;
     return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}"
       data-species-id="${h(species?.id || "")}" data-species-version="${h(species?.__snapshotVersion || "")}"
-      data-cultivar-id="${h(cultivar?.id || "")}" data-cultivar-version="${h(cultivar?.__snapshotVersion || "")}">
+      data-accepted-name="${h(p.name || "")}"
+      data-cultivar-id="${h(cultivar?.id || "")}" data-cultivar-version="${h(cultivar?.__snapshotVersion || "")}"
+      data-accepted-cultivar="${h(cultivar?.name || "")}">
       <div class="editor-heading"><div><h2>${id ? "Dettagli della pianta" : "Nuova scheda"}</h2>
         <p>Compila le informazioni e scegli se renderle visibili nel catalogo pubblico.</p></div>
         ${id && p.published ? `<a class="text-link" data-nav href="/piante/${encodeURIComponent(id)}">Vedi scheda pubblica ↗</a>` : ""}
@@ -322,6 +327,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           <h3>Visibilità</h3><p>Decidi se mostrare l'esemplare nel catalogo pubblico.</p></div></div>
         <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
           <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta privata. La prima pubblicazione rende consultabili anche le informazioni botaniche condivise, che restano pubbliche anche se riporti l’esemplare in privato.</small></span></label>
+        <p class="profile-edit-warning" data-publication-status role="status" ${p.published && ["Morta", "Ceduta"].includes(p.lifeStage) ? "" : "hidden"}>Questa pianta è contrassegnata come morta o ceduta, ma rimane pubblicata: verifica se vuoi mantenerla nel catalogo.</p>
       </section>
       <div class="editor-actions" aria-label="Azioni scheda pianta">
         <button class="btn btn-primary" type="submit">Salva pianta</button>
