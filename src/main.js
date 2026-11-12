@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, validatePlant } from "./domain.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError,
   JournalValidationError, SeedLotConflictError } from "./plant-store.js";
 import { consolidateSpecimenCodes, SpecimenCodeError } from "./specimen-codes.js";
@@ -24,7 +24,6 @@ const state = {
   user: null,
   owner: false,
   authReady: !firebaseConfigured,
-  username: "",
   error: "",
   flash: "",
   filter: new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "",
@@ -149,7 +148,7 @@ function renderUnlessEditing() {
   if ((formDirty || journalDirty || plantSaveInProgress) &&
       document.querySelector("#plant-form, #journal-form")) return;
   // Gli snapshot asincroni non devono sostituire i moduli durante la compilazione.
-  if (document.querySelector("#login-form, #username-form")) return;
+  if (document.querySelector("#login-form")) return;
   const focusedForm = document.activeElement?.closest?.("form");
   if (["search-form", "inventory-search-form"].includes(focusedForm?.id)) return;
   // Le ricerche non ancora confermate non vanno perse se l'utente esce dal campo.
@@ -289,7 +288,7 @@ async function startFirebase() {
       if (codeRegistryListener) { codeRegistryListener(); codeRegistryListener = null; }
       if (journalListener) { journalListener(); journalListener = null; }
       activeJournalId = "";
-      state.user = user; state.owner = false; state.username = "";
+      state.user = user; state.owner = false;
       state.ownerProfiles = []; state.ownerProfilesReady = false; state.profilesError = "";
       state.inventory = []; state.rawInventory = []; state.lots = []; state.journalEntries = [];
       state.lotsReady = false;
@@ -304,9 +303,6 @@ async function startFirebase() {
           if (ownerDoc.exists() && ownerDoc.data().uid === user.uid) {
             state.owner = true;
             refreshSharedPlants();
-            const profile = await firebase.getDoc(firebase.doc(firebase.db, "adminProfiles", user.uid));
-            if (serial !== authCheckSerial) return;
-            state.username = profile.exists() ? profile.data().username || "" : "";
             profilesListener = firebase.onSnapshot(
               firebase.collection(firebase.db, "plantProfiles"), snap => {
                 if (serial !== authCheckSerial || !state.owner) return;
@@ -374,22 +370,14 @@ async function startFirebase() {
 }
 async function login(form) {
   if (!firebase) return;
-  const identity = String(form.get("identity") || "").trim();
+  const email = String(form.get("email") || "").trim();
   const password = String(form.get("password") || "");
   state.error = ""; state.flash = "";
   try {
-    let email = identity;
-    if (!identity.includes("@")) {
-      if (!validUsername(identity)) throw new Error("Credenziali non valide.");
-      const alias = await firebase.getDoc(firebase.doc(firebase.db, "loginAliases", normalizeUsername(identity)));
-      if (!alias.exists() || !alias.data().email) throw new Error("Credenziali non valide.");
-      email = alias.data().email;
-    }
     await firebase.signInWithEmailAndPassword(firebase.auth, email, password);
     go("/admin");
   } catch (err) {
-    state.error = err.message === "Credenziali non valide." ? err.message :
-      "Accesso non riuscito. Verifica le credenziali e la configurazione Firebase.";
+    state.error = "Accesso non riuscito. Verifica email, password e configurazione Firebase.";
     render();
   }
 }
@@ -616,34 +604,6 @@ async function deletePlant(id) {
     }
   }
 }
-async function saveUsername(form) {
-  const username = normalizeUsername(form.get("username"));
-  if (!validUsername(username)) {
-    state.error = "Nome utente non valido: usa 3–32 caratteri, lettere, numeri, punto, trattino o underscore.";
-    render(); return;
-  }
-  try {
-    const profileRef = firebase.doc(firebase.db, "adminProfiles", state.user.uid);
-    const aliasRef = firebase.doc(firebase.db, "loginAliases", username);
-    await firebase.runTransaction(firebase.db, async (tx) => {
-      const [profile, target] = await Promise.all([tx.get(profileRef), tx.get(aliasRef)]);
-      const old = profile.exists() ? profile.data().username : "";
-      if (target.exists() && target.data().email !== state.user.email) {
-        throw new Error("Alias già utilizzato.");
-      }
-      if (old && old !== username) {
-        tx.delete(firebase.doc(firebase.db, "loginAliases", old));
-      }
-      tx.set(aliasRef, { email: state.user.email });
-      tx.set(profileRef, { username });
-    });
-    state.username = username; state.error = ""; state.flash = "Nome utente aggiornato.";
-    render();
-  } catch {
-    state.error = "Impossibile aggiornare il nome utente. Verifica le autorizzazioni e riprova.";
-    render();
-  }
-}
 async function handleClick(event) {
   const link = event.target.closest("a[data-nav]");
   if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
@@ -766,7 +726,7 @@ async function handleClick(event) {
 }
 function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form", "journal-form"].includes(form.id)) return;
+  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "journal-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
@@ -810,7 +770,6 @@ function handleSubmit(event) {
   if (!state.owner || !firebase) return;
   if (form.id === "plant-form") return savePlant(data, form.dataset.id);
   if (form.id === "journal-form") return saveJournal(data, form.dataset.id);
-  if (form.id === "username-form") return saveUsername(data);
 }
 function fillProfileFields(form, profile, cultivar = false) {
   const fields = cultivar
