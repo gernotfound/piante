@@ -329,36 +329,102 @@ async function login(form) {
 }
 async function savePlant(form, id) {
   if (plantSaveInProgress || !firebase) return;
-  if (!state.inventoryReady || state.inventoryError) {
-    showFormError("Inventario non disponibile. I dati non sono stati salvati: verifica la connessione e riprova.");
+  if (!state.inventoryReady || !state.lotsReady || !state.profilesReady ||
+      state.inventoryError || state.profilesError) {
+    showFormError("Schede botaniche, lotti o inventario non disponibili. I dati non sono stati salvati.");
     return;
   }
-  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability", "propagationMethod", "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex"];
-  const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
+  const keys = ["name", "scientificName", "category", "variety", "origin",
+    "availability", "light", "water", "price", "imageUrl", "description",
+    "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource",
+    "coldNotes", "pollination", "potSuitability", "propagationMethod",
+    "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex",
+    "lifeStage", "seedSourceCultivar"];
+  const plant = Object.fromEntries(keys.map(key => [key, String(form.get(key) || "").trim()]));
   const previous = id && editBaseline?.id === id ? editBaseline : null;
   plant.plantGroup = groupForEditedPlant(plant.category, previous);
   if (plant.plantGroup !== "Piante da frutto") plant.fruitType = "";
   plant.published = form.has("published");
   plant.harvestMonths = [...new Set(form.getAll("harvestMonth").map(Number))].sort((a, b) => a - b);
-  const coldRaw = String(form.get("minColdC") || "").trim();
-  // null cancella anche un precedente valore: la scrittura privata usa update, non set.
-  plant.minColdC = coldRaw ? Number(coldRaw.replace(",", ".")) : null;
+  const rawCold = String(form.get("minColdC") || "").trim();
+  plant.minColdC = rawCold ? Number(rawCold.replace(",", ".")) : null;
+  const cultivarName = String(form.get("cultivarName") || "").trim();
+  const species = profileByName(state.profiles, "species", plant.name);
+  plant.speciesId = species?.id || taxonId("species", plant.name);
+  const cultivar = cultivarName
+    ? profileByName(state.profiles, "cultivar", cultivarName, plant.speciesId) : null;
+  plant.cultivarId = cultivarName
+    ? cultivar?.id || taxonId("cultivar", cultivarName, plant.speciesId) : "";
+  if (cultivarName) plant.variety = cultivarName;
+  const lotName = String(form.get("lotName") || "").trim();
+  const existingLot = state.lots.find(lot =>
+    lot.name.toLocaleLowerCase("it") === lotName.toLocaleLowerCase("it"));
+  plant.lotName = lotName;
+  plant.lotId = lotName ? existingLot?.id || taxonId("species", lotName).replace(/^s_/, "l_") : "";
   const validation = validatePlant(plant);
   if (validation) { showFormError(validation); return; }
-  const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
+  if (!plant.speciesId || plant.speciesId.length > 900 ||
+      (plant.cultivarId && plant.cultivarId.length > 1100)) {
+    showFormError("Il nome della specie o cultivar è troppo lungo."); return;
+  }
+  if (cultivarName.length > 100 || lotName.length > 100 ||
+      plant.seedSourceCultivar.length > 100) {
+    showFormError("Il nome della cultivar o del lotto supera 100 caratteri."); return;
+  }
+  if (plant.lifeStage && !lifeStages.includes(plant.lifeStage)) {
+    showFormError("Stato della pianta non riconosciuto."); return;
+  }
+  if (existingLot && existingLot.speciesId !== plant.speciesId) {
+    showFormError("Il lotto selezionato appartiene a un'altra specie."); return;
+  }
+  const cultivarCold = String(form.get("cultivarMinColdC") || "").trim();
+  const cultivarData = {
+    fruitNotes: String(form.get("cultivarFruitNotes") || "").trim(),
+    minColdC: cultivarCold ? Number(cultivarCold.replace(",", ".")) : null,
+    coldSource: String(form.get("cultivarColdSource") || "").trim(),
+    coldNotes: String(form.get("cultivarColdNotes") || "").trim(),
+    pollination: String(form.get("cultivarPollination") || ""),
+    harvestMonths: [...new Set(form.getAll("cultivarHarvestMonth").map(Number))].sort((a, b) => a - b)
+  };
+  const cultivarError = cultivarName ? validatePlant({
+    name: cultivarName, category: plant.category, ...cultivarData
+  }) : "";
+  if (cultivarError || cultivarData.fruitNotes.length > 750) {
+    showFormError(cultivarError || "La descrizione del frutto supera 750 caratteri."); return;
+  }
   const editor = document.querySelector("#plant-form");
+  const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
+  const shared = {
+    species: {
+      id: plant.speciesId, data: sharedProfileDraft("species", plant.name, "", plant),
+      expectedVersion: editor?.dataset.speciesId === plant.speciesId
+        ? editor.dataset.speciesVersion || null : null
+    },
+    cultivar: cultivarName ? {
+      id: plant.cultivarId,
+      data: sharedProfileDraft("cultivar", cultivarName, plant.speciesId, cultivarData),
+      expectedVersion: editor?.dataset.cultivarId === plant.cultivarId
+        ? editor.dataset.cultivarVersion || null : null
+    } : null,
+    lot: lotName ? {
+      id: plant.lotId,
+      data: { name: lotName, speciesId: plant.speciesId, sownOn: plant.sownOn,
+        seedSourceCultivar: plant.seedSourceCultivar, sourceDetails: plant.sourceDetails }
+    } : null
+  };
   const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
-    .map((control) => ({ control, wasDisabled: control.disabled }));
+    .map(control => ({ control, wasDisabled: control.disabled }));
   const button = editor?.querySelector('[type="submit"]');
   plantSaveInProgress = true;
   controls.forEach(({ control }) => { control.disabled = true; });
   if (button) button.textContent = "Salvataggio…";
   let completed = false;
   try {
-    await savePlantRecord(firebase, { id, plant, expectedVersion });
+    await savePlantRecord(firebase, { id, plant, expectedVersion, shared });
     completed = true;
   } catch (err) {
     showFormError(err instanceof PlantConflictError ? err.message :
+      err?.message?.includes("lotto") ? err.message :
       "Salvataggio non riuscito. I dati inseriti sono ancora nel modulo. Controlla la connessione e riprova.",
       err instanceof PlantConflictError);
   } finally {
@@ -367,10 +433,35 @@ async function savePlant(form, id) {
     if (button?.isConnected) button.textContent = "Salva pianta";
     if (completed) {
       state.error = "";
-      state.flash = "Pianta salvata correttamente.";
-      formDirty = false;
+      state.flash = "Pianta e schede botaniche salvate correttamente.";
+      formDirty = false; journalDirty = false;
       go("/admin/piante");
     }
+  }
+}
+
+async function saveJournal(form, plantId) {
+  if (!state.owner || !firebase || !state.inventoryReady || !plantId || plantSaveInProgress) return;
+  const note = String(form.get("eventNotes") || "").trim();
+  const kind = String(form.get("eventKind") || "");
+  const date = String(form.get("eventDate") || "");
+  if (!journalKinds.includes(kind)) { showFormError("Tipo di attività non valido."); return; }
+  const element = document.querySelector("#journal-form");
+  const button = element?.querySelector('[type="submit"]');
+  if (button) button.disabled = true;
+  try {
+    await saveJournalEntry(firebase, { plantId, kind, note, eventDate: date });
+    journalDirty = false;
+    if (element?.isConnected) {
+      element.reset();
+      const status = element.querySelector("[role='status']");
+      if (status) status.textContent = "Attività registrata nel diario.";
+    }
+  } catch (err) {
+    showFormError(err instanceof PlantConflictError ? err.message :
+      "Attività non salvata. Controlla descrizione, data e connessione; i dati sono rimasti nel modulo.");
+  } finally {
+    if (button?.isConnected) button.disabled = false;
   }
 }
 async function deletePlant(id) {
