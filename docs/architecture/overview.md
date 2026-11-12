@@ -24,8 +24,8 @@ Sito pubblico del futuro vivaio e area privata amministrativa: Home, Piante, Chi
 ## Confini dei dati
 
 - `siteOwner/primary`: UID amministratore configurato solo tramite console privilegiata.
-- `privatePlants/{id}`: inventario privato, inclusi `internalNotes` e stato di pubblicazione; il redesign non ne modifica la forma.
-- `catalog/{id}`: soli dati pubblici scelti dalla `catalogProjection`; consultazione senza login.
+- `privatePlants/{id}`: inventario privato, inclusi `internalNotes`, stato di pubblicazione, etichetta facoltativa del singolo esemplare, modalità di propagazione, origine del materiale, dettagli della provenienza, data di semina, posizione e sesso accertato quando pertinente. Il documento mantiene il proprio ID Firestore come codice stabile `PI-{id}` senza nuovi contatori o collezioni.
+- `catalog/{id}`: soli dati pubblici scelti dalla `catalogProjection`; consultazione senza login. I nuovi metadati dell’esemplare sono esclusi dal catalogo. La categoria resta il controllo visibile nell’editor; `plantGroup` è derivato per compatibilità con le schede e i filtri esistenti. Le selezioni rapide si limitano alle specie verificate e non attribuiscono cultivar ai semenzali.
 - `adminProfiles/{uid}` e `loginAliases/{username}`: nome utente opzionale per il login. Un alias noto può rivelare l'email.
 - Firebase Authentication: credenziali/sessioni (nessuna password nel database).
 
