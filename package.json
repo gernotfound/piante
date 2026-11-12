@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/unit/*.test.js tests/contracts/*.test.js",
-    "test:rules": "firebase emulators:exec --project demo-piante --only firestore 'node --test tests/integration/rules.test.js tests/integration/plant-store.test.js'",
+    "test:rules": "firebase emulators:exec --project demo-piante --only firestore 'node --test tests/integration/rules.test.js tests/integration/plant-store.test.js tests/integration/specimen-codes.test.js'",
     "check": "node scripts/check-syntax.mjs",
     "test:browser": "firebase emulators:exec --project demo-piante-browser --only auth,firestore 'node --test tests/e2e/browser-e2e.test.js'",
     "build": "node scripts/build-site.mjs"
