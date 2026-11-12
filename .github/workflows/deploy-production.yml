@@ -88,8 +88,15 @@ jobs:
           set -euo pipefail
           curl --fail --location --silent --show-error --retry 3 --max-time 20 https://piantee.web.app/ -o /tmp/piante-home.html
           grep -q 'Piante — Vivaio e catalogo botanico' /tmp/piante-home.html
-          curl --fail --location --silent --show-error --retry 3 --max-time 20 --output /dev/null https://piantee.web.app/styles.css
-          curl --fail --location --silent --show-error --retry 3 --max-time 20 --output /dev/null https://piantee.web.app/src/main.js
+          # Il rewrite SPA può restituire HTML con HTTP 200 anche per asset mancanti.
+          # Verificare il Content-Type impedisce falsi positivi sui moduli e sui fogli di stile.
+          for asset in styles/base.css styles/public.css styles/admin.css styles/responsive.css src/main.js src/ui/public.js src/ui/admin.js src/ui/artwork.js; do
+            content_type="$(curl --fail --location --silent --show-error --retry 3 --max-time 20 --output /dev/null --write-out '%{content_type}' "https://piantee.web.app/${asset}")"
+            case "$asset" in
+              *.css) [[ "$content_type" == text/css* ]] ;;
+              *.js)  [[ "$content_type" == *javascript* ]] ;;
+            esac || { echo "::error::Asset ${asset} assente o servito con MIME non valido: ${content_type}"; exit 1; }
+          done
           grep -q 'property="og:image"' /tmp/piante-home.html
           curl --fail --location --silent --show-error --retry 3 --max-time 20 https://piantee.web.app/favicon.svg -o /tmp/piante-favicon.svg
           grep -q '<svg' /tmp/piante-favicon.svg

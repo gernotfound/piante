@@ -25,3 +25,20 @@ test("asset senza hash non restano obsoleti nella cache e i documenti interni no
     "tests/**", "scripts/**", "README.md", "firestore.rules", "gha-creds-*.json"
   ]) assert.ok(hosting.ignore.includes(required), "Ignore mancante: " + required);
 });
+
+test("i moduli e i CSS pubblicati sono verificati nello smoke test di produzione", () => {
+  const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
+  const workflow = readFileSync(new URL("../../.github/workflows/deploy-production.yml", import.meta.url), "utf8");
+  const stylesheets = [...html.matchAll(/<link rel="stylesheet" href="(\/styles\/[^"]+\.css)"/g)].map((match) => match[1]);
+  assert.deepEqual(stylesheets, [
+    "/styles/base.css", "/styles/public.css", "/styles/admin.css", "/styles/responsive.css"
+  ]);
+  for (const path of [...stylesheets, "/src/main.js", "/src/ui/public.js", "/src/ui/admin.js", "/src/ui/artwork.js"]) {
+    assert.ok(readFileSync(new URL("../.." + path, import.meta.url)).length > 0, "Asset inesistente: " + path);
+    assert.ok(workflow.includes(path.slice(1)), "Asset non coperto dallo smoke test: " + path);
+  }
+  assert.match(workflow, /content_type=.*--write-out/);
+  assert.match(workflow, /text\/css/);
+  assert.match(workflow, /javascript/);
+  assert.doesNotMatch(workflow, /piantee\.web\.app\/styles\.css/);
+});
