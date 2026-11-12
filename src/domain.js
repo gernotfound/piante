@@ -170,7 +170,7 @@ export function validatePlant(plant) {
   if (plant.specimenSex && !specimenSexes.includes(plant.specimenSex)) return "Sesso della pianta non riconosciuto.";
   if (plant.sownOn) {
     const date = String(plant.sownOn);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
         !Number.isFinite(Date.parse(date)) ||
         new Date(date).toISOString().slice(0, 10) !== date) return "Data di semina non valida.";
   }
