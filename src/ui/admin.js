@@ -180,10 +180,21 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       <option value="" ${!shared.category ? "selected" : ""}>Seleziona la categoria</option>
       ${categories.map((category) => `<option value="${h(category)}" ${shared.category === category ? "selected" : ""}>${h(category)}</option>`).join("")}
     </select><small>Il gruppo principale viene ricavato automaticamente dalla categoria.</small></label>`;
-    const presetSelect = id ? "" : `<label class="form-field full-width"><span>Seleziona una specie suggerita (facoltativo)</span>
-      <select class="select" name="plantPreset"><option value="">Compila manualmente</option>
-        ${plantPresets.map((preset) => `<option value="${h(preset.key)}">${h(preset.label)}</option>`).join("")}
-      </select><small>Compila solo i campi botanici vuoti, senza attribuire una cultivar o caratteristiche non verificate.</small></label>`;
+    const speciesChoices = state.profiles.filter(profile => profile.kind === "species")
+      .map(profile => `<option value="${h(profile.name)}"></option>`).join("");
+    const cultivarChoices = state.profiles.filter(profile =>
+      profile.kind === "cultivar" && profile.parentId === species?.id)
+      .map(profile => `<option value="${h(profile.name)}"></option>`).join("");
+    const cultivarPollination = `<label class="form-field"><span>Impollinazione cultivar</span>
+      <select class="select" name="cultivarPollination">
+        ${["", ...pollinationTypes].map(value => `<option value="${h(value)}" ${(cultivarData.pollination || "") === value ? "selected" : ""}>${h(value || "Come specie")}</option>`).join("")}
+      </select></label>`;
+    const cultivarHarvest = `<fieldset class="harvest-fieldset full-width">
+      <legend>Raccolta della cultivar verificata</legend>
+      <div class="harvest-months">${monthNames.map((label, i) => `<label>
+        <input type="checkbox" name="cultivarHarvestMonth" value="${i + 1}" ${cultivarHarvestMonths.has(i + 1) ? "checked" : ""}>
+        <span>${h(label)}</span></label>`).join("")}</div>
+      </fieldset>`;
     const propagationSelect = `<label class="form-field"><span>Come è nata la pianta?</span><select class="select" name="propagationMethod">
       ${["", ...propagationMethods].map((value) => `<option value="${h(value)}" ${(p.propagationMethod || "") === value ? "selected" : ""}>${h(value || "Da indicare")}</option>`).join("")}
     </select></label>`;
@@ -204,16 +215,18 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         <div class="editor-section-heading"><span class="editor-step">01</span><div>
           <h3>Informazioni principali</h3><p>Identifica la pianta e la sua varietà.</p></div></div>
         <div class="form-grid">
-          ${presetSelect}
-          ${inputField("Nome comune *", "name", p.name, "required maxlength='100' placeholder='Es. Papaya'")}
-          ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
+          <label class="form-field full-width"><span>Specie (nome comune) *</span>
+            <input class="input" name="name" value="${h(p.name || "")}" required maxlength="100"
+              list="known-species" autocomplete="off" placeholder="Scrivi Avocado, Papaya...">
+            <datalist id="known-species">${speciesChoices}</datalist>
+            <small>Scrivi liberamente. Le specie già registrate recuperano i dati condivisi: modificandoli, vengono aggiornate tutte le piante collegate.</small>
+          </label>
+          ${inputField("Nome scientifico", "scientificName", shared.scientificName, "maxlength='150'")}
           ${select}
           ${fruitSelect}
           ${habitSelect}
-          ${inputField("Cultivar/varietà (solo se verificata)", "variety", p.variety, "maxlength='150'")}
-          <div class="full-width"><p class="specimen-hint">Un seme di avocado Hass o di papaya Formosa non identifica automaticamente la cultivar della nuova pianta. Registra il nome sull'etichetta del frutto nella provenienza privata.</p></div>
-          <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", p.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
-          ${inputField("Origine geografica (pubblica)", "origin", p.origin, "maxlength='150'")}
+          <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", shared.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
+          ${inputField("Origine geografica (pubblica)", "origin", shared.origin, "maxlength='150'")}
           ${pollinationSelect}
           ${potSelect}
           ${harvestSelector}
@@ -221,6 +234,28 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       </section>
       <section class="editor-section">
         <div class="editor-section-heading"><span class="editor-step">02</span><div>
+          <h3>Cultivar (facoltativa)</h3><p>Le caratteristiche si condividono solo fra esemplari della stessa cultivar verificata.</p></div></div>
+        <div class="form-grid">
+          <label class="form-field full-width"><span>Cultivar accertata</span>
+            <input class="input" name="cultivarName" list="known-cultivars" maxlength="100"
+              autocomplete="off" value="${h(cultivar?.name || "")}" placeholder="Es. Hass, Bacon, Fuerte">
+            <datalist id="known-cultivars">${cultivarChoices}</datalist>
+            <small>La cultivar del frutto da cui hai estratto un seme non identifica automaticamente la nuova pianta.</small>
+          </label>
+          ${p.variety && !cultivar ? inputField("Varietà storica (da verificare)", "variety", p.variety, "maxlength='150'") :
+            `<input type="hidden" name="variety" value="${h(p.variety || "")}">`}
+          <div class="full-width">${textareaField("Caratteristiche del frutto", "cultivarFruitNotes", cultivarData.fruitNotes, "maxlength='750'")}</div>
+          ${inputField("Minima cultivar (°C)", "cultivarMinColdC", cultivarData.minColdC,
+            "type='number' step='0.5' min='-40' max='25' inputmode='decimal'")}
+          ${cultivarPollination}
+          ${inputField("Fonte climatica cultivar", "cultivarColdSource", cultivarData.coldSource,
+            "type='url' maxlength='500' placeholder='https://...'")}
+          <div class="full-width">${textareaField("Note climatiche cultivar", "cultivarColdNotes", cultivarData.coldNotes, "maxlength='250'")}</div>
+          ${cultivarHarvest}
+        </div>
+      </section>
+      <section class="editor-section">
+        <div class="editor-section-heading"><span class="editor-step">03</span><div>
           <h3>Identità e provenienza dell'esemplare</h3><p>Dati privati: distingui più piante della stessa specie.</p></div></div>
         <div class="form-grid">
           <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
@@ -238,31 +273,31 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         </div>
       </section>
       <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">03</span><div>
+        <div class="editor-section-heading"><span class="editor-step">04</span><div>
           <h3>Informazioni per i visitatori</h3><p>Descrizione e caratteristiche che possono apparire online.</p></div></div>
         <div class="form-grid">
-          ${inputField("Esposizione", "light", p.light, "placeholder='Es. pieno sole' maxlength='120'")}
-          ${inputField("Irrigazione", "water", p.water, "placeholder='Es. moderata' maxlength='120'")}
+          ${inputField("Esposizione", "light", shared.light, "placeholder='Es. pieno sole' maxlength='120'")}
+          ${inputField("Irrigazione", "water", shared.water, "placeholder='Es. moderata' maxlength='120'")}
           ${inputField("Disponibilità (facoltativa)", "availability", p.availability, "placeholder='Es. su richiesta' maxlength='120'")}
           ${inputField("Prezzo indicativo (facoltativo)", "price", p.price, "placeholder='Es. 15 €' maxlength='50'")}
-          <div class="full-width">${textareaField("Descrizione pubblica", "description", p.description, "maxlength='3000'")}</div>
+          <div class="full-width">${textareaField("Descrizione pubblica", "description", shared.description, "maxlength='3000'")}</div>
         </div>
       </section>
       <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">04</span><div>
+        <div class="editor-section-heading"><span class="editor-step">05</span><div>
           <h3>Clima e resistenza al freddo</h3>
           <p>Facoltativo. Non assegnare valori presunti: il filtro pubblico utilizza solo soglie registrate.</p></div></div>
         <div class="form-grid">
-          ${inputField("Temperatura minima indicativa (°C)", "minColdC", p.minColdC,
+          ${inputField("Temperatura minima indicativa (°C)", "minColdC", shared.minColdC,
             "type='number' step='0.5' min='-40' max='25' inputmode='decimal' placeholder='Es. -3'")}
-          ${inputField("Fonte HTTPS (facoltativa)", "coldSource", p.coldSource,
+          ${inputField("Fonte HTTPS (facoltativa)", "coldSource", shared.coldSource,
             "type='url' inputmode='url' maxlength='500' placeholder='https://...'")}
-          <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", p.coldNotes, "maxlength='250'")}</div>
+          <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", shared.coldNotes, "maxlength='250'")}</div>
         </div>
         <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
       </section>
       <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">05</span><div>
+        <div class="editor-section-heading"><span class="editor-step">06</span><div>
           <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
         <div class="form-grid">
           <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>
@@ -270,7 +305,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
       </section>
       <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">06</span><div>
+        <div class="editor-section-heading"><span class="editor-step">07</span><div>
           <h3>Visibilità e note riservate</h3><p>Le note private non vengono mai copiate nel catalogo pubblico.</p></div></div>
         <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
           <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
