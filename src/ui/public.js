@@ -252,7 +252,8 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
           <span class="eyebrow">${h(item.category || "Collezione")}</span>
           <h1>${h(item.name)}</h1>
           ${item.scientificName ? `<p class="plant-latin">${h(item.scientificName)}</p>` : ""}
-          ${item.variety ? `<p class="detail-variety">Varietà: ${h(item.variety)}</p>` : ""}
+          ${item.variety ? `<p class="detail-variety">Cultivar/varietà: ${h(item.variety)}</p>` : ""}
+          ${item.fruitNotes ? `<p class="detail-description"><strong>Frutto della cultivar:</strong> ${h(item.fruitNotes)}</p>` : ""}
           ${item.price || item.availability ? `<div class="product-availability">
             ${item.price ? `<div><span class="detail-label">Prezzo indicativo</span><strong class="detail-price">${h(item.price)}</strong></div>` : ""}
             ${item.availability ? `<div><span class="detail-label">Disponibilità</span><strong>${h(item.availability)}</strong></div>` : ""}

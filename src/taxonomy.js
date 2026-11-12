@@ -74,7 +74,7 @@ export function resolvePlantProfiles(plant, profiles) {
   effective.name = species.name;
   effective.plantGroup = groupForCategory(effective.category);
   if (plant.plantGroup && plant.plantGroup !== groupForCategory(plant.category) &&
-      !plant.speciesId && plantGroups.includes(plant.plantGroup)) {
+      plant.category === species.category && plantGroups.includes(plant.plantGroup)) {
     effective.plantGroup = plant.plantGroup;
   }
   if (cultivar) {

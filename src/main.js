@@ -150,6 +150,7 @@ function renderUnlessEditing() {
     ["#harvest-filter", state.harvestMonth],
     ["#pot-filter", state.potSuitability],
     ["#inventory-group", state.inventoryGroup],
+    ["#inventory-stage", state.inventoryStage],
     ["#inventory-visibility", state.inventoryVisibility],
     ["#inventory-search-input", state.inventoryQuery]
   ];
@@ -457,6 +458,7 @@ async function saveJournal(form, plantId) {
       const status = element.querySelector("[role='status']");
       if (status) status.textContent = "Attività registrata nel diario.";
     }
+    renderUnlessEditing();
   } catch (err) {
     showFormError(err instanceof PlantConflictError ? err.message :
       "Attività non salvata. Controlla descrizione, data e connessione; i dati sono rimasti nel modulo.");
