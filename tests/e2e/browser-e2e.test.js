@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { catalogProjection } from "../../src/domain.js";
+import { taxonId } from "../../src/taxonomy.js";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PROJECT = "demo-piante-browser";
@@ -289,7 +291,20 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.locator('input[name="minColdC"]').fill("-5");
       await page.locator('input[name="searchAliases"]').fill("aguacate");
       await page.locator('textarea[name="internalNotes"]').fill("Nota privata di test");
+      await page.locator('textarea[name="cultivarFruitNotes"]').fill("Dettaglio senza cultivar");
       await page.locator('input[name="published"]').check();
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.locator(".notice.error").filter({ hasText: "senza indicarne il nome" }).waitFor();
+      assert.match(page.url(), /\/admin\/nuova/);
+      assert.equal(await page.locator('textarea[name="cultivarFruitNotes"]').inputValue(),
+        "Dettaglio senza cultivar", "Il dato varietale non deve essere cancellato da un errore");
+      await page.locator('input[name="cultivarName"]').fill("Nuova cultivar non registrata");
+      await page.locator('input[name="cultivarName"]').blur();
+      assert.equal(await page.locator('textarea[name="cultivarFruitNotes"]').inputValue(),
+        "Dettaglio senza cultivar", "Una cultivar digitata liberamente non deve svuotare la bozza");
+      await page.locator('textarea[name="cultivarFruitNotes"]').fill("");
+      await page.locator('input[name="cultivarName"]').fill("");
+      await page.locator('input[name="cultivarName"]').blur();
       await page.locator('#plant-form button[type="submit"]').click();
       await page.waitForURL("**/admin/piante", { timeout: 45000 });
       await page.locator("#inventory-search-input").fill("ricerca privata non applicata");
@@ -472,6 +487,15 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
       await expandEditor(page);
+      await page.locator('input[name="scientificName"]').fill("Bozza botanica da preservare");
+      await page.locator('input[name="name"]').fill("Avocado");
+      page.once("dialog", dialog => dialog.dismiss());
+      await page.locator('input[name="name"]').blur();
+      assert.equal(await page.locator('input[name="name"]').inputValue(), "",
+        "Rifiutando la sostituzione si deve ripristinare il nome precedente");
+      assert.equal(await page.locator('input[name="scientificName"]').inputValue(),
+        "Bozza botanica da preservare");
+      page.once("dialog", dialog => dialog.accept());
       await page.locator('input[name="name"]').fill("SINONIMO AVOCADO TEST");
       await page.locator('input[name="name"]').blur();
       assert.equal(await page.locator('input[name="name"]').inputValue(), "Avocado");
@@ -541,5 +565,68 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
     } finally {
       await context.close();
       await deleteDoc(doc(owner, "privatePlants", legacyId));
+    }
+  });
+
+test("catalogo e inventario: cultivar riconoscibile, note climatiche senza numero e legacy",
+  { timeout: 100000 }, async () => {
+    const plantId = "ui-avocado-cultivar";
+    const oldId = "ui-papaya-legacy";
+    const speciesId = taxonId("species", "Avocado UI");
+    const cultivarId = taxonId("cultivar", "Fuerte", speciesId);
+    const plant = {
+      name: "Avocado UI", scientificName: "Persea americana", category: "Tropicali da frutto",
+      plantGroup: "Piante da frutto", fruitType: "Tropicali e subtropicali",
+      speciesId, cultivarId, variety: "Fuerte", growthHabit: "Albero",
+      coldNotes: "Proteggere dalle gelate persistenti.", published: true
+    };
+    const legacy = { name: "Papaya UI", category: "Tropicali da frutto",
+      variety: "Formosa", description: "", published: true };
+    await setDoc(doc(owner, "plantProfiles", speciesId), {
+      kind: "species", name: "Avocado UI", public: true,
+      scientificName: "Persea americana", category: "Tropicali da frutto",
+      growthHabit: "Albero", coldNotes: "Proteggere dalle gelate persistenti."
+    });
+    await setDoc(doc(owner, "plantProfiles", cultivarId), {
+      kind: "cultivar", name: "Fuerte", parentId: speciesId, public: true,
+      fruitNotes: "Caratteristiche verificate del frutto"
+    });
+    await setDoc(doc(owner, "privatePlants", plantId), plant);
+    await setDoc(doc(owner, "catalog", plantId), catalogProjection(plant));
+    await setDoc(doc(owner, "catalog", oldId), catalogProjection(legacy));
+    const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
+    try {
+      const page = await openPage(context, "/piante");
+      const avocado = page.locator('.plant-card[href="/piante/' + plantId + '"]');
+      await avocado.waitFor({ timeout: 45000 });
+      assert.match(await avocado.locator(".plant-variety").innerText(), /Cultivar: Fuerte/);
+      assert.equal(await avocado.locator(".plant-category").innerText(), "TROPICALI DA FRUTTO");
+      const papaya = page.locator('.plant-card[href="/piante/' + oldId + '"]');
+      await papaya.waitFor();
+      assert.match(await papaya.locator(".plant-variety").innerText(), /da verificare.*Formosa/);
+      await noOverflow(page, "Catalogo cultivar 320px");
+      await page.goto(baseUrl + "/piante/" + plantId, { waitUntil: "domcontentloaded" });
+      await page.locator(".climate-detail").filter({ hasText: "Proteggere dalle gelate persistenti." }).waitFor();
+      assert.match(await page.locator(".climate-detail").innerText(),
+        /Informazioni sulla resistenza al freddo/);
+      assert.doesNotMatch(await page.locator(".climate-detail").innerText(), /minima indicativa:/);
+      assert.equal(await page.locator(".detail-variety").innerText(), "Cultivar: Fuerte");
+      assert.match(await page.locator(".detail-properties").innerText(), /Forma di crescita[\\s\\S]*Albero/);
+      assert.match(await page.locator(".detail-properties").innerText(), /Tipologia fruttifera/);
+      assert.doesNotMatch(await page.locator(".detail-properties").innerText(), /Varietà/);
+      await noOverflow(page, "Dettaglio cultivar 320px");
+      await page.goto(baseUrl + "/login", { waitUntil: "domcontentloaded" });
+      await login(page);
+      await page.goto(baseUrl + "/admin/piante", { waitUntil: "domcontentloaded" });
+      const row = page.locator(".inventory tr").filter({ hasText: "Avocado UI" });
+      await row.waitFor({ timeout: 45000 });
+      assert.equal(await row.locator(".inventory-variety").innerText(), "Cultivar: Fuerte");
+      await noOverflow(page, "Inventario cultivar 320px");
+      assert.deepEqual(page.sandboxRequests, []);
+    } finally {
+      await context.close();
+      await deleteDoc(doc(owner, "catalog", plantId));
+      await deleteDoc(doc(owner, "catalog", oldId));
+      await deleteDoc(doc(owner, "privatePlants", plantId));
     }
   });
