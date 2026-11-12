@@ -8,3 +8,6 @@ firebase-debug.log
 
 # Credenziali temporanee google-github-actions/auth (mai versionarle)
 gha-creds-*.json
+
+# Output statico rigenerabile, non versionare
+/dist/

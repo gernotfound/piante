@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogProjection, escapeHtml, groupForCategory, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, validUsername, validatePlant } from "../src/domain.js";
+import { catalogProjection, escapeHtml, groupForCategory, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, validUsername, validatePlant } from "../../src/domain.js";
 
 test("un alias utente viene normalizzato ed è limitato a caratteri sicuri", () => {
   assert.equal(normalizeUsername("  Vivaio.G  "), "vivaio.g");
   assert.equal(validUsername(" vivaio.g "), true);
-  assert.equal(validUsername("../Admin"), false);
+  assert.equal(validUsername("../../Admin"), false);
   assert.equal(validUsername("a"), false);
 });
 

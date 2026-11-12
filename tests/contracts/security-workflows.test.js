@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
-const ci = read("../.github/workflows/ci.yml");
-const deploy = read("../.github/workflows/deploy-production.yml");
-const firestore = read("../.github/workflows/deploy-firestore-rules.yml");
-const dependabot = read("../.github/dependabot.yml");
+const ci = read("../../.github/workflows/ci.yml");
+const deploy = read("../../.github/workflows/deploy-production.yml");
+const firestore = read("../../.github/workflows/deploy-firestore-rules.yml");
+const dependabot = read("../../.github/dependabot.yml");
 
 test("I workflow usano una versione Node compatibile con le dipendenze Firebase", () => {
-  const pkg = JSON.parse(read("../package.json"));
+  const pkg = JSON.parse(read("../../package.json"));
   assert.equal(pkg.engines.node, ">=24.12.0");
   for (const [name, yaml] of [["CI", ci], ["Hosting", deploy], ["Firestore", firestore]]) {
     assert.match(yaml, /node-version: '24\.12\.0'/, name + ": versione Node non coerente con il progetto");

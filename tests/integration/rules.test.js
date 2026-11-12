@@ -26,7 +26,7 @@ test.before(async () => {
     firestore: {
       host: "127.0.0.1",
       port: 8080,
-      rules: readFileSync(new URL("../firestore.rules", import.meta.url), "utf8")
+      rules: readFileSync(new URL("../../firestore.rules", import.meta.url), "utf8")
     }
   });
   await environment.withSecurityRulesDisabled(async (context) => {

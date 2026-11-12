@@ -29,6 +29,8 @@ jobs:
           node-version: '24.12.0'
       - name: Verifica sintassi
         run: npm run check
+      - name: Costruisci gli asset pubblici
+        run: npm run build
       - name: Test unitari
         run: npm test
 

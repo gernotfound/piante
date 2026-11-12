@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { plantVersion, PlantConflictError } from "../src/plant-store.js";
+import { plantVersion, PlantConflictError } from "../../src/plant-store.js";
 
 test("la versione è indipendente dall'ordine delle proprietà", () => {
   assert.equal(plantVersion({ name: "Mango", nested: { b: 2, a: 1 } }),

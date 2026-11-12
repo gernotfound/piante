@@ -14,13 +14,13 @@ La configurazione Web in `src/config.js` (`apiKey`, `authDomain`, `projectId`, `
 
 ## Sicurezza e test
 
-- Test `tests/domain.test.js` e `tests/search-filters.test.js` per validazione, ricerca e proiezione; test `tests/rules.test.js` e `tests/plant-store.test.js` sull'emulatore Firestore; `tests/browser-e2e.test.js` sui due emulatori e Chrome. Dopo cambiamenti a auth/Rules pubblicazione, aggiungere test pertinenti. La CI del candidato non dimostra l'applicazione delle Rules live.
+- Test `tests/unit/domain.test.js` e `tests/unit/search-filters.test.js` per validazione, ricerca e proiezione; test `tests/integration/rules.test.js` e `tests/integration/plant-store.test.js` sull'emulatore Firestore; `tests/e2e/browser-e2e.test.js` sui due emulatori e Chrome. Dopo cambiamenti a auth/Rules pubblicazione, aggiungere test pertinenti. La CI del candidato non dimostra l'applicazione delle Rules live.
 - Non dedurre che Rules siano pubblicate perché un file esiste o i test passano. La console Firebase costituisce un sistema live distinto; anche le dichiarazioni dell'utente vanno registrate come tali.
 - Per modifiche alle Rules, confrontare database e collezioni reali. Un deploy Rules sovrascrive la policy per il database configurato e non è incluso nel workflow Hosting.
 - I record `siteOwner`, il catalogo e gli alias sono dati di produzione: non eliminarli, reimpostarli o seminarli automaticamente durante un test.
 
 ## Hosting
 
-La produzione pubblica è `https://piantee.web.app`, site ID `piantee`. Il progetto Google Cloud/Firebase è `piante-a617e` (identificatori diversi). Si distribuisce da GitHub Actions quando viene aggiornato `main`, solo dopo i controlli, senza canali preview.
+La produzione pubblica è `https://piantee.web.app`, site ID `piantee`. Hosting legge esclusivamente `dist/`, rigenerata da `npm run build` tramite allowlist; test, documenti, configurazioni operative e Security Rules non sono asset del sito. Il progetto Google Cloud/Firebase è `piante-a617e` (identificatori diversi). Si distribuisce da GitHub Actions quando viene aggiornato `main`, solo dopo i controlli, senza canali preview.
 
 Il deployer Hosting mantiene soltanto i propri privilegi minimi. Il workflow `deploy-firestore-rules.yml` usa un pool WIF e un service account separati, riconcilia soltanto le Rules di `(default)` dopo la CI di main e verifica che la policy live corrisponda a una versione approvata nella storia Git prima di pubblicare. Rilegge la release e attende fino a 10 minuti se cambia. Hosting (`deploy-production.yml`) è attivato soltanto dopo il successo Firestore sullo stesso SHA. Gli indici e i dati non sono nel perimetro. Il [runbook](../../docs/operations/firebase-hosting-runbook.md) descrive setup, gate e rollback.

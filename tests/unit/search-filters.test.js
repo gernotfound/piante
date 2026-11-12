@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { filterCatalog, filterInventory, normalizePlantQuery } from "../src/catalog.js";
-import { catalogProjection, coldMinimumOf, fruitTypeOf, plantGroupOf, normalizedHarvestMonths, validatePlant } from "../src/domain.js";
+import { filterCatalog, filterInventory, normalizePlantQuery } from "../../src/catalog.js";
+import { catalogProjection, coldMinimumOf, fruitTypeOf, plantGroupOf, normalizedHarvestMonths, validatePlant } from "../../src/domain.js";
 
 const items = [
   { id: "a", name: "Avocado", scientificName: "Persea americana", category: "Tropicali da frutto", variety: "da seme", minColdC: -2, pollination: "Variabile", potSuitability: "Con accorgimenti", harvestMonths: [10, 11], published: true },

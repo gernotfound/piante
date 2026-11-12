@@ -8,7 +8,7 @@ import { chromium } from "playwright";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PROJECT = "demo-piante-browser";
 const EMAIL = "browser-owner@example.test";
 const PASSWORD = "Only-For-Local-Emulator-123!";
@@ -51,8 +51,8 @@ function routeFile(req, res) {
   const pathname = new URL(req.url, "http://127.0.0.1").pathname;
   const spaRoute = pathname === "/" || !pathname.includes(".");
   const name = spaRoute ? "/index.html" : pathname;
-  const allowed = name === "/index.html" || name === "/styles.css" ||
-    /^\/src\/[a-z-]+\.js$/.test(name) ||
+  const allowed = name === "/index.html" || /^\/styles\/[a-z-]+\.css$/.test(name) ||
+    /^\/src\/(?:ui\/)?[a-z-]+\.js$/.test(name) ||
     /^\/(?:favicon(?:-\d+x\d+)?\.(?:svg|ico|png)|social-preview-v1\.png)$/.test(name);
   if (!allowed) { res.writeHead(404).end(); return; }
   const extension = name.slice(name.lastIndexOf("."));

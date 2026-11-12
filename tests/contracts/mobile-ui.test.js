@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
-const css = source("../styles.css");
-const ui = source("../src/main.js");
-const html = source("../index.html");
+const css = ["base", "public", "admin", "responsive"].map((name) => source(`../../styles/${name}.css`)).join("\n");
+const ui = ["../../src/main.js", "../../src/ui/public.js", "../../src/ui/admin.js"].map(source).join("\n");
+const html = source("../../index.html");
 
 test("Mobile First: viewport responsive e breakpoint di progressivo ampliamento", () => {
   assert.match(html, /name="viewport" content="width=device-width, initial-scale=1"/);

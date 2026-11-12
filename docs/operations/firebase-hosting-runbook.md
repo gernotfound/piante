@@ -6,7 +6,7 @@
 
 - Sito live: `https://piantee.web.app`; Firebase project ID: `piante-a617e`.
 - GitHub: `gernotfound/piante`; `main` è l'unico branch che può pubblicare.
-- Nessuna anteprima: il workflow distribuisce direttamente sul target `piantee` con `npx firebase deploy --only hosting:piantee`.
+- Nessuna anteprima: il workflow genera `dist/` con `npm run build` e distribuisce esclusivamente quella directory sul target `piantee` con `npx firebase deploy --only hosting:piantee`. La radice del repository non deve essere pubblica.
 - Hosting pubblica solo `piantee` dopo il completamento verde del workflow Firestore separato. Firestore riconcilia soltanto le Security Rules di `(default)`, senza pubblicare indici, dati, Storage, Auth o billing.
 
 ## Configurazione una tantum su Google Cloud
@@ -105,7 +105,7 @@ Hosting e non creare chiavi JSON.
 2. Un merge approvato su `main` avvia la CI main. Se riesce, `.github/workflows/deploy-firestore-rules.yml` verifica lo SHA e autentica esclusivamente l'account Firestore.
 3. Il reconciler REST legge la release di `(default)` e la sua sorgente. Se identica alla sorgente desiderata non scrive; se corrisponde a un Rules file nella **storia Git approvata** può pubblicare la nuova versione; su drift sconosciuto o API non leggibile fallisce senza sostituire la release. Questo consente di recuperare rilasci saltati senza usare `HEAD^` come unica baseline.
 4. Dopo la pubblicazione, rilegge la release e attende 10 minuti soltanto se modificata. L'API non fornisce un aggiornamento condizionale atomico della release: una modifica concorrente fra secondo GET e PATCH resta un rischio residuo. Non effettuare editing manuale parallelo.
-5. Solo il successo del workflow Firestore attiva `.github/workflows/deploy-production.yml`, che continua a pubblicare esclusivamente `hosting:piantee` usando l'account Hosting e controlla lo SHA.
+5. Solo il successo del workflow Firestore attiva `.github/workflows/deploy-production.yml`, che ricrea `dist/` esclusivamente dagli asset web autorizzati e pubblica soltanto `hosting:piantee` usando l'account Hosting e controlla lo SHA.
 6. Prima del primo merge, confrontare in sola lettura la sorgente Rules pubblicata in Firebase con `firestore.rules` della baseline `main`, per individuare drift o necessità di riconciliazione.
 7. Dopo il rilascio, verificare separatamente versione Rules live, CI e job Hosting, HTTP, accesso anonimo al catalogo e amministrazione non distruttiva. Non dedurre il runtime dai test Emulator.
 
@@ -143,7 +143,7 @@ a un account che attualmente dispone soltanto di `roles/firebaserules.admin`.
 - GitHub senza permesso OIDC: verificare `id-token: write`, issuer, attributi, condition, binding del service account e repository variables.
 - Hosting fallito: separare errori IAM/API da errori di target `piantee`. Non rilassare i privilegi indiscriminatamente.
 - Sito raggiungibile ma login o Firestore falliscono: controllare Web SDK, Auth Authorized domains, UID proprietario, Rules e console network.
-- Hosting pubblicato ma regressione: valutare rollback alla precedente release Hosting dalla console, senza toccare Firestore o Auth. Il rollback di asset statici non ripristina automaticamente dati o Rules.
+- Hosting pubblicato ma regressione: verificare gli asset di `dist/`, il loro MIME e i moduli importati; valutare rollback alla precedente release Hosting dalla console, senza toccare Firestore o Auth. Il rollback di asset statici non ripristina automaticamente dati o Rules.
 
 ## Riferimenti
 

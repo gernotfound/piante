@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, doc, getDoc, getDocs, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
-import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "../src/plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "../../src/plant-store.js";
 
 let environment;
 let owner;
@@ -34,7 +34,7 @@ test.before(async () => {
   environment = await initializeTestEnvironment({
     projectId: "demo-piante-plant-store",
     firestore: { host: "127.0.0.1", port: 8080,
-      rules: readFileSync(new URL("../firestore.rules", import.meta.url), "utf8") }
+      rules: readFileSync(new URL("../../firestore.rules", import.meta.url), "utf8") }
   });
   await environment.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), "siteOwner", "primary"), { uid: "owner" });
