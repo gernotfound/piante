@@ -69,7 +69,7 @@ export function groupForCategory(category) {
 
 // Mantiene il gruppo esplicito delle schede legacy finché la categoria non cambia.
 export function groupForEditedPlant(category, previous = null) {
-  if (previous?.category === category && plantGroups.includes(previous.plantGroup)) {
+  if (previous && previous.category === category && plantGroups.includes(previous.plantGroup)) {
     return previous.plantGroup;
   }
   return groupForCategory(category);

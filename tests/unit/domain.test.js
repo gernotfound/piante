@@ -40,6 +40,8 @@ test("categoria univoca in editor e specie precompilate senza varietà dedotta d
   assert.equal(groupForCategory("Succulente"), "Altre piante");
   const legacy = { category: "Succulente", plantGroup: "Piante da frutto" };
   assert.equal(groupForEditedPlant("Succulente", legacy), "Piante da frutto");
+  assert.equal(groupForEditedPlant(undefined, null), "Altre piante");
+  assert.equal(groupForEditedPlant("Tropicali da frutto", null), "Piante da frutto");
   assert.equal(groupForEditedPlant("Ornamentali", legacy), "Altre piante");
   assert.equal(groupForEditedPlant("Succulente", { ...legacy, plantGroup: "ignoto" }), "Altre piante");
   assert.equal(decodeRouteId("esemplare%20uno"), "esemplare uno");
