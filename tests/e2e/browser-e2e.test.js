@@ -260,6 +260,12 @@ test("vetrina: piante omonime mostrano codici brevi distinti in scheda e dettagl
           assert.equal(await card.locator(".public-specimen-code").innerText(), specimenCodeOf({ id }));
         }
       }
+      await page.locator("#catalog-search-input").fill(codes[1]);
+      await page.locator('#search-form button[type="submit"]').click();
+      await page.locator(".plant-card").first().waitFor();
+      assert.equal(await page.locator(".plant-card").count(), 1,
+        "La ricerca pubblica deve distinguere le piante omonime tramite codice");
+      assert.equal(await page.locator(".plant-card .public-specimen-code").innerText(), codes[1]);
       await page.goto(baseUrl + "/piante/" + ids[1], { waitUntil: "domcontentloaded" });
       await page.locator(".detail-title .public-specimen-code").waitFor();
       assert.equal(await page.locator(".detail-title .public-specimen-code").innerText(), codes[1]);
