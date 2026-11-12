@@ -35,23 +35,8 @@ service cloud.firestore {
     }
 
     function codeValidForPlant(plantId, data) {
-      return !data.keys().hasAny(['specimenCode'])
-        || (validSpecimenCode(data.specimenCode)
-          && claimedAfter(plantId, data.specimenCode));
-    }
-
-    // Il marker blocca nuovi inserimenti durante la conversione amministrativa.
-    match /specimenRegistry/{id} {
-      allow get: if isOwner();
-      allow list, delete: if false;
-      allow create: if isOwner() && id == 'activation'
-        && request.resource.data.keys().hasOnly(['status', 'startedAt'])
-        && request.resource.data.status == 'migrating';
-      allow update: if isOwner() && id == 'activation'
-        && resource.data.status == 'migrating'
-        && request.resource.data.keys().hasOnly(['status', 'startedAt', 'completedAt'])
-        && request.resource.data.status == 'ready'
-        && request.resource.data.startedAt == resource.data.startedAt;
+      return validSpecimenCode(data.get('specimenCode', ''))
+        && claimedAfter(plantId, data.specimenCode);
     }
 
     // La prenotazione è privata, immutabile e non riutilizzabile.
@@ -68,10 +53,7 @@ service cloud.firestore {
 
     match /privatePlants/{plantId} {
       allow read: if isOwner();
-      allow create: if isOwner() && codeValidForPlant(plantId, request.resource.data)
-        && (!exists(/databases/$(database)/documents/specimenRegistry/activation)
-          || (get(/databases/$(database)/documents/specimenRegistry/activation).data.status == 'ready'
-            && request.resource.data.keys().hasAny(['specimenCode'])));
+      allow create: if isOwner() && codeValidForPlant(plantId, request.resource.data);
       allow update: if isOwner()
         && (!resource.data.keys().hasAny(['specimenCode'])
           || request.resource.data.get('specimenCode', '') == resource.data.specimenCode)

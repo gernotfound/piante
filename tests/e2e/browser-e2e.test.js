@@ -25,7 +25,6 @@ const sandboxMain = originalMain.replace(hook, hook + '\n' +
   ' authReady: state.authReady, user: state.user?.uid || null,' +
   ' authUser: firebase?.auth.currentUser?.uid || null,' +
   ' inventoryReady: state.inventoryReady, inventoryError: state.inventoryError,' +
-  ' codeRegistryStatus: state.codeRegistryStatus,' +
   ' error: state.error, flash: state.flash});' +
   '\nwindow.__pianteTestSetInventoryError = (value) => {' +
   ' state.inventoryError = value; renderUnlessEditing(); };' +
@@ -177,13 +176,8 @@ async function login(page) {
       "; richieste cloud proibite: " + JSON.stringify(page.sandboxRequests) +
       "; causa: " + err.message);
   }
-  await page.waitForFunction(() => window.__pianteDebug?.().codeRegistryStatus !== "loading");
-  if (["uninitialized", "migrating"].includes(
-    (await page.evaluate(() => window.__pianteDebug())).codeRegistryStatus)) {
-    const button = page.locator('[data-action="activate-codes"]');
-    await button.click();
-    await button.waitFor({ state: "hidden", timeout: 45000 });
-  }
+  assert.equal(await page.locator('[data-action="activate-codes"]').count(), 0,
+    "L'assegnazione dei codici non richiede alcuna attivazione manuale");
 }
 
 async function expandEditor(page) {

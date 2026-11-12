@@ -40,7 +40,6 @@ test.before(async () => {
   });
   await environment.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), "siteOwner", "primary"), { uid: "owner" });
-    await setDoc(doc(ctx.firestore(), "specimenRegistry", "activation"), { status: "ready" });
   });
   owner = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
   guest = environment.unauthenticatedContext().firestore();

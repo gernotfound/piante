@@ -111,8 +111,3 @@
 .editor-panel .editor-actions .btn{flex:1 1 0;min-width:0;padding:10px 8px}
 @media (min-width:600px){.editor-panel .editor-actions{justify-content:flex-end}.editor-panel .editor-actions .btn{flex:0 1 auto;min-width:140px}}
 
-.code-registry-notice{margin-bottom:18px;border-color:var(--leaf);background:var(--paper)}
-.code-registry-notice h2{margin-bottom:8px}
-.code-registry-notice p{font-size:.86rem;line-height:1.55;margin:0 0 12px;color:var(--muted)}
-.code-registry-notice .btn{min-height:44px;max-width:100%;white-space:normal}
-.code-registry-notice .status{color:var(--forest);font-weight:600}

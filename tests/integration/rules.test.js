@@ -65,9 +65,20 @@ test("proprietario: legge inventario e pubblica in batch", async () => {
   await assertSucceeds(getDoc(doc(db, "siteOwner", "primary")));
   await assertSucceeds(getDoc(doc(db, "privatePlants", "mango")));
   const batch = writeBatch(db);
-  batch.set(doc(db, "privatePlants", "limone"), { ...published, internalNotes: "Privato" });
-  batch.set(doc(db, "catalog", "limone"), { ...published, name: "Limone" });
+  batch.set(doc(db, "privatePlants", "limone"), {
+    ...published, internalNotes: "Privato", specimenCode: "LEM123"
+  });
+  batch.set(doc(db, "specimenCodes", "LEM123"), { plantId: "limone", createdAt: new Date() });
+  batch.set(doc(db, "catalog", "limone"), {
+    ...published, name: "Limone", specimenCode: "LEM123"
+  });
   await assertSucceeds(batch.commit());
+  await assertFails(setDoc(doc(db, "privatePlants", "without-code"), {
+    ...published, internalNotes: "Privato"
+  }));
+  await assertFails(setDoc(doc(db, "privatePlants", "unreserved"), {
+    ...published, specimenCode: "INVALID"
+  }));
   await assertSucceeds(deleteDoc(doc(db, "catalog", "limone")));
 });
 
