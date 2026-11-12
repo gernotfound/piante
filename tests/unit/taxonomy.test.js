@@ -35,7 +35,7 @@ test("i profili condivisi si applicano a ogni esemplare; cultivar verificata non
 
 test("la duplicazione non conserva attributi personali o pubblicazione", () => {
   const clone = preparePlantDuplicate({ id: "x", __snapshotVersion: "v",
-    name: "Avocado", speciesId: "s_a", cultivarId: "c_a", published: true,
+    specimenCode: "ABC123", name: "Avocado", speciesId: "s_a", cultivarId: "c_a", published: true,
     sourceDetails: "Frutto A", sownOn: "2026-01-01", internalNotes: "Riservato",
     imageUrl: "https://example.test/private.jpg", lifeStage: "Morta" });
   assert.equal(clone.speciesId, "s_a");
@@ -44,6 +44,7 @@ test("la duplicazione non conserva attributi personali o pubblicazione", () => {
   assert.equal(clone.sourceDetails, "");
   assert.equal(clone.internalNotes, "");
   assert.equal(clone.id, undefined);
+  assert.equal(clone.specimenCode, undefined, "Un duplicato non deve ereditare l'identità del genitore");
   assert.equal(clone.lifeStage, "");
   assert.equal(clone.propagationMethod, "");
   assert.equal(clone.materialSource, "");
