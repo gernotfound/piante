@@ -249,9 +249,9 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
       try {
         await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
          assert.equal(await page.locator("#plant-form details.editor-fold[open]").count(), 0,
            "Le sezioni avanzate sono chiuse inizialmente");
+       await expandEditor(page);
       } catch (error) {
         const state = await page.evaluate(() => window.__pianteDebug?.());
         const body = (await page.locator("#app").innerText()).slice(0, 1000);
@@ -350,7 +350,7 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.goto(baseUrl + "/admin/modifica/" + encodeURIComponent(id),
         { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       assert.equal(await page.locator('input.specimen-code[readonly]').inputValue(), "#" + id);
       assert.equal(await page.locator('input[name="specimenLabel"]').count(), 0);
       await page.locator('textarea[name="description"]').fill("Bozza locale da conservare");
@@ -411,7 +411,7 @@ test("scheda legacy: ID documentale autorevole e gruppo/fruttifera preservati", 
     await page.locator('a[href="/admin/modifica/' + id + '"]').waitFor({ timeout: 45000 });
     await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
     await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+    await expandEditor(page);
     assert.equal(await page.locator('input[name="name"]').inputValue(), "Fico d'India legacy");
     assert.equal(await page.locator('[data-fruit-type-field]').isVisible(), true);
     assert.equal(await page.locator('select[name="fruitType"]').inputValue(), "Mediterranee");
@@ -448,7 +448,7 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       await login(page);
       await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       assert.equal(await page.locator('select[name="plantPreset"]').count(), 0);
       await page.locator('input[name="name"]').fill("Avocado");
       await page.locator('input[name="scientificName"]').fill("Persea americana");
@@ -466,7 +466,7 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       assert.equal(fresh.data().cultivarId, "");
       await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       await page.locator('input[name="name"]').fill("SINONIMO AVOCADO TEST");
       await page.locator('input[name="name"]').blur();
       assert.equal(await page.locator('input[name="name"]').inputValue(), "Avocado");
@@ -483,11 +483,11 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       assert.equal((await getDoc(doc(owner, "privatePlants", legacyId))).data().scientificName, undefined);
       await page.goto(baseUrl + "/admin/modifica/" + legacyId, { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       assert.equal(await page.locator('input[name="scientificName"]').inputValue(), "Persea americana");
       await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       await page.locator('input[name="light"]').fill("Luce filtrata di prova");
        assert.equal(await page.locator('[data-shared-warning="species"]').isVisible(), true,
          "Deve apparire un avviso sulle modifiche condivise");
@@ -495,19 +495,19 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       await page.waitForURL("**/admin/piante", { timeout: 45000 });
       await page.goto(baseUrl + "/admin/modifica/" + legacyId, { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       assert.equal(await page.locator('input[name="light"]').inputValue(), "Luce filtrata di prova");
       await page.goto(baseUrl + "/admin/nuova?copy=" + encodeURIComponent(id),
         { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       assert.equal(await page.locator('input[name="name"]').inputValue(), "Avocado");
       assert.equal(await page.locator('input[name="seedSourceCultivar"]').inputValue(), "");
       assert.equal(await page.locator('input[name="sourceDetails"]').inputValue(), "");
       assert.equal(await page.locator('input[name="published"]').isChecked(), false);
       await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
       await page.locator("#journal-form").waitFor({ timeout: 45000 });
-       await expandEditor(page);
+      await expandEditor(page);
       await page.evaluate(() => window.__pianteTestSetJournalSaving(true));
       await page.locator('#plant-form button[type="submit"]').click();
       await page.locator(".notice.error").filter({ hasText: "salvataggio del diario" }).waitFor();

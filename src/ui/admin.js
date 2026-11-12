@@ -244,11 +244,13 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
             `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
           <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
             ${["", ...lifeStages].map(value => `<option value="${h(value)}" ${(p.lifeStage || "") === value ? "selected" : ""}>${h(value || "Non specificato")}</option>`).join("")}
-          </select></label>          ${propagationSelect}
+          </select></label>
+          ${propagationSelect}
           ${inputField("Data di semina (se nota)", "sownOn", p.sownOn, "type='date'")}
           ${inputField("Posizione attuale (privata)", "plantLocation", p.plantLocation,
             "maxlength='120' placeholder='Es. balcone, vaso grande'")}
-        ${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}        </div>
+        ${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}
+        </div>
       </section>
       <details class="editor-section editor-fold" id="editor-origin">
         <summary class="editor-fold-summary"><span>Provenienza e lotto di semina</span><small>Origine del materiale, frutto genitore e altri dati privati</small></summary>
@@ -274,13 +276,16 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           ${inputField("Origine geografica (pubblica)", "origin", shared.origin, "maxlength='150'")}
           ${pollinationSelect}
           ${potSelect}
-          ${harvestSelector}          ${inputField("Esposizione", "light", shared.light, "placeholder='Es. pieno sole' maxlength='120'")}
+          ${harvestSelector}
+          ${inputField("Esposizione", "light", shared.light, "placeholder='Es. pieno sole' maxlength='120'")}
           ${inputField("Irrigazione", "water", shared.water, "placeholder='Es. moderata' maxlength='120'")}
-          <div class="full-width">${textareaField("Descrizione pubblica della specie", "description", shared.description, "maxlength='3000'")}</div>          ${inputField("Temperatura minima indicativa (°C)", "minColdC", shared.minColdC,
+          <div class="full-width">${textareaField("Descrizione pubblica della specie", "description", shared.description, "maxlength='3000'")}</div>
+          ${inputField("Temperatura minima indicativa (°C)", "minColdC", shared.minColdC,
             "type='number' step='0.5' min='-40' max='25' inputmode='decimal' placeholder='Es. -3'")}
           ${inputField("Fonte HTTPS (facoltativa)", "coldSource", shared.coldSource,
             "type='url' inputmode='url' maxlength='500' placeholder='https://...'")}
-          <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", shared.coldNotes, "maxlength='250'")}</div>        </div>
+          <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", shared.coldNotes, "maxlength='250'")}</div>
+        </div>
         <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
       </details>
       <details class="editor-section editor-fold" id="editor-cultivar">
@@ -295,7 +300,8 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           ${inputField("Fonte climatica cultivar", "cultivarColdSource", cultivarData.coldSource,
             "type='url' maxlength='500' placeholder='https://...'")}
           <div class="full-width">${textareaField("Note climatiche cultivar", "cultivarColdNotes", cultivarData.coldNotes, "maxlength='250'")}</div>
-          ${cultivarHarvest}        </div>
+          ${cultivarHarvest}
+        </div>
       </details>
       <details class="editor-section editor-fold" id="editor-catalog">
         <summary class="editor-fold-summary"><span>Altri dettagli del catalogo</span><small>Informazioni facoltative relative a questo esemplare</small></summary>
@@ -307,14 +313,15 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       <details class="editor-section editor-fold" id="editor-photo">
         <summary class="editor-fold-summary"><span>Fotografia</span><small>Aggiungi l'indirizzo HTTPS di una foto autentica</small></summary>
         <div class="form-grid">
-          <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>        </div>
+          <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>
+        </div>
         ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
       </details>
       <section class="editor-section">
         <div class="editor-section-heading"><span class="editor-step">03</span><div>
           <h3>Visibilità</h3><p>Decidi se mostrare l'esemplare nel catalogo pubblico.</p></div></div>
         <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
-          <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
+          <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta privata. La prima pubblicazione rende consultabili anche le informazioni botaniche condivise, che restano pubbliche anche se riporti l’esemplare in privato.</small></span></label>
       </section>
       <div class="editor-actions" aria-label="Azioni scheda pianta">
         <button class="btn btn-primary" type="submit">Salva pianta</button>
