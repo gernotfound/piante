@@ -1,4 +1,4 @@
-import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, propagationMethods, materialSources, specimenSexes, groupForEditedPlant, decodeRouteId, specimenCodeOf, varietyLabel, safeImageUrl, escapeHtml } from "../domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, propagationMethods, materialSources, specimenSexes, groupForEditedPlant, decodeRouteId, specimenCodeOf, validSpecimenCode, varietyLabel, safeImageUrl, escapeHtml } from "../domain.js";
 import { filterInventory } from "../catalog.js";
 import { plantVersion } from "../plant-store.js";
 import { lifeStages, journalKinds, profileForPlant, preparePlantDuplicate } from "../taxonomy.js";
@@ -35,6 +35,23 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       ${adminLink("/admin/impostazioni", "Altro", "⚙")}
     </nav>`;
   }
+  function codeRegistryNotice() {
+    if (!state.owner || !state.inventoryReady) return "";
+    const missing = state.inventory.filter(item => !validSpecimenCode(item.specimenCode)).length;
+    if (state.codeRegistryStatus === "ready" && missing === 0) return "";
+    const loading = state.codeRegistryStatus === "loading" || state.codeRegistryStatus === "error";
+    const disabled = state.codeSyncing || loading ? "disabled" : "";
+    return `<section class="panel code-registry-notice" aria-label="Codici univoci delle piante">
+      <h2>Codici identificativi univoci</h2>
+      <p>Per proteggere i codici da duplicati, verifica e registra le schede esistenti. I dati botanici, il diario e i collegamenti non vengono cambiati.</p>
+      <p class="status" role="status">${h(state.codeRegistryError || state.codeProgress ||
+        (loading ? "Verifica del registro in corso…" : missing + " piante da verificare."))}</p>
+      <button type="button" class="btn btn-primary" data-action="activate-codes" ${disabled}>
+        ${state.codeSyncing ? "Verifica in corso…" :
+          state.codeRegistryStatus === "migrating" ? "Riprendi l'assegnazione" : "Attiva codici univoci"}
+      </button>
+    </section>`;
+  }
   function adminFrame(content, title, intro) {
     return `<div class="admin-shell">
       ${adminTabs()}
@@ -42,7 +59,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         <div class="admin-topbar"><span>Gestione del vivaio</span><a href="/" data-nav>Apri il sito <span aria-hidden="true">↗</span></a></div>
         <header class="admin-header"><span class="eyebrow">IL TUO SPAZIO DI LAVORO</span>
           <h1>${h(title)}</h1><p>${h(intro)}</p></header>
-        <div class="admin-body">${alertBox(state.error, true)}${alertBox(state.flash)}${content}</div>
+        <div class="admin-body">${alertBox(state.error, true)}${alertBox(state.flash)}${codeRegistryNotice()}${content}</div>
       </div>
     </div>`;
   }
@@ -245,8 +262,8 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         <div class="form-grid">
           <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
             <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice breve della pianta">
-            <small>È stabile, inizia con # e puoi copiarlo per riconoscere questo esemplare.</small></label>` :
-            `<p class="specimen-hint">Un codice breve di 6 caratteri (A–Z e 0–9), preceduto da #, sarà assegnato al salvataggio.</p>`}</div>
+            <small>È permanente, inizia con # e identifica soltanto questo esemplare dopo l'attivazione del registro.</small></label>` :
+            `<p class="specimen-hint">Un codice univoco di 6 caratteri (A–Z e 0–9), preceduto da #, sarà assegnato al salvataggio.</p>`}</div>
           <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
             ${["", ...lifeStages].map(value => `<option value="${h(value)}" ${(p.lifeStage || "") === value ? "selected" : ""}>${h(value || "Non specificato")}</option>`).join("")}
           </select></label>
