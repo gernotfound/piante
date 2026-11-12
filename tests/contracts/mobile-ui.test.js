@@ -74,6 +74,14 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
   assert.match(ui, /varietyLabel\(item\)/);
 });
 
+test("Accesso: solo email/password e nessun percorso nickname residuo", () => {
+  assert.match(ui, /<input class="input" type="email" name="email" autocomplete="username"/);
+  assert.doesNotMatch(ui, /name="identity"/);
+  assert.doesNotMatch(ui, /id="username-form"/);
+  assert.doesNotMatch(ui, /loginAliases|adminProfiles|saveUsername|normalizeUsername|validUsername|state\.username/);
+  assert.match(ui, /signInWithEmailAndPassword/);
+});
+
 test("Editor mobile: il recupero dei conflitti resta utilizzabile su schermi stretti", () => {
   assert.match(ui, /reload\.dataset\.action = "reload-editor"/);
   assert.match(ui, /reload\.textContent = "Ricarica la scheda"/);
