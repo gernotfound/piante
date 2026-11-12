@@ -495,7 +495,7 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(await page.locator('#login-form input[name="email"][type="email"]').count(), 1);
       await login(page);
       assert.match(page.url(), /\/admin/);
-      await page.locator('.settings-logout [data-action="logout"]').count();
+      await page.locator(".stat-grid").waitFor();
       assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
       assert.deepEqual(other.sandboxRequests, [], "Richieste fuori dagli emulatori");
     } finally {
