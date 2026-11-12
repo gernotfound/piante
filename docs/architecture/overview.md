@@ -16,8 +16,10 @@
 ## Dati
 
 - `siteOwner/primary`: UID proprietario, applicato dalle Security Rules.
-- `privatePlants/{id}`: inventario riservato, note interne, provenienza e altri metadati. Il codice `#` usa l'ID documentale (autorevole anche se nel record legacy esiste un campo `id`). L'editor preserva un gruppo botanico storico esplicito se la categoria non viene cambiata, evitando riclassificazioni involontarie.
-- `catalog/{id}`: proiezione dei soli campi pubblicabili. Le operazioni sulle due raccolte sono atomiche; l'editor conserva la versione caricata e blocca sovrascritture concorrenti.
+- `privatePlants/{id}`: inventario riservato, note interne, provenienza, stato, lotto e altri metadati. Il codice `#` usa l'ID documentale (autorevole anche se nel record legacy esiste un campo `id`). L'editor preserva un gruppo botanico storico esplicito se la categoria non viene cambiata, evitando riclassificazioni involontarie.
+- `plantProfiles/{id}`: schede pubblicamente leggibili con soli attributi botanici condivisi di specie e cultivar; scrivibili solo dal proprietario. I documenti `catalog` e `privatePlants` possono referenziarle per ID. Il client unisce i dati alla lettura, senza migrazioni o fan-out: una correzione alle caratteristiche comuni modifica la vista di tutti gli esemplari collegati. Per le schede legacy senza ID di specie si tenta esclusivamente la corrispondenza esatta del nome comune. Una cultivar non viene inferita dal seme del suo frutto.
+- `seedLots/{id}`: lotti privati con nome, specie e provenienza; `privatePlants/{id}/events/{eventId}`: diario e storico immutabile delle operazioni, entrambi leggibili solo dal proprietario.
+- `catalog/{id}`: proiezione dei soli campi pubblicabili. Le operazioni sulle raccolte private/pubbliche e sulle schede condivise coinvolte sono atomiche; l'editor conserva la versione caricata e blocca sovrascritture concorrenti.
 - Firebase Authentication contiene password e sessioni. Gli alias opzionali non conferiscono privilegi.
 
 ## Test e rilascio
@@ -25,3 +27,7 @@
 - `tests/unit/`: funzioni pure; `tests/contracts/`: vincoli di struttura e sicurezza dei workflow; `tests/integration/`: Firestore Rules e transazioni sull'emulatore; `tests/e2e/`: flussi Auth/Firestore in browser isolato.
 - `npm run check`, `npm run build`, `npm test`, `npm run test:rules` e `npm run test:browser` alimentano la CI con CodeQL e Canonical Verification.
 - Le PR non pubblicano il sito. Da `main`, dopo i gate, il workflow Firestore Rules precede Hosting con identità WIF distinte. I controlli CI non dimostrano lo stato live del provider.
+
+## Limiti noti del modello condiviso
+
+I documenti `catalog` mantengono una proiezione di compatibilità: i client che leggono direttamente Firestore senza applicare il profilo condiviso possono mostrare il valore precedente di un attributo. Il frontend Piante risolve i profili in tempo reale. Le note private, il lotto, il diario e lo stato non vengono copiati in `catalog` o `plantProfiles`. La cancellazione definitiva di un documento Firestore non elimina automaticamente la sottoraccolta privata `events`: preferire la conservazione dello stato storico e valutare una politica esplicita di eliminazione degli eventi prima di abilitare cancellazioni massive.

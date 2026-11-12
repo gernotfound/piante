@@ -156,3 +156,31 @@ test("alias: singolo lookup pubblico, elenco negato, scrittura solo dal propriet
   await assertFails(setDoc(doc(guest, "loginAliases", "x"), { email: "guest@example.test" }));
   await assertFails(setDoc(doc(owner, "loginAliases", "altro"), { email: "other@example.test" }));
 });
+
+
+test("profili pubblici senza dati riservati, lotti e diario solo proprietario", async () => {
+  const owner = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
+  const guest = environment.unauthenticatedContext().firestore();
+  const stranger = environment.authenticatedContext("estraneo", { email: "other@example.test" }).firestore();
+  const ref = doc(owner, "plantProfiles", "s_avocado_test");
+  await assertSucceeds(setDoc(ref, { kind: "species", name: "Avocado", scientificName: "Persea americana" }));
+  await assertSucceeds(getDoc(doc(guest, "plantProfiles", "s_avocado_test")));
+  await assertSucceeds(getDocs(collection(guest, "plantProfiles")));
+  await assertFails(setDoc(doc(guest, "plantProfiles", "s_unauthorized"), {
+    kind: "species", name: "Altro"
+  }));
+  await assertFails(setDoc(doc(owner, "plantProfiles", "s_leak"), {
+    kind: "species", name: "Avocado", sourceDetails: "Privato"
+  }));
+  await assertFails(setDoc(doc(owner, "plantProfiles", "s_leak2"), {
+    kind: "species", name: "Avocado", internalNotes: "Privato"
+  }));
+  await assertFails(setDoc(doc(stranger, "seedLots", "l_not_owner"), { name: "Lotto" }));
+  await assertSucceeds(setDoc(doc(owner, "seedLots", "l_owner"), { name: "Lotto" }));
+  await assertFails(getDoc(doc(guest, "seedLots", "l_owner")));
+  await assertFails(getDocs(collection(guest, "privatePlants", "mango", "events")));
+  await assertFails(setDoc(doc(guest, "privatePlants", "mango", "events", "x"),
+    { type: "Osservazione", note: "Privato", changedFields: [] }));
+  await assertFails(setDoc(doc(owner, "privatePlants", "mango", "events", "leak"),
+    { type: "Osservazione", note: "Evento", changedFields: [], publicNotes: "Non previsto" }));
+});
