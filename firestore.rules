@@ -29,6 +29,75 @@ service cloud.firestore {
       allow read, write: if isOwner();
     }
 
+    // I profili botanici associati solo a piante private restano riservati.
+    // Un profilo pubblico contiene unicamente attributi botanici condivisi.
+    match /plantProfiles/{profileId} {
+      allow get, list: if isOwner() || resource.data.get('public', false) == true;
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly([
+          'kind', 'name', 'parentId', 'scientificName', 'category', 'fruitType',
+          'growthHabit', 'searchAliases', 'origin', 'light', 'water',
+          'description', 'pollination', 'potSuitability', 'harvestMonths',
+          'minColdC', 'coldSource', 'coldNotes', 'fruitNotes', 'public', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.kind in ['species', 'cultivar']
+        && request.resource.data.get('public', false) is bool
+        && optionalText(request.resource.data, 'parentId', 900)
+        && (request.resource.data.kind != 'cultivar' ||
+          request.resource.data.get('parentId', '') != '')
+        && optionalText(request.resource.data, 'scientificName', 150)
+        && optionalText(request.resource.data, 'category', 100)
+        && optionalText(request.resource.data, 'fruitType', 60)
+        && optionalText(request.resource.data, 'growthHabit', 60)
+        && optionalText(request.resource.data, 'searchAliases', 250)
+        && optionalText(request.resource.data, 'origin', 150)
+        && optionalText(request.resource.data, 'light', 120)
+        && optionalText(request.resource.data, 'water', 120)
+        && optionalText(request.resource.data, 'description', 3000)
+        && optionalText(request.resource.data, 'fruitNotes', 750)
+        && optionalText(request.resource.data, 'pollination', 70)
+        && optionalText(request.resource.data, 'potSuitability', 70)
+        && optionalText(request.resource.data, 'coldNotes', 250)
+        && optionalHttps(request.resource.data, 'coldSource', 500)
+        && request.resource.data.get('harvestMonths', []) is list
+        && request.resource.data.get('harvestMonths', []).size() <= 12
+        && request.resource.data.get('harvestMonths', []).hasOnly([
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        ])
+        && (!request.resource.data.keys().hasAny(['minColdC']) ||
+            request.resource.data.minColdC == null ||
+            (request.resource.data.minColdC is number &&
+             request.resource.data.minColdC >= -40 &&
+             request.resource.data.minColdC <= 25));
+      allow delete: if false;
+    }
+
+    // Lotti riservati. Non cancellabili per evitare riferimenti sospesi.
+    match /seedLots/{lotId} {
+      allow get, list, create, update: if isOwner();
+      allow delete: if false;
+    }
+
+    match /privatePlants/{plantId}/events/{eventId} {
+      allow get, list: if isOwner();
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly(['type', 'note', 'changedFields',
+          'eventDate', 'createdAt'])
+        && optionalText(request.resource.data, 'type', 50)
+        && optionalText(request.resource.data, 'note', 1500)
+        && optionalText(request.resource.data, 'eventDate', 10)
+        && request.resource.data.get('changedFields', []) is list
+        && request.resource.data.get('changedFields', []).size() <= 40;
+      allow update: if false;
+      // Eliminazione dei soli eventi insieme alla scheda madre, nella stessa
+      // transazione. Il proprietario non può cancellare voci singolarmente.
+      allow delete: if isOwner()
+        && !existsAfter(/databases/$(database)/documents/privatePlants/$(plantId));
+    }
+
     match /catalog/{plantId} {
       allow read: if true;
       allow create, update: if isOwner()
@@ -37,7 +106,8 @@ service cloud.firestore {
           'light', 'water', 'origin', 'imageUrl', 'availability', 'price',
           'plantGroup', 'fruitType', 'growthHabit', 'searchAliases',
           'minColdC', 'coldSource', 'coldNotes',
-          'pollination', 'potSuitability', 'harvestMonths'
+          'pollination', 'potSuitability', 'harvestMonths',
+          'speciesId', 'cultivarId'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -74,6 +144,8 @@ service cloud.firestore {
         ])
         && request.resource.data.get('harvestMonths', []).toSet().size()
           == request.resource.data.get('harvestMonths', []).size()
+        && optionalText(request.resource.data, 'speciesId', 900)
+        && optionalText(request.resource.data, 'cultivarId', 1100)
         && optionalText(request.resource.data, 'searchAliases', 250)
         && optionalText(request.resource.data, 'coldNotes', 250)
         && optionalHttps(request.resource.data, 'coldSource', 500)

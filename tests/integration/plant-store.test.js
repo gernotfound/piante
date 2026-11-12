@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, doc, getDoc, getDocs, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
-import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "../../src/plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError } from "../../src/plant-store.js";
+import { taxonId, lotIdOf, sharedProfileDraft, resolvePlantProfiles } from "../../src/taxonomy.js";
 
 let environment;
 let owner;
@@ -24,7 +25,7 @@ const plant = {
   published: false
 };
 
-const adapter = (db) => ({ db, collection, doc, runTransaction, serverTimestamp });
+const adapter = (db) => ({ db, collection, doc, getDocs, runTransaction, serverTimestamp });
 const data = async (db, collectionName, id) => {
   const snapshot = await getDoc(doc(db, collectionName, id));
   return snapshot.exists() ? snapshot.data() : null;
@@ -136,6 +137,7 @@ test("un editor obsoleto non può cancellare una scheda aggiornata altrove", asy
   assert.equal((await data(guest, "catalog", id)).name, "Aggiornata");
   const currentVersion = plantVersion(await data(owner, "privatePlants", id));
   await deletePlantRecord(adapter(owner), { id, expectedVersion: currentVersion });
+  assert.equal((await getDocs(collection(owner, "privatePlants", id, "events"))).size, 0);
   assert.equal(await data(owner, "privatePlants", id), null);
   assert.equal(await data(guest, "catalog", id), null);
   await assert.rejects(savePlantRecord(adapter(owner), { id, expectedVersion: currentVersion,
@@ -201,4 +203,147 @@ test("esemplari distinti dalla stessa specie conservano provenienza privata, sen
     assert.equal(projected.specimenLabel, undefined);
     assert.equal(projected.sourceDetails, undefined);
   }
+});
+
+
+test("profili botanici: transazione atomica, cultivar e dati privati separati", async () => {
+  const speciesId = taxonId("species", "Avocado condiviso");
+  const cultivarId = taxonId("cultivar", "Bacon", speciesId);
+  const species = sharedProfileDraft("species", "Avocado condiviso", "", {
+    scientificName: "Persea americana", category: "Tropicali da frutto",
+    fruitType: "Tropicali e subtropicali", minColdC: null,
+    description: "Descrizione condivisa", pollination: "Variabile"
+  });
+  const cultivar = sharedProfileDraft("cultivar", "Bacon", speciesId, {
+    fruitNotes: "Buccia verde", minColdC: -3, pollination: ""
+  });
+  const specimen = { ...plant, name: "Avocado condiviso", variety: "Bacon",
+    speciesId, cultivarId, published: true, sourceDetails: "Privato",
+    seedSourceCultivar: "Hass", lifeStage: "Piantina" };
+  const id = await savePlantRecord(adapter(owner), { plant: specimen, shared: {
+    species: { id: speciesId, expectedVersion: null, data: species },
+    cultivar: { id: cultivarId, expectedVersion: null, data: cultivar }
+  } });
+  const saved = await data(owner, "privatePlants", id);
+  const visible = await data(guest, "catalog", id);
+  const publicSpecies = await data(guest, "plantProfiles", speciesId);
+  assert.equal(saved.sourceDetails, "Privato");
+  assert.equal(visible.sourceDetails, undefined);
+  assert.equal(visible.seedSourceCultivar, undefined);
+  assert.equal(visible.lifeStage, undefined);
+  assert.equal(visible.minColdC, -3);
+  assert.equal(publicSpecies.internalNotes, undefined);
+  assert.equal(publicSpecies.public, true);
+  assert.equal(visible.speciesId, speciesId);
+  assert.equal(visible.cultivarId, cultivarId);
+  const currentSpecies = await data(owner, "plantProfiles", speciesId);
+  const updatedSpecies = { ...species, description: "Nuova descrizione per tutti" };
+  const nextId = await savePlantRecord(adapter(owner), { plant: {
+    ...plant, name: "Avocado condiviso", variety: "", speciesId, published: false
+  }, shared: {
+    species: { id: speciesId, expectedVersion: plantVersion(currentSpecies), data: updatedSpecies }
+  } });
+  assert.notEqual(nextId, id);
+  const resolved = resolvePlantProfiles({ ...visible, id }, [
+    { id: speciesId, ...await data(guest, "plantProfiles", speciesId) },
+    { id: cultivarId, ...await data(guest, "plantProfiles", cultivarId) }
+  ]);
+  assert.equal(resolved.description, "Nuova descrizione per tutti");
+  assert.equal(resolved.fruitNotes, "Buccia verde");
+  assert.equal(resolved.sourceDetails, undefined);
+  await assert.rejects(savePlantRecord(adapter(owner), { plant: {
+    ...plant, name: "Avocado condiviso", speciesId, published: true
+  }, shared: {
+    species: { id: speciesId, expectedVersion: plantVersion(currentSpecies), data: species }
+  } }), PlantConflictError);
+  await assert.rejects(getDoc(doc(guest, "privatePlants", id)),
+    { code: "permission-denied" });
+});
+
+test("lotti e diario sono privati e non contaminano i campi del catalogo", async () => {
+  const name = "Papaya lotto integration";
+  const speciesId = taxonId("species", name);
+  const lotId = lotIdOf(speciesId, "Lotto test integration");
+  const base = { ...plant, name, speciesId, lotId, lotName: "Lotto test integration",
+    published: true, variety: "", sourceDetails: "Frutto Formosa", seedSourceCultivar: "Formosa",
+    lifeStage: "Seme" };
+  const id = await savePlantRecord(adapter(owner), {
+    plant: base, shared: {
+      species: { id: speciesId, expectedVersion: null,
+        data: sharedProfileDraft("species", name, "", base) },
+      lot: { id: lotId, data: { name: base.lotName, speciesId, sourceDetails: base.sourceDetails,
+        seedSourceCultivar: base.seedSourceCultivar, sownOn: "2026-11-01" } }
+    }
+  });
+  assert.equal((await data(owner, "seedLots", lotId)).sourceDetails, "Frutto Formosa");
+  assert.equal((await data(guest, "catalog", id)).lotId, undefined);
+  await assert.rejects(saveJournalEntry(adapter(owner), { plantId: id,
+    kind: "Rinvaso", note: "Errore", eventDate: "2026-99-99" }), /data valida/i);
+  await saveJournalEntry(adapter(owner), { plantId: id, kind: "Rinvaso",
+    note: "Substrato drenante", eventDate: "2026-11-12" });
+  const entries = await getDocs(collection(owner, "privatePlants", id, "events"));
+  assert.ok(entries.docs.some(d => d.data().note === "Substrato drenante"));
+  await assert.rejects(getDocs(collection(guest, "privatePlants", id, "events")),
+    { code: "permission-denied" });
+  await assert.rejects(getDoc(doc(guest, "seedLots", lotId)), { code: "permission-denied" });
+});
+
+
+test("eliminazione bloccata se il diario contiene osservazioni: nessun dato perso", async () => {
+  const id = await savePlantRecord(adapter(owner), { plant: { ...plant, published: true } });
+  await saveJournalEntry(adapter(owner), {
+    plantId: id, kind: "Osservazione", note: "Frutto campione da conservare",
+    eventDate: "2026-11-12"
+  });
+  const current = await data(owner, "privatePlants", id);
+  assert.ok(current.lastJournalActivityAt, "L'attività aggiorna il documento padre");
+  await assert.rejects(deletePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion(current)
+  }), PlantJournalRetentionError);
+  assert.ok(await data(owner, "privatePlants", id));
+  assert.ok(await data(guest, "catalog", id));
+  const events = await getDocs(collection(owner, "privatePlants", id, "events"));
+  assert.ok(events.docs.some(event => event.data().note.includes("Frutto campione")));
+  await assert.rejects(deletePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion({ ...current, lastJournalActivityAt: null })
+  }), PlantJournalRetentionError);
+});
+
+
+test("specie associata soltanto a esemplare privato non è enumerabile dal pubblico", async () => {
+  const name = "Specie riservata di test";
+  const speciesId = taxonId("species", name);
+  const individual = { ...plant, name, speciesId, published: false, variety: "" };
+  const species = sharedProfileDraft("species", name, "", individual);
+  const id = await savePlantRecord(adapter(owner), { plant: individual, shared: {
+    species: { id: speciesId, data: species, expectedVersion: null }
+  } });
+  const privateProfile = await data(owner, "plantProfiles", speciesId);
+  assert.equal(privateProfile.public, false);
+  await assert.rejects(getDoc(doc(guest, "plantProfiles", speciesId)),
+    { code: "permission-denied" });
+  const existing = await data(owner, "privatePlants", id);
+  await savePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion(existing),
+    plant: { ...individual, published: true }, shared: {
+      species: {
+        id: speciesId, data: species,
+        expectedVersion: plantVersion(privateProfile)
+      }
+    }
+  });
+  assert.equal((await data(guest, "plantProfiles", speciesId)).public, true);
+  const nextPrivate = await data(owner, "privatePlants", id);
+  const publishedProfile = await data(owner, "plantProfiles", speciesId);
+  await savePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion(nextPrivate),
+    plant: { ...individual, published: false }, shared: {
+      species: {
+        id: speciesId, data: species,
+        expectedVersion: plantVersion(publishedProfile)
+      }
+    }
+  });
+  assert.equal((await data(guest, "plantProfiles", speciesId)).public, true);
+  assert.equal(await data(guest, "catalog", id), null);
 });

@@ -49,7 +49,12 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
   assert.doesNotMatch(ui, /name="specimenLabel"/);
   assert.match(ui, /class="plant-title-line"/);
   assert.match(ui, /specimenCodeOf\(plant\)/);
-  assert.match(ui, /name="plantPreset"/);
+  assert.doesNotMatch(ui, /name="plantPreset"/);
+  assert.match(ui, /id="known-species"/);
+  assert.match(ui, /name="cultivarName"/);
+  assert.match(ui, /id="journal-form"/);
+  assert.match(ui, /"lotName", p\.lotName/);
+  assert.match(ui, /name="lifeStage"/);
   assert.match(ui, /"sourceDetails", p\.sourceDetails/);
   assert.doesNotMatch(ui, /name="plantGroup"/);
   assert.match(css, /\.form-field\[hidden\]\{display:none\}/);

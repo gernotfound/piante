@@ -67,6 +67,19 @@ export function groupForCategory(category) {
   return "Altre piante";
 }
 
+// Mantiene il gruppo esplicito delle schede legacy finché la categoria non cambia.
+export function groupForEditedPlant(category, previous = null) {
+  if (previous && previous.category === category && plantGroups.includes(previous.plantGroup)) {
+    return previous.plantGroup;
+  }
+  return groupForCategory(category);
+}
+
+export function decodeRouteId(value) {
+  try { return decodeURIComponent(value); }
+  catch { return null; }
+}
+
 export function plantGroupOf(plant) {
   if (plantGroups.includes(plant.plantGroup)) return plant.plantGroup;
   return groupForCategory(plant.category);
@@ -147,6 +160,8 @@ export function catalogProjection(plant) {
     pollination: pollinationTypes.includes(plant.pollination) ? plant.pollination : "",
     potSuitability: potSuitabilityTypes.includes(plant.potSuitability) ? plant.potSuitability : "",
     harvestMonths: normalizedHarvestMonths(plant.harvestMonths),
+    ...(plant.speciesId ? { speciesId: String(plant.speciesId) } : {}),
+    ...(plant.cultivarId ? { cultivarId: String(plant.cultivarId) } : {}),
     ...(coldMinimumOf(plant) !== null ? { minColdC: coldMinimumOf(plant) } : {})
   };
 }

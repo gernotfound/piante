@@ -1,6 +1,7 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, plantPresets, groupForCategory, normalizeUsername, validUsername, validatePlant } from "./domain.js";
-import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "./plant-store.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError } from "./plant-store.js";
+import { lifeStages, journalKinds, taxonId, lotIdOf, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
 import { createAdminViews } from "./ui/admin.js";
@@ -12,6 +13,9 @@ const state = {
   menuOpen: false,
   catalog: [],
   inventory: [],
+  rawInventory: [], rawCatalog: [], profiles: [], profilesReady: false, profilesError: "",
+  publicProfiles: [], publicProfilesReady: false, ownerProfiles: [], ownerProfilesReady: false,
+  lots: [], lotsReady: false, journalEntries: [], journalError: "", inventoryStage: "Tutte",
   inventoryReady: false,
   inventoryError: "",
   user: null,
@@ -36,6 +40,11 @@ const state = {
 };
 let firebase = null;
 let privateListener = null;
+let lotsListener = null;
+let profilesListener = null;
+let journalListener = null;
+let activeJournalId = "";
+let journalDirty = false;
 let authCheckSerial = 0;
 let formDirty = false;
 let plantSaveInProgress = false;
@@ -95,10 +104,41 @@ function syncCatalogUrl() {
   currentPath = path;
 }
 function confirmDiscard() {
-  return !formDirty || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+  return (!formDirty && !journalDirty) || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+}
+function refreshSharedPlants() {
+  state.profiles = state.owner ? state.ownerProfiles : state.publicProfiles;
+  state.profilesReady = state.owner ? state.ownerProfilesReady : state.publicProfilesReady;
+  state.catalog = state.rawCatalog.map(item => resolvePlantProfiles(item, state.publicProfiles));
+  state.inventory = state.rawInventory.map(item => resolvePlantProfiles(item, state.profiles));
+}
+function syncJournalListener() {
+  const part = state.route.startsWith("/admin/modifica/")
+    ? decodeRouteId(state.route.slice("/admin/modifica/".length)) : "";
+  const id = state.owner && state.inventoryReady && firebase ? part || "" : "";
+  if (id === activeJournalId) return;
+  if (journalListener) { journalListener(); journalListener = null; }
+  activeJournalId = id;
+  state.journalEntries = []; state.journalError = "";
+  if (!id) return;
+  const entries = firebase.collection(firebase.db, "privatePlants", id, "events");
+  journalListener = firebase.onSnapshot(
+    firebase.query(entries, firebase.orderBy("createdAt", "desc"), firebase.limit(50)),
+    snap => {
+      if (activeJournalId !== id) return;
+      state.journalEntries = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      state.journalError = ""; renderUnlessEditing();
+    },
+    () => {
+      if (activeJournalId !== id) return;
+      state.journalError = "Storico temporaneamente non disponibile.";
+      renderUnlessEditing();
+    }
+  );
 }
 function renderUnlessEditing() {
-  if ((formDirty || plantSaveInProgress) && document.querySelector("#plant-form")) return;
+  if ((formDirty || journalDirty || plantSaveInProgress) &&
+      document.querySelector("#plant-form, #journal-form")) return;
   // Gli snapshot asincroni non devono sostituire i moduli durante la compilazione.
   if (document.querySelector("#login-form, #username-form")) return;
   const focusedForm = document.activeElement?.closest?.("form");
@@ -113,6 +153,7 @@ function renderUnlessEditing() {
     ["#harvest-filter", state.harvestMonth],
     ["#pot-filter", state.potSuitability],
     ["#inventory-group", state.inventoryGroup],
+    ["#inventory-stage", state.inventoryStage],
     ["#inventory-visibility", state.inventoryVisibility],
     ["#inventory-search-input", state.inventoryQuery]
   ];
@@ -154,7 +195,7 @@ function go(path) {
   if (plantSaveInProgress) return false;
   const target = new URL(path, window.location.href);
   if (target.origin !== window.location.origin || !confirmDiscard()) return false;
-  formDirty = false;
+  formDirty = false; journalDirty = false;
   currentPath = target.pathname + target.search;
   window.history.pushState({}, "", currentPath);
   state.route = target.pathname;
@@ -171,11 +212,12 @@ const { shell, homepage, catalogPage, detailPage, aboutPage, contactPage, loginP
 const { adminPage } = createAdminViews({ state, publicViews, setEditBaseline(value) { editBaseline = value; } });
 
 function render() {
+  syncJournalListener();
   const path = state.route;
   let page;
   if (path === "/") page = homepage();
   else if (path === "/piante") page = catalogPage();
-  else if (path.startsWith("/piante/")) page = detailPage(decodeURIComponent(path.slice(8)));
+  else if (path.startsWith("/piante/")) page = detailPage(decodeRouteId(path.slice(8)));
   else if (path === "/chi-siamo") page = aboutPage();
   else if (path === "/contatti") page = contactPage();
   else if (path === "/login") page = !state.authReady && firebaseConfigured
@@ -195,15 +237,40 @@ async function startFirebase() {
     ]);
     const app = appMod.initializeApp(firebaseConfig);
     firebase = { ...authMod, ...dbMod, auth: authMod.getAuth(app), db: dbMod.getFirestore(app) };
+    // I visitatori vedono solo profili già pubblicati. Le specie legate
+    // soltanto a esemplari privati non sono enumerabili fuori dall'admin.
+    firebase.onSnapshot(
+      firebase.query(firebase.collection(firebase.db, "plantProfiles"),
+        firebase.where("public", "==", true)),
+      snap => {
+        state.publicProfiles = snap.docs.map(d => {
+          const data = d.data();
+          return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+        });
+        state.publicProfilesReady = true;
+        refreshSharedPlants(); renderUnlessEditing();
+      }, () => {
+        state.publicProfilesReady = false;
+        state.dbError = "Impossibile leggere le schede botaniche pubbliche.";
+        refreshSharedPlants(); renderUnlessEditing();
+      });
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
-      state.catalog = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      state.rawCatalog = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
-      state.dbError = ""; renderUnlessEditing();
+      refreshSharedPlants(); state.dbError = ""; renderUnlessEditing();
     }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; renderUnlessEditing(); });
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
-      state.user = user; state.owner = false; state.username = ""; state.inventory = [];
+      if (profilesListener) { profilesListener(); profilesListener = null; }
+      if (lotsListener) { lotsListener(); lotsListener = null; }
+      if (journalListener) { journalListener(); journalListener = null; }
+      activeJournalId = "";
+      state.user = user; state.owner = false; state.username = "";
+      state.ownerProfiles = []; state.ownerProfilesReady = false; state.profilesError = "";
+      state.inventory = []; state.rawInventory = []; state.lots = []; state.journalEntries = [];
+      state.lotsReady = false;
+      refreshSharedPlants();
       state.inventoryReady = false; state.inventoryError = ""; editBaseline = null;
       state.authReady = false; renderAfterAuthChange();
       if (user) {
@@ -212,14 +279,41 @@ async function startFirebase() {
           if (serial !== authCheckSerial) return;
           if (ownerDoc.exists() && ownerDoc.data().uid === user.uid) {
             state.owner = true;
+            refreshSharedPlants();
             const profile = await firebase.getDoc(firebase.doc(firebase.db, "adminProfiles", user.uid));
             if (serial !== authCheckSerial) return;
             state.username = profile.exists() ? profile.data().username || "" : "";
+            profilesListener = firebase.onSnapshot(
+              firebase.collection(firebase.db, "plantProfiles"), snap => {
+                if (serial !== authCheckSerial || !state.owner) return;
+                state.ownerProfiles = snap.docs.map(d => {
+                  const data = d.data();
+                  return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+                });
+                state.ownerProfilesReady = true; state.profilesError = "";
+                refreshSharedPlants(); renderUnlessEditing();
+              }, () => {
+                if (serial !== authCheckSerial || !state.owner) return;
+                state.ownerProfilesReady = false;
+                state.profilesError = "Impossibile leggere le schede botaniche private.";
+                refreshSharedPlants(); renderUnlessEditing();
+              });
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
-              state.inventory = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+              state.rawInventory = snap.docs.map((d) => {
+                const data = d.data();
+                return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+              })
                 .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
+              refreshSharedPlants();
               state.inventoryReady = true; state.inventoryError = ""; renderUnlessEditing();
             }, () => { state.inventoryError = "Impossibile leggere l'inventario privato."; renderUnlessEditing(); });
+            lotsListener = firebase.onSnapshot(firebase.collection(firebase.db, "seedLots"), snap => {
+              state.lots = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+              state.lotsReady = true; renderUnlessEditing();
+            }, () => {
+              state.lotsReady = false;
+              state.inventoryError = "Impossibile leggere i lotti di semina."; renderUnlessEditing();
+            });
           } else {
             state.error = "Questo account non è autorizzato a gestire il sito.";
             await firebase.signOut(firebase.auth);
@@ -263,35 +357,106 @@ async function login(form) {
 }
 async function savePlant(form, id) {
   if (plantSaveInProgress || !firebase) return;
-  if (!state.inventoryReady || state.inventoryError) {
-    showFormError("Inventario non disponibile. I dati non sono stati salvati: verifica la connessione e riprova.");
+  if (!state.inventoryReady || !state.lotsReady || !state.profilesReady ||
+      state.inventoryError || state.profilesError) {
+    showFormError("Inventario non disponibile oppure schede botaniche o lotti non accessibili. I dati non sono stati salvati.");
     return;
   }
-  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability", "propagationMethod", "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex"];
-  const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
-  plant.plantGroup = groupForCategory(plant.category);
+  const keys = ["name", "scientificName", "category", "variety", "origin",
+    "availability", "light", "water", "price", "imageUrl", "description",
+    "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource",
+    "coldNotes", "pollination", "potSuitability", "propagationMethod",
+    "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex",
+    "lifeStage", "seedSourceCultivar"];
+  const plant = Object.fromEntries(keys.map(key => [key, String(form.get(key) || "").trim()]));
+  const previous = id && editBaseline?.id === id ? editBaseline : null;
+  plant.plantGroup = groupForEditedPlant(plant.category, previous);
   if (plant.plantGroup !== "Piante da frutto") plant.fruitType = "";
   plant.published = form.has("published");
   plant.harvestMonths = [...new Set(form.getAll("harvestMonth").map(Number))].sort((a, b) => a - b);
-  const coldRaw = String(form.get("minColdC") || "").trim();
-  // null cancella anche un precedente valore: la scrittura privata usa update, non set.
-  plant.minColdC = coldRaw ? Number(coldRaw.replace(",", ".")) : null;
+  const rawCold = String(form.get("minColdC") || "").trim();
+  plant.minColdC = rawCold ? Number(rawCold.replace(",", ".")) : null;
+  const cultivarName = String(form.get("cultivarName") || "").trim();
+  const species = profileByName(state.profiles, "species", plant.name);
+  plant.speciesId = species?.id || taxonId("species", plant.name);
+  const cultivar = cultivarName
+    ? profileByName(state.profiles, "cultivar", cultivarName, plant.speciesId) : null;
+  plant.cultivarId = cultivarName
+    ? cultivar?.id || taxonId("cultivar", cultivarName, plant.speciesId) : "";
+  if (cultivarName) plant.variety = cultivarName;
+  else if (previous?.cultivarId) plant.variety = "";
+  const lotName = String(form.get("lotName") || "").trim();
+  const existingLot = state.lots.find(lot => lot.speciesId === plant.speciesId &&
+    lot.name.toLocaleLowerCase("it") === lotName.toLocaleLowerCase("it"));
+  plant.lotName = lotName;
+  plant.lotId = lotName ? existingLot?.id || lotIdOf(plant.speciesId, lotName) : "";
   const validation = validatePlant(plant);
   if (validation) { showFormError(validation); return; }
-  const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
+  if (!plant.speciesId || plant.speciesId.length > 900 ||
+      (plant.cultivarId && plant.cultivarId.length > 1100)) {
+    showFormError("Il nome della specie o cultivar è troppo lungo."); return;
+  }
+  if (plant.lotId.length > 1200) {
+    showFormError("Nome del lotto troppo lungo per questa specie."); return;
+  }
+  if (cultivarName.length > 100 || lotName.length > 100 ||
+      plant.seedSourceCultivar.length > 100) {
+    showFormError("Il nome della cultivar o del lotto supera 100 caratteri."); return;
+  }
+  if (plant.lifeStage && !lifeStages.includes(plant.lifeStage)) {
+    showFormError("Stato della pianta non riconosciuto."); return;
+  }
+  if (existingLot && existingLot.speciesId !== plant.speciesId) {
+    showFormError("Il lotto selezionato appartiene a un'altra specie."); return;
+  }
+  const cultivarCold = String(form.get("cultivarMinColdC") || "").trim();
+  const cultivarData = {
+    fruitNotes: String(form.get("cultivarFruitNotes") || "").trim(),
+    minColdC: cultivarCold ? Number(cultivarCold.replace(",", ".")) : null,
+    coldSource: String(form.get("cultivarColdSource") || "").trim(),
+    coldNotes: String(form.get("cultivarColdNotes") || "").trim(),
+    pollination: String(form.get("cultivarPollination") || ""),
+    harvestMonths: [...new Set(form.getAll("cultivarHarvestMonth").map(Number))].sort((a, b) => a - b)
+  };
+  const cultivarError = cultivarName ? validatePlant({
+    name: cultivarName, category: plant.category, ...cultivarData
+  }) : "";
+  if (cultivarError || cultivarData.fruitNotes.length > 750) {
+    showFormError(cultivarError || "La descrizione del frutto supera 750 caratteri."); return;
+  }
   const editor = document.querySelector("#plant-form");
+  const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
+  const shared = {
+    species: {
+      id: plant.speciesId, data: sharedProfileDraft("species", plant.name, "", plant),
+      expectedVersion: editor?.dataset.speciesId === plant.speciesId
+        ? editor.dataset.speciesVersion || null : null
+    },
+    cultivar: cultivarName ? {
+      id: plant.cultivarId,
+      data: sharedProfileDraft("cultivar", cultivarName, plant.speciesId, cultivarData),
+      expectedVersion: editor?.dataset.cultivarId === plant.cultivarId
+        ? editor.dataset.cultivarVersion || null : null
+    } : null,
+    lot: lotName ? {
+      id: plant.lotId,
+      data: { name: lotName, speciesId: plant.speciesId, sownOn: plant.sownOn,
+        seedSourceCultivar: plant.seedSourceCultivar, sourceDetails: plant.sourceDetails }
+    } : null
+  };
   const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
-    .map((control) => ({ control, wasDisabled: control.disabled }));
+    .map(control => ({ control, wasDisabled: control.disabled }));
   const button = editor?.querySelector('[type="submit"]');
   plantSaveInProgress = true;
   controls.forEach(({ control }) => { control.disabled = true; });
   if (button) button.textContent = "Salvataggio…";
   let completed = false;
   try {
-    await savePlantRecord(firebase, { id, plant, expectedVersion });
+    await savePlantRecord(firebase, { id, plant, expectedVersion, shared });
     completed = true;
   } catch (err) {
     showFormError(err instanceof PlantConflictError ? err.message :
+      err?.message?.includes("lotto") ? err.message :
       "Salvataggio non riuscito. I dati inseriti sono ancora nel modulo. Controlla la connessione e riprova.",
       err instanceof PlantConflictError);
   } finally {
@@ -300,10 +465,40 @@ async function savePlant(form, id) {
     if (button?.isConnected) button.textContent = "Salva pianta";
     if (completed) {
       state.error = "";
-      state.flash = "Pianta salvata correttamente.";
-      formDirty = false;
+      state.flash = "Pianta e schede botaniche salvate correttamente.";
+      formDirty = false; journalDirty = false;
       go("/admin/piante");
     }
+  }
+}
+
+async function saveJournal(form, plantId) {
+  if (!state.owner || !firebase || !state.inventoryReady || !plantId || plantSaveInProgress) return;
+  if (formDirty) {
+    showFormError("Salva prima le modifiche alla scheda della pianta: il diario non è stato registrato e i dati nel modulo sono rimasti invariati.");
+    return;
+  }
+  const note = String(form.get("eventNotes") || "").trim();
+  const kind = String(form.get("eventKind") || "");
+  const date = String(form.get("eventDate") || "");
+  if (!journalKinds.includes(kind)) { showFormError("Tipo di attività non valido."); return; }
+  const element = document.querySelector("#journal-form");
+  const button = element?.querySelector('[type="submit"]');
+  if (button) button.disabled = true;
+  try {
+    await saveJournalEntry(firebase, { plantId, kind, note, eventDate: date });
+    journalDirty = false;
+    if (element?.isConnected) {
+      element.reset();
+      const status = element.querySelector("[role='status']");
+      if (status) status.textContent = "Attività registrata nel diario.";
+    }
+    renderUnlessEditing();
+  } catch (err) {
+    showFormError(err instanceof PlantConflictError ? err.message :
+      "Attività non salvata. Controlla descrizione, data e connessione; i dati sono rimasti nel modulo.");
+  } finally {
+    if (button?.isConnected) button.disabled = false;
   }
 }
 async function deletePlant(id) {
@@ -312,7 +507,7 @@ async function deletePlant(id) {
     showFormError("Inventario non disponibile. Nessuna eliminazione eseguita: verifica la connessione e riprova.");
     return;
   }
-  if (!window.confirm("Eliminare definitivamente questa pianta dall'inventario e dal catalogo pubblico?")) return;
+  if (!window.confirm("Eliminare definitivamente questa pianta, le modifiche automatiche e la proiezione pubblica? Se il diario contiene osservazioni personali, l'eliminazione sarà bloccata per conservarle.")) return;
   const expectedVersion = editBaseline?.id === id ? editBaseline.version : null;
   const editor = document.querySelector("#plant-form");
   const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
@@ -324,8 +519,8 @@ async function deletePlant(id) {
     await deletePlantRecord(firebase, { id, expectedVersion });
     completed = true;
   } catch (err) {
-    showFormError(err instanceof PlantConflictError ? err.message :
-      "Eliminazione non riuscita. La scheda non è stata modificata da questa operazione.",
+    showFormError(err instanceof PlantConflictError || err instanceof PlantJournalRetentionError
+      ? err.message : "Eliminazione non riuscita. La scheda non è stata modificata da questa operazione.",
       err instanceof PlantConflictError);
   } finally {
     plantSaveInProgress = false;
@@ -440,7 +635,7 @@ async function handleClick(event) {
   const action = event.target.closest("[data-action]");
   if (action?.dataset.action === "reload-editor" && state.owner && !plantSaveInProgress) {
     if (!confirmDiscard()) return;
-    formDirty = false; state.error = ""; state.flash = "";
+    formDirty = false; journalDirty = false; state.error = ""; state.flash = "";
     render();
     return;
   }
@@ -448,7 +643,7 @@ async function handleClick(event) {
     await deletePlant(action.dataset.id);
   }
   if (action?.dataset.action === "logout" && firebase && !plantSaveInProgress && confirmDiscard()) {
-    formDirty = false;
+    formDirty = false; journalDirty = false;
     await firebase.signOut(firebase.auth);
     state.flash = "Hai effettuato la disconnessione.";
     go("/login");
@@ -456,7 +651,7 @@ async function handleClick(event) {
 }
 function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
+  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form", "journal-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
@@ -491,45 +686,96 @@ function handleSubmit(event) {
     state.inventoryGroup = ["Tutte", ...plantGroups].includes(group) ? group : "Tutte";
     const visibility = String(data.get("visibility") || "Tutte");
     state.inventoryVisibility = ["Tutte", "Pubblicate", "Private"].includes(visibility) ? visibility : "Tutte";
+    const stage = String(data.get("stage") || "Tutte");
+    state.inventoryStage = ["Tutte", ...lifeStages].includes(stage) ? stage : "Tutte";
     render();
     return;
   }
   if (form.id === "login-form") return login(data);
   if (!state.owner || !firebase) return;
   if (form.id === "plant-form") return savePlant(data, form.dataset.id);
+  if (form.id === "journal-form") return saveJournal(data, form.dataset.id);
   if (form.id === "username-form") return saveUsername(data);
+}
+function fillProfileFields(form, profile, cultivar = false) {
+  const fields = cultivar
+    ? ["fruitNotes", "minColdC", "coldSource", "coldNotes", "pollination"]
+    : ["scientificName", "category", "fruitType", "growthHabit", "searchAliases",
+      "origin", "light", "water", "description", "pollination", "potSuitability",
+      "minColdC", "coldSource", "coldNotes"];
+  for (const key of fields) {
+    const name = cultivar ? "cultivar" + key[0].toUpperCase() + key.slice(1) : key;
+    const control = form.elements.namedItem(name);
+    if (control && "value" in control) control.value =
+      profile?.[key] === null ? "" : profile?.[key] ?? "";
+  }
+  const name = cultivar ? "cultivarHarvestMonth" : "harvestMonth";
+  const months = new Set(profile?.harvestMonths || []);
+  form.querySelectorAll('input[name="' + name + '"]').forEach(input => {
+    input.checked = months.has(Number(input.value));
+  });
 }
 function handlePlantSelection(event) {
   const form = event.target.closest?.("#plant-form");
   if (!form) return;
-  if (event.target.name === "plantPreset") {
-    const selected = plantPresets.find((preset) => preset.key === event.target.value);
-    const previous = plantPresets.find((preset) => preset.key === event.target.dataset.previous);
-    event.target.dataset.previous = selected?.key || "";
-    if (selected) {
-      for (const key of ["name", "scientificName", "category", "fruitType", "growthHabit"]) {
-        const field = form.elements.namedItem(key);
-        if (field && (!field.value || (previous && field.value === previous[key]))) {
-          field.value = selected[key] || "";
-        }
-      }
+  if (event.target.name === "name") {
+    const species = profileByName(state.profiles, "species", event.target.value);
+    const oldId = form.dataset.speciesId;
+    if (species) fillProfileFields(form, species);
+    // Un nome ancora sconosciuto può essere una correzione lessicale: non
+    // cancellare categoria e dati già compilati, né bloccare il salvataggio.
+    form.dataset.speciesId = species?.id || "";
+    form.dataset.speciesVersion = species?.__snapshotVersion || "";
+    const choices = form.querySelector("#known-cultivars");
+    if (choices) choices.innerHTML = state.profiles
+      .filter(item => item.kind === "cultivar" && item.parentId === species?.id)
+      .map(item => '<option value="' + escapeHtml(item.name) + '"></option>').join("");
+    if (oldId !== (species?.id || "")) {
+      const cultivar = form.elements.namedItem("cultivarName");
+      if (cultivar) cultivar.value = "";
+      fillProfileFields(form, null, true);
+      form.dataset.cultivarId = ""; form.dataset.cultivarVersion = "";
     }
   }
-  if (event.target.name === "plantPreset" || event.target.name === "category") {
+  if (event.target.name === "cultivarName") {
+    const speciesId = form.dataset.speciesId ||
+      profileByName(state.profiles, "species", form.elements.namedItem("name")?.value)?.id ||
+      taxonId("species", form.elements.namedItem("name")?.value);
+    const cultivar = profileByName(state.profiles, "cultivar", event.target.value, speciesId);
+    fillProfileFields(form, cultivar, true);
+    form.dataset.cultivarId = cultivar?.id || "";
+    form.dataset.cultivarVersion = cultivar?.__snapshotVersion || "";
+  }
+  if (event.target.name === "lotName") {
+    const speciesId = form.dataset.speciesId ||
+      taxonId("species", form.elements.namedItem("name")?.value);
+    const lot = state.lots.find(item => item.speciesId === speciesId &&
+      item.name.toLocaleLowerCase("it") ===
+      event.target.value.trim().toLocaleLowerCase("it"));
+    if (lot) for (const [key, value] of [
+      ["sownOn", lot.sownOn], ["sourceDetails", lot.sourceDetails],
+      ["seedSourceCultivar", lot.seedSourceCultivar]]) {
+      const control = form.elements.namedItem(key);
+      if (control && !control.value) control.value = value || "";
+    }
+  }
+  if (event.target.name === "name" || event.target.name === "category") {
     const typeField = form.querySelector("[data-fruit-type-field]");
     if (typeField) typeField.hidden =
-      groupForCategory(form.elements.namedItem("category")?.value) !== "Piante da frutto";
+      groupForEditedPlant(form.elements.namedItem("category")?.value,
+        form.dataset.id && editBaseline?.id === form.dataset.id ? editBaseline : null) !== "Piante da frutto";
   }
 }
 function markPlantDirty(event) {
   if (event.target.closest?.("#plant-form")) formDirty = true;
+  if (event.target.closest?.("#journal-form")) journalDirty = true;
 }
 function handlePopState() {
   if (plantSaveInProgress || !confirmDiscard()) {
     window.history.pushState({}, "", currentPath);
     return;
   }
-  formDirty = false;
+  formDirty = false; journalDirty = false;
   currentPath = window.location.pathname + window.location.search;
   state.route = window.location.pathname;
   if (state.route === "/piante") readCatalogUrl();
@@ -550,7 +796,7 @@ document.addEventListener("error", (event) => {
 }, true);
 window.addEventListener("popstate", handlePopState);
 window.addEventListener("beforeunload", (event) => {
-  if (!formDirty && !plantSaveInProgress) return;
+  if (!formDirty && !journalDirty && !plantSaveInProgress) return;
   event.preventDefault();
   event.returnValue = "";
 });

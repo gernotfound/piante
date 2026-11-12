@@ -81,3 +81,15 @@
 .boot-message strong{display:block;font-size:1rem;color:var(--forest)}
 .boot-message p{margin:12px 0 0;font-size:.83rem;color:var(--muted);line-height:1.65}
 .noscript-message{text-align:center;padding:20px;font-size:.87rem;color:#883A31}
+
+.inventory-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.diary-panel{margin-top:18px}
+.diary-panel>p{margin:8px 0 18px;color:var(--muted)}
+.diary-list{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:10px}
+.diary-item{min-width:0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;overflow-wrap:anywhere}
+.diary-item strong{display:block;color:var(--forest);font-size:.9rem}
+.diary-item small{color:var(--muted);display:block;margin-top:6px}
+.diary-item p{margin:7px 0;font-size:.88rem}
+.diary-date{display:block;color:var(--muted);font-size:.76rem}
+.diary-panel #journal-form>.btn{margin-top:12px}
+.diary-panel #journal-form>[role="status"]{min-height:1.5em;font-size:.85rem;color:var(--leaf)}
