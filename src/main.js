@@ -625,7 +625,7 @@ function editPage(id) {
     </div>
     <p>Il calendario è indicativo per il clima locale e non determina la data effettiva di maturazione.</p>
   </fieldset>`;
-  const selectedFruitType = p.fruitType || (id ? fruitTypeOf(p) : "");
+  const selectedFruitType = p.fruitType || "";
   const fruitSelect = `<label class="form-field" data-fruit-type-field ${groupForCategory(p.category) === "Piante da frutto" ? "" : "hidden"}>
     <span>Tipo di fruttifera (facoltativo)</span><select class="select" name="fruitType">
     ${["", ...fruitTypes].map((type) => `<option value="${h(type)}" ${selectedFruitType === type ? "selected" : ""}>${h(type || "Non specificato")}</option>`).join("")}
