@@ -1,4 +1,5 @@
-import { catalogProjection } from "./domain.js";
+import { catalogProjection, validSpecimenCode } from "./domain.js";
+import { randomSpecimenCode, SpecimenCodeError } from "./specimen-codes.js";
 import { changedPlantFields, resolvePlantProfiles, normalizeTaxonName, journalKinds } from "./taxonomy.js";
 
 // La versione è calcolata su tutti i campi letti, inclusi quelli non gestiti dall'editor.
@@ -66,7 +67,8 @@ function assertCurrent(snapshot, expectedVersion) {
 // Tutte le letture precedono le scritture; le transazioni Firestore ritentano su
 // aggiornamenti concorrenti, quindi una versione obsoleta non può fare overwrite.
 export async function savePlantRecord(firebase, {
-  id = "", plant, expectedVersion = null, shared = null, pendingJournal = null
+  id = "", plant, expectedVersion = null, shared = null, pendingJournal = null,
+  generateCode = randomSpecimenCode
 }) {
   if (id && typeof expectedVersion !== "string") throw new PlantConflictError();
   const journal = pendingJournal
@@ -79,8 +81,36 @@ export async function savePlantRecord(firebase, {
   const profileRefs = [shared?.species, shared?.cultivar].filter(Boolean)
     .map(item => ({ ...item, ref: firebase.doc(firebase.db, "plantProfiles", item.id) }));
   const lotRef = shared?.lot ? firebase.doc(firebase.db, "seedLots", shared.lot.id) : null;
-  return firebase.runTransaction(firebase.db, async (tx) => {
+  const registryRef = firebase.doc(firebase.db, "specimenRegistry", "activation");
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const proposed = id ? "" : generateCode();
+    if (!id && !validSpecimenCode(proposed)) {
+      throw new SpecimenCodeError("Impossibile generare un codice di sei caratteri valido.");
+    }
+    const outcome = await firebase.runTransaction(firebase.db, async (tx) => {
     const previous = await tx.get(privateRef);
+    if (id) assertCurrent(previous, expectedVersion);
+    const assigned = id ? previous.data().specimenCode || "" : proposed;
+    if (assigned && !validSpecimenCode(assigned)) {
+      throw new SpecimenCodeError("La scheda contiene un codice non valido. Nessun dato è stato modificato.");
+    }
+    const codeRef = assigned ? firebase.doc(firebase.db, "specimenCodes", assigned) : null;
+    const [registry, reservation] = await Promise.all([
+      !id ? tx.get(registryRef) : Promise.resolve(null),
+      codeRef ? tx.get(codeRef) : Promise.resolve(null)
+    ]);
+    if (!id && (!registry.exists() || registry.data().status !== "ready")) {
+      throw new SpecimenCodeError("Attiva prima i codici univoci dall'inventario: nessuna pianta è stata salvata.");
+    }
+    if (reservation?.exists()) {
+      if (!id) return { collision: true };
+      if (reservation.data().plantId !== documentId) {
+        throw new SpecimenCodeError("Il codice della pianta è prenotato da un altro esemplare.");
+      }
+    } else if (id && assigned) {
+      throw new SpecimenCodeError("La prenotazione del codice non esiste: modifica interrotta per sicurezza.");
+    }
+    const storedPlant = assigned ? { ...plant, specimenCode: assigned } : plant;
     const profiles = [];
     for (const profile of profileRefs) {
       const snapshot = await tx.get(profile.ref);
@@ -105,16 +135,17 @@ export async function savePlantRecord(firebase, {
     if (id) {
       assertCurrent(previous, expectedVersion);
       // update preserva i metadati non modificati dall'editor, anche dopo future evoluzioni dello schema.
-      tx.update(privateRef, { ...plant, updatedAt: firebase.serverTimestamp(),
+      tx.update(privateRef, { ...storedPlant, updatedAt: firebase.serverTimestamp(),
         ...(journal ? { lastJournalActivityAt: firebase.serverTimestamp() } : {}) });
     } else {
       if (previous.exists()) throw new PlantConflictError();
       tx.set(privateRef, {
-        ...plant,
+        ...storedPlant,
         createdAt: firebase.serverTimestamp(),
         updatedAt: firebase.serverTimestamp()
       });
     }
+    if (!id) tx.set(codeRef, { plantId: documentId, createdAt: firebase.serverTimestamp() });
     for (const { profile, snapshot } of profiles) {
       // Una specie privata diventa consultabile soltanto dopo la prima
       // pubblicazione. Le informazioni già rese pubbliche restano conoscenza
@@ -131,8 +162,8 @@ export async function savePlantRecord(firebase, {
     if (lotRef && !lotSnapshot.exists()) {
       tx.set(lotRef, { ...shared.lot.data, createdAt: firebase.serverTimestamp() });
     }
-    const resolved = profiles.length ? resolvePlantProfiles(plant,
-      profiles.map(({ profile }) => ({ ...profile.data, id: profile.id }))) : plant;
+    const resolved = profiles.length ? resolvePlantProfiles(storedPlant,
+      profiles.map(({ profile }) => ({ ...profile.data, id: profile.id }))) : storedPlant;
     if (plant.published) tx.set(publicRef, catalogProjection(resolved));
     else tx.delete(publicRef);
     const eventRef = firebase.doc(firebase.collection(privateRef, "events"));
@@ -146,8 +177,11 @@ export async function savePlantRecord(firebase, {
       const journalRef = firebase.doc(firebase.collection(privateRef, "events"));
       tx.set(journalRef, { ...journal, createdAt: firebase.serverTimestamp() });
     }
-    return documentId;
-  });
+    return { id: documentId };
+    });
+    if (!outcome.collision) return outcome.id;
+  }
+  throw new SpecimenCodeError("Non è stato trovato un codice disponibile. Riprova il salvataggio.");
 }
 
 export async function deletePlantRecord(firebase, { id, expectedVersion }) {

@@ -25,6 +25,7 @@ const sandboxMain = originalMain.replace(hook, hook + '\n' +
   ' authReady: state.authReady, user: state.user?.uid || null,' +
   ' authUser: firebase?.auth.currentUser?.uid || null,' +
   ' inventoryReady: state.inventoryReady, inventoryError: state.inventoryError,' +
+  ' codeRegistryStatus: state.codeRegistryStatus,' +
   ' error: state.error, flash: state.flash});' +
   '\nwindow.__pianteTestSetInventoryError = (value) => {' +
   ' state.inventoryError = value; renderUnlessEditing(); };' +
@@ -158,10 +159,10 @@ async function login(page) {
   // Il primo onAuthStateChanged può ridisegnare il form: non compilare i campi prima della sua conclusione.
   await page.waitForFunction(() => window.__pianteDebug?.().authReady === true,
     null, { timeout: 30000 });
-  await page.locator('input[name="identity"]').fill(EMAIL);
+  await page.locator('input[name="email"]').fill(EMAIL);
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.evaluate(() => window.__pianteTestSnapshotRerender());
-  assert.equal(await page.locator('input[name="identity"]').inputValue(), EMAIL);
+  assert.equal(await page.locator('input[name="email"]').inputValue(), EMAIL);
   assert.equal(await page.locator('input[name="password"]').inputValue(), PASSWORD);
   await page.locator('#login-form button[type="submit"]').click();
   try {
@@ -175,6 +176,13 @@ async function login(page) {
       "; diagnostica: " + JSON.stringify(page.diagnostic.slice(-12)) +
       "; richieste cloud proibite: " + JSON.stringify(page.sandboxRequests) +
       "; causa: " + err.message);
+  }
+  await page.waitForFunction(() => window.__pianteDebug?.().codeRegistryStatus !== "loading");
+  if (["uninitialized", "migrating"].includes(
+    (await page.evaluate(() => window.__pianteDebug())).codeRegistryStatus)) {
+    const button = page.locator('[data-action="activate-codes"]');
+    await button.click();
+    await button.waitFor({ state: "hidden", timeout: 45000 });
   }
 }
 
@@ -385,8 +393,9 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(await page.locator("#inventory-group").inputValue(), "Piante da frutto");
       const link = await page.locator('a[href^="/admin/modifica/"]').first().getAttribute("href");
       const id = decodeURIComponent(link.split("/").pop());
-      assert.equal(await page.locator(".inventory-name .specimen-code").first().innerText(), specimenCodeOf({ id }));
       const savedPrivate = (await getDoc(doc(owner, "privatePlants", id))).data();
+      assert.equal(await page.locator(".inventory-name .specimen-code").first().innerText(),
+        specimenCodeOf({ id, ...savedPrivate }));
       assert.equal(savedPrivate.internalNotes, "Nota privata di test");
       assert.equal(savedPrivate.specimenLabel, undefined);
       assert.equal(savedPrivate.sourceDetails, "Seme di avocado etichettato Hass");
@@ -400,6 +409,7 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(savedPrivate.plantGroup, "Piante da frutto");
       const publicDoc = await getDoc(doc(guest, "catalog", id));
       assert.equal(publicDoc.data().name, "Avocado da browser");
+      assert.equal(publicDoc.data().specimenCode, savedPrivate.specimenCode);
       assert.equal(publicDoc.data().minColdC, -5);
       assert.deepEqual(publicDoc.data().harvestMonths, [9]);
       assert.equal(publicDoc.data().pollination, "Variabile");
@@ -413,11 +423,11 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.locator(".plant-card").filter({ hasText: "Avocado da browser" })
         .waitFor({ timeout: 45000 });
       assert.equal(await page.locator(".plant-card .public-specimen-code").first().innerText(),
-        specimenCodeOf({ id }), "Il codice pubblico deve coincidere con quello dell'inventario");
+        specimenCodeOf({ id, ...savedPrivate }), "Il codice pubblico deve coincidere con quello dell'inventario");
       await page.goto(baseUrl + "/piante/" + encodeURIComponent(id), { waitUntil: "domcontentloaded" });
       await page.locator(".detail-title .public-specimen-code").waitFor();
       assert.equal(await page.locator(".detail-title .public-specimen-code").innerText(),
-        specimenCodeOf({ id }), "Il dettaglio deve mostrare lo stesso codice");
+        specimenCodeOf({ id, ...savedPrivate }), "Il dettaglio deve mostrare lo stesso codice");
       await page.goto(baseUrl + "/piante", { waitUntil: "domcontentloaded" });
       await page.locator(".plant-card").filter({ hasText: "Avocado da browser" }).waitFor();
       assert.equal((await page.locator("#app").innerText()).includes("Nota privata di test"), false);
@@ -440,7 +450,8 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
         { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
       await expandEditor(page);
-      assert.equal(await page.locator('input.specimen-code[readonly]').inputValue(), specimenCodeOf({ id }));
+      assert.equal(await page.locator('input.specimen-code[readonly]').inputValue(),
+        specimenCodeOf({ id, ...savedPrivate }));
       assert.equal(await page.locator('input[name="specimenLabel"]').count(), 0);
       await page.locator('textarea[name="description"]').fill("Bozza locale da conservare");
 
@@ -474,11 +485,18 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal((await getDoc(doc(guest, "catalog", id))).exists(), false);
 
       await page.goto(baseUrl + "/admin/impostazioni", { waitUntil: "domcontentloaded" });
-      await page.locator('input[name="username"]').fill("nuovonome");
-      await page.evaluate(() => window.__pianteTestSnapshotRerender());
-      assert.equal(await page.locator('input[name="username"]').inputValue(), "nuovonome");
+      await page.locator(".settings-logout [data-action='logout']").waitFor();
+      assert.equal(await page.locator("#username-form").count(), 0);
+      assert.equal(await page.locator('.settings-logout [data-action="logout"]').count(), 1);
+      assert.equal(await page.locator('.admin-sidebar [data-action="logout"]').count(), 1);
+      assert.match(await page.locator(".admin-body").innerText(), /Email dell'account:/);
       await page.locator(".settings-logout [data-action='logout']").click();
       await page.waitForURL("**/login", { timeout: 45000 });
+      assert.equal(await page.locator('#login-form input[name="identity"]').count(), 0);
+      assert.equal(await page.locator('#login-form input[name="email"][type="email"]').count(), 1);
+      await login(page);
+      assert.match(page.url(), /\/admin/);
+      await page.locator(".stat-grid").waitFor();
       assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
       assert.deepEqual(other.sandboxRequests, [], "Richieste fuori dagli emulatori");
     } finally {
@@ -488,9 +506,11 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
 
 test("scheda legacy: ID documentale autorevole e gruppo/fruttifera preservati", { timeout: 90000 }, async () => {
   const id = "esemplare-legacy";
-  await setDoc(doc(owner, "privatePlants", id), {
-    id: "id-nel-record-diverso", name: "Fico d'India legacy", category: "Succulente",
-    plantGroup: "Piante da frutto", fruitType: "Mediterranee", published: false
+  await environment.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "privatePlants", id), {
+      id: "id-nel-record-diverso", name: "Fico d'India legacy", category: "Succulente",
+      plantGroup: "Piante da frutto", fruitType: "Mediterranee", published: false
+    });
   });
   const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
   try {
@@ -528,8 +548,10 @@ test("scheda legacy: ID documentale autorevole e gruppo/fruttifera preservati", 
 test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione e diario",
   { timeout: 130000 }, async () => {
     const legacyId = "legacy-avocado-shared";
-    await setDoc(doc(owner, "privatePlants", legacyId), {
-      name: "Avocado", category: "Tropicali da frutto", published: false
+    await environment.withSecurityRulesDisabled(async ctx => {
+      await setDoc(doc(ctx.firestore(), "privatePlants", legacyId), {
+        name: "Avocado", category: "Tropicali da frutto", published: false
+      });
     });
     const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
     try {
@@ -660,9 +682,11 @@ test("catalogo e inventario: cultivar riconoscibile, note climatiche senza numer
       kind: "cultivar", name: "Fuerte", parentId: speciesId, public: true,
       fruitNotes: "Caratteristiche verificate del frutto"
     });
-    await setDoc(doc(owner, "privatePlants", plantId), plant);
+    await environment.withSecurityRulesDisabled(async ctx => {
+      await setDoc(doc(ctx.firestore(), "privatePlants", plantId), plant);
+      await setDoc(doc(ctx.firestore(), "privatePlants", oldId), legacy);
+    });
     await setDoc(doc(owner, "catalog", plantId), catalogProjection(plant));
-    await setDoc(doc(owner, "privatePlants", oldId), legacy);
     await setDoc(doc(owner, "catalog", oldId), catalogProjection(legacy));
     const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
     try {

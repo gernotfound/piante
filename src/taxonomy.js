@@ -111,7 +111,7 @@ export function resolvePlantProfiles(plant, profiles) {
 
 export function preparePlantDuplicate(source) {
   if (!source) return {};
-  const { id, __snapshotVersion, createdAt, updatedAt, ...plant } = source;
+  const { id, __snapshotVersion, createdAt, updatedAt, specimenCode, ...plant } = source;
   return {
     ...plant, published: false, sourceDetails: "", sownOn: "",
     plantLocation: "", specimenSex: "", internalNotes: "", imageUrl: "",

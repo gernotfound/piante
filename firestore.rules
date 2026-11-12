@@ -25,8 +25,58 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
+    function validSpecimenCode(code) {
+      return code is string && code.matches('^[A-Z0-9]{6}$');
+    }
+
+    function claimedAfter(plantId, code) {
+      return existsAfter(/databases/$(database)/documents/specimenCodes/$(code))
+        && getAfter(/databases/$(database)/documents/specimenCodes/$(code)).data.plantId == plantId;
+    }
+
+    function codeValidForPlant(plantId, data) {
+      return !data.keys().hasAny(['specimenCode'])
+        || (validSpecimenCode(data.specimenCode)
+          && claimedAfter(plantId, data.specimenCode));
+    }
+
+    // Il marker blocca nuovi inserimenti durante la conversione amministrativa.
+    match /specimenRegistry/{id} {
+      allow get: if isOwner();
+      allow list, delete: if false;
+      allow create: if isOwner() && id == 'activation'
+        && request.resource.data.keys().hasOnly(['status', 'startedAt'])
+        && request.resource.data.status == 'migrating';
+      allow update: if isOwner() && id == 'activation'
+        && resource.data.status == 'migrating'
+        && request.resource.data.keys().hasOnly(['status', 'startedAt', 'completedAt'])
+        && request.resource.data.status == 'ready'
+        && request.resource.data.startedAt == resource.data.startedAt;
+    }
+
+    // La prenotazione è privata, immutabile e non riutilizzabile.
+    match /specimenCodes/{code} {
+      allow get: if isOwner();
+      allow list, update, delete: if false;
+      allow create: if isOwner() && validSpecimenCode(code)
+        && request.resource.data.keys().hasOnly(['plantId', 'createdAt'])
+        && request.resource.data.plantId is string
+        && request.resource.data.plantId.size() > 0
+        && existsAfter(/databases/$(database)/documents/privatePlants/$(request.resource.data.plantId))
+        && getAfter(/databases/$(database)/documents/privatePlants/$(request.resource.data.plantId)).data.specimenCode == code;
+    }
+
     match /privatePlants/{plantId} {
-      allow read, write: if isOwner();
+      allow read: if isOwner();
+      allow create: if isOwner() && codeValidForPlant(plantId, request.resource.data)
+        && (!exists(/databases/$(database)/documents/specimenRegistry/activation)
+          || (get(/databases/$(database)/documents/specimenRegistry/activation).data.status == 'ready'
+            && request.resource.data.keys().hasAny(['specimenCode'])));
+      allow update: if isOwner()
+        && (!resource.data.keys().hasAny(['specimenCode'])
+          || request.resource.data.get('specimenCode', '') == resource.data.specimenCode)
+        && codeValidForPlant(plantId, request.resource.data);
+      allow delete: if isOwner();
     }
 
     // I profili botanici associati solo a piante private restano riservati.
@@ -107,7 +157,7 @@ service cloud.firestore {
           'plantGroup', 'fruitType', 'growthHabit', 'searchAliases',
           'minColdC', 'coldSource', 'coldNotes',
           'pollination', 'potSuitability', 'harvestMonths',
-          'speciesId', 'cultivarId'
+          'speciesId', 'cultivarId', 'specimenCode'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -144,6 +194,11 @@ service cloud.firestore {
         ])
         && request.resource.data.get('harvestMonths', []).toSet().size()
           == request.resource.data.get('harvestMonths', []).size()
+        && (!request.resource.data.keys().hasAny(['specimenCode'])
+          || validSpecimenCode(request.resource.data.specimenCode))
+        && (!existsAfter(/databases/$(database)/documents/privatePlants/$(plantId))
+          || request.resource.data.get('specimenCode', '') ==
+            getAfter(/databases/$(database)/documents/privatePlants/$(plantId)).data.get('specimenCode', ''))
         && optionalText(request.resource.data, 'speciesId', 900)
         && optionalText(request.resource.data, 'cultivarId', 1100)
         && optionalText(request.resource.data, 'searchAliases', 250)
@@ -156,22 +211,14 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
+    // La funzione nickname è stata rimossa: eventuali documenti storici
+    // restano inaccessibili fino a un reset amministrativo esplicito.
     match /adminProfiles/{uid} {
-      allow get, create, update: if isOwner() && request.auth.uid == uid;
-      allow list, delete: if false;
+      allow read, write: if false;
     }
 
     match /loginAliases/{username} {
-      // L'alias è consultabile soltanto per ID esatto per risolvere la email.
-      // Non contiene password né autorizzazioni.
-      allow get: if true;
-      allow list: if false;
-      allow create, update: if isOwner()
-        && username.matches('^[a-z0-9._-]{3,32}$')
-        && request.resource.data.keys().hasOnly(['email'])
-        && request.resource.data.email is string
-        && request.resource.data.email == request.auth.token.email;
-      allow delete: if isOwner();
+      allow read, write: if false;
     }
 
     match /{document=**} {

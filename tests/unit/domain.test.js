@@ -1,13 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogProjection, escapeHtml, groupForCategory, groupForEditedPlant, decodeRouteId, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, varietyLabel, validUsername, validatePlant } from "../../src/domain.js";
-
-test("un alias utente viene normalizzato ed è limitato a caratteri sicuri", () => {
-  assert.equal(normalizeUsername("  Vivaio.G  "), "vivaio.g");
-  assert.equal(validUsername(" vivaio.g "), true);
-  assert.equal(validUsername("../../Admin"), false);
-  assert.equal(validUsername("a"), false);
-});
+import { catalogProjection, escapeHtml, groupForCategory, groupForEditedPlant, decodeRouteId, plantPresets, safeImageUrl, specimenCodeOf, validSpecimenCode, varietyLabel, validatePlant } from "../../src/domain.js";
 
 test("i link immagini non accettano javascript o http", () => {
   assert.equal(safeImageUrl("javascript:alert(1)"), "");
@@ -67,6 +60,10 @@ test("esemplari omonimi mantengono codici diversi e informazioni private escluse
   assert.match(specimenCodeOf({ id: "legacy-1" }), /^#[A-Z0-9]{6}$/);
   assert.notEqual(specimenCodeOf({ id: "legacy-1" }), specimenCodeOf({ id: "legacy-2" }));
   assert.equal(specimenCodeOf({}), "");
+  assert.equal(validSpecimenCode("ABC123"), true);
+  assert.equal(validSpecimenCode("abc123"), false);
+  assert.equal(validSpecimenCode("ABC12"), false);
+  assert.equal(specimenCodeOf({ id: plant.id, specimenCode: "ABC123" }), "#ABC123");
   assert.equal(specimenCodeOf({ id: "àvocado-legacy" }), specimenCodeOf({ id: "àvocado-legacy" }),
     "Anche gli ID legacy non ASCII devono conservare il codice");
   assert.match(specimenCodeOf({ id: "àvocado-legacy" }), /^#[A-Z0-9]{6}$/);
@@ -96,4 +93,6 @@ test("La cultivar verificata e le indicazioni varietali storiche restano disting
   assert.equal(publicData.cultivarId, "c_verificata");
   assert.equal("seedSourceCultivar" in publicData, false);
   assert.equal("internalNotes" in publicData, false);
+  assert.equal(catalogProjection({ name: "Avocado", specimenCode: "ABC123" }).specimenCode, "ABC123");
+  assert.equal("specimenCode" in catalogProjection({ name: "Avocado", specimenCode: "abc123" }), false);
 });

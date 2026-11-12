@@ -309,8 +309,8 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
       <h1>Area riservata</h1><p class="section-sub" style="margin-bottom:26px">Accedi per gestire la tua collezione.</p>
       ${!firebaseConfigured ? alertBox("Firebase non è ancora configurato: completa src/config.js prima dell'accesso.", true) : ""}
       ${alertBox(state.error, true)}${alertBox(state.flash)}
-      <form id="login-form"><label class="form-field"><span>Nome utente o email</span>
-        <input class="input" type="text" name="identity" autocomplete="username" required></label>
+      <form id="login-form"><label class="form-field"><span>Email</span>
+        <input class="input" type="email" name="email" autocomplete="username" inputmode="email" required></label>
         <label class="form-field"><span>Password</span>
         <input class="input" type="password" name="password" autocomplete="current-password" required></label>
         <button class="btn btn-primary" style="width:100%" ${firebaseConfigured ? "" : "disabled"} type="submit">Accedi →</button>

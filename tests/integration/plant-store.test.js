@@ -40,6 +40,7 @@ test.before(async () => {
   });
   await environment.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), "siteOwner", "primary"), { uid: "owner" });
+    await setDoc(doc(ctx.firestore(), "specimenRegistry", "activation"), { status: "ready" });
   });
   owner = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
   guest = environment.unauthenticatedContext().firestore();
@@ -54,6 +55,9 @@ test("creazione privata: scrive solo nell'inventario, con timestamp, senza pubbl
   assert.equal(privatePlant.internalNotes, "Informazione riservata");
   assert.ok(privatePlant.createdAt);
   assert.ok(privatePlant.updatedAt);
+  assert.match(privatePlant.specimenCode, /^[A-Z0-9]{6}$/);
+  const reservation = await data(owner, "specimenCodes", privatePlant.specimenCode);
+  assert.equal(reservation.plantId, id);
   assert.equal(await data(guest, "catalog", id), null);
   await assert.rejects(getDoc(doc(guest, "privatePlants", id)), { code: "permission-denied" });
 });
@@ -64,6 +68,8 @@ test("pubblicazione, modifica e rimozione dalla vetrina sono atomiche", async ()
   await savePlantRecord(adapter(owner), { id, expectedVersion: version1,
     plant: { ...plant, name: "Avocado maturo", published: true } });
   assert.equal((await data(guest, "catalog", id)).name, "Avocado maturo");
+  assert.equal((await data(guest, "catalog", id)).specimenCode,
+    (await data(owner, "privatePlants", id)).specimenCode);
   assert.equal((await data(guest, "catalog", id)).internalNotes, undefined);
   const version2 = plantVersion(await data(owner, "privatePlants", id));
   await savePlantRecord(adapter(owner), { id, expectedVersion: version2,
@@ -147,7 +153,9 @@ test("un editor obsoleto non può cancellare una scheda aggiornata altrove", asy
 
 test("schede legacy senza updatedAt e campi futuri non perdono metadati", async () => {
   const id = "legacy-" + doc(collection(owner, "privatePlants")).id;
-  await setDoc(doc(owner, "privatePlants", id), { ...plant, futureField: "Da conservare" });
+  await environment.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "privatePlants", id), { ...plant, futureField: "Da conservare" });
+  });
   const oldVersion = plantVersion(await data(owner, "privatePlants", id));
   await savePlantRecord(adapter(owner), { id, expectedVersion: oldVersion,
     plant: { ...plant, name: "Conservata" } });
@@ -160,9 +168,14 @@ test("schede legacy senza updatedAt e campi futuri non perdono metadati", async 
 
 test("il controllo di versione non si affida soltanto ad updatedAt", async () => {
   const id = "external-" + doc(collection(owner, "privatePlants")).id;
-  await setDoc(doc(owner, "privatePlants", id), { ...plant });
+  await environment.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "privatePlants", id), { ...plant });
+  });
   const oldVersion = plantVersion(await data(owner, "privatePlants", id));
-  await setDoc(doc(owner, "privatePlants", id), { ...plant, internalNotes: "Modifica esterna senza timestamp" });
+  await environment.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "privatePlants", id),
+      { ...plant, internalNotes: "Modifica esterna senza timestamp" });
+  });
   await assert.rejects(savePlantRecord(adapter(owner), { id, expectedVersion: oldVersion,
     plant: { ...plant, name: "Non sovrascrivere" } }), PlantConflictError);
   assert.equal((await data(owner, "privatePlants", id)).internalNotes, "Modifica esterna senza timestamp");

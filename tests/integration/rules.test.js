@@ -147,14 +147,23 @@ test("catalogo: i mesi devono essere distinti e i campi facoltativi restano retr
   await assertFails(setDoc(ref, { ...published, coldSource: "https://example.test/" + "a".repeat(510) }));
 });
 
-test("alias: singolo lookup pubblico, elenco negato, scrittura solo dal proprietario", async () => {
+test("nickname disabilitato: alias e profili legacy non sono leggibili o modificabili", async () => {
   const owner = environment.authenticatedContext("owner", { email: "owner@example.test" }).firestore();
   const guest = environment.unauthenticatedContext().firestore();
-  await assertSucceeds(setDoc(doc(owner, "loginAliases", "vivaio"), { email: "owner@example.test" }));
-  await assertSucceeds(getDoc(doc(guest, "loginAliases", "vivaio")));
-  await assertFails(getDocs(collection(guest, "loginAliases")));
-  await assertFails(setDoc(doc(guest, "loginAliases", "x"), { email: "guest@example.test" }));
-  await assertFails(setDoc(doc(owner, "loginAliases", "altro"), { email: "other@example.test" }));
+  await environment.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), "loginAliases", "vivaio"), { email: "owner@example.test" });
+    await setDoc(doc(ctx.firestore(), "adminProfiles", "owner"), { username: "vivaio" });
+  });
+  for (const db of [guest, owner]) {
+    await assertFails(getDoc(doc(db, "loginAliases", "vivaio")));
+    await assertFails(getDocs(collection(db, "loginAliases")));
+    await assertFails(getDoc(doc(db, "adminProfiles", "owner")));
+    await assertFails(getDocs(collection(db, "adminProfiles")));
+    await assertFails(setDoc(doc(db, "loginAliases", "altro"), { email: "other@example.test" }));
+    await assertFails(setDoc(doc(db, "adminProfiles", "owner"), { username: "altro" }));
+    await assertFails(deleteDoc(doc(db, "loginAliases", "vivaio")));
+    await assertFails(deleteDoc(doc(db, "adminProfiles", "owner")));
+  }
 });
 
 

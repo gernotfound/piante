@@ -1,7 +1,8 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, validatePlant } from "./domain.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError,
   JournalValidationError, SeedLotConflictError } from "./plant-store.js";
+import { consolidateSpecimenCodes, SpecimenCodeError } from "./specimen-codes.js";
 import { lifeStages, journalKinds, taxonId, lotIdOf, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
@@ -19,10 +20,10 @@ const state = {
   lots: [], lotsReady: false, journalEntries: [], journalError: "", inventoryStage: "Tutte",
   inventoryReady: false,
   inventoryError: "",
+  codeRegistryStatus: "loading", codeRegistryError: "", codeSyncing: false, codeProgress: "",
   user: null,
   owner: false,
   authReady: !firebaseConfigured,
-  username: "",
   error: "",
   flash: "",
   filter: new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "",
@@ -43,6 +44,7 @@ const state = {
 let firebase = null;
 let privateListener = null;
 let lotsListener = null;
+let codeRegistryListener = null;
 let profilesListener = null;
 let journalListener = null;
 let activeJournalId = "";
@@ -146,7 +148,7 @@ function renderUnlessEditing() {
   if ((formDirty || journalDirty || plantSaveInProgress) &&
       document.querySelector("#plant-form, #journal-form")) return;
   // Gli snapshot asincroni non devono sostituire i moduli durante la compilazione.
-  if (document.querySelector("#login-form, #username-form")) return;
+  if (document.querySelector("#login-form")) return;
   const focusedForm = document.activeElement?.closest?.("form");
   if (["search-form", "inventory-search-form"].includes(focusedForm?.id)) return;
   // Le ricerche non ancora confermate non vanno perse se l'utente esce dal campo.
@@ -283,14 +285,16 @@ async function startFirebase() {
       if (privateListener) { privateListener(); privateListener = null; }
       if (profilesListener) { profilesListener(); profilesListener = null; }
       if (lotsListener) { lotsListener(); lotsListener = null; }
+      if (codeRegistryListener) { codeRegistryListener(); codeRegistryListener = null; }
       if (journalListener) { journalListener(); journalListener = null; }
       activeJournalId = "";
-      state.user = user; state.owner = false; state.username = "";
+      state.user = user; state.owner = false;
       state.ownerProfiles = []; state.ownerProfilesReady = false; state.profilesError = "";
       state.inventory = []; state.rawInventory = []; state.lots = []; state.journalEntries = [];
       state.lotsReady = false;
       refreshSharedPlants();
       state.inventoryReady = false; state.inventoryError = ""; editBaseline = null;
+      state.codeRegistryStatus = "loading"; state.codeRegistryError = "";
       state.authReady = false; renderAfterAuthChange();
       if (user) {
         try {
@@ -299,9 +303,6 @@ async function startFirebase() {
           if (ownerDoc.exists() && ownerDoc.data().uid === user.uid) {
             state.owner = true;
             refreshSharedPlants();
-            const profile = await firebase.getDoc(firebase.doc(firebase.db, "adminProfiles", user.uid));
-            if (serial !== authCheckSerial) return;
-            state.username = profile.exists() ? profile.data().username || "" : "";
             profilesListener = firebase.onSnapshot(
               firebase.collection(firebase.db, "plantProfiles"), snap => {
                 if (serial !== authCheckSerial || !state.owner) return;
@@ -316,6 +317,19 @@ async function startFirebase() {
                 state.ownerProfilesReady = false;
                 state.profilesError = "Impossibile leggere le schede botaniche private.";
                 refreshSharedPlants(); renderUnlessEditing();
+              });
+            codeRegistryListener = firebase.onSnapshot(
+              firebase.doc(firebase.db, "specimenRegistry", "activation"), snapshot => {
+                if (serial !== authCheckSerial || !state.owner) return;
+                state.codeRegistryStatus = snapshot.exists()
+                  ? snapshot.data().status : "uninitialized";
+                state.codeRegistryError = "";
+                renderUnlessEditing();
+              }, () => {
+                if (serial !== authCheckSerial || !state.owner) return;
+                state.codeRegistryStatus = "error";
+                state.codeRegistryError = "Impossibile controllare il registro dei codici.";
+                renderUnlessEditing();
               });
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
               state.rawInventory = snap.docs.map((d) => {
@@ -356,26 +370,22 @@ async function startFirebase() {
 }
 async function login(form) {
   if (!firebase) return;
-  const identity = String(form.get("identity") || "").trim();
+  const email = String(form.get("email") || "").trim();
   const password = String(form.get("password") || "");
   state.error = ""; state.flash = "";
   try {
-    let email = identity;
-    if (!identity.includes("@")) {
-      if (!validUsername(identity)) throw new Error("Credenziali non valide.");
-      const alias = await firebase.getDoc(firebase.doc(firebase.db, "loginAliases", normalizeUsername(identity)));
-      if (!alias.exists() || !alias.data().email) throw new Error("Credenziali non valide.");
-      email = alias.data().email;
-    }
     await firebase.signInWithEmailAndPassword(firebase.auth, email, password);
     go("/admin");
   } catch (err) {
-    state.error = err.message === "Credenziali non valide." ? err.message :
-      "Accesso non riuscito. Verifica le credenziali e la configurazione Firebase.";
+    state.error = "Accesso non riuscito. Verifica email, password e configurazione Firebase.";
     render();
   }
 }
 async function savePlant(form, id) {
+  if (!id && state.codeRegistryStatus !== "ready") {
+    showFormError("Prima di creare altre piante, attiva i codici univoci dalla schermata Inventario.");
+    return;
+  }
   if (journalSaveInProgress) {
     showFormError("È già in corso un salvataggio del diario. La scheda non è stata modificata.");
     return;
@@ -504,7 +514,7 @@ async function savePlant(form, id) {
     completed = true;
   } catch (err) {
     showFormError(err instanceof PlantConflictError || err instanceof JournalValidationError ||
-      err instanceof SeedLotConflictError ? err.message :
+      err instanceof SeedLotConflictError || err instanceof SpecimenCodeError ? err.message :
       "Salvataggio non riuscito. I dati inseriti sono ancora nel modulo. Controlla la connessione e riprova.",
       err instanceof PlantConflictError);
   } finally {
@@ -594,34 +604,6 @@ async function deletePlant(id) {
     }
   }
 }
-async function saveUsername(form) {
-  const username = normalizeUsername(form.get("username"));
-  if (!validUsername(username)) {
-    state.error = "Nome utente non valido: usa 3–32 caratteri, lettere, numeri, punto, trattino o underscore.";
-    render(); return;
-  }
-  try {
-    const profileRef = firebase.doc(firebase.db, "adminProfiles", state.user.uid);
-    const aliasRef = firebase.doc(firebase.db, "loginAliases", username);
-    await firebase.runTransaction(firebase.db, async (tx) => {
-      const [profile, target] = await Promise.all([tx.get(profileRef), tx.get(aliasRef)]);
-      const old = profile.exists() ? profile.data().username : "";
-      if (target.exists() && target.data().email !== state.user.email) {
-        throw new Error("Alias già utilizzato.");
-      }
-      if (old && old !== username) {
-        tx.delete(firebase.doc(firebase.db, "loginAliases", old));
-      }
-      tx.set(aliasRef, { email: state.user.email });
-      tx.set(profileRef, { username });
-    });
-    state.username = username; state.error = ""; state.flash = "Nome utente aggiornato.";
-    render();
-  } catch {
-    state.error = "Impossibile aggiornare il nome utente. Verifica le autorizzazioni e riprova.";
-    render();
-  }
-}
 async function handleClick(event) {
   const link = event.target.closest("a[data-nav]");
   if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
@@ -700,6 +682,37 @@ async function handleClick(event) {
     render();
     return;
   }
+  if (action?.dataset.action === "activate-codes" && state.owner && firebase) {
+    if (state.codeSyncing || plantSaveInProgress || journalSaveInProgress) return;
+    if (!state.inventoryReady || state.inventoryError || state.codeRegistryStatus === "error" ||
+        state.codeRegistryStatus === "loading") {
+      showFormError("Inventario o registro non disponibile: nessuna assegnazione eseguita.");
+      return;
+    }
+    if (formDirty || journalDirty) {
+      showFormError("Salva o annulla prima le modifiche in corso: i dati del modulo sono stati conservati.");
+      return;
+    }
+    state.codeSyncing = true;
+    state.codeProgress = "Verifica del registro…";
+    state.error = ""; renderUnlessEditing();
+    try {
+      const result = await consolidateSpecimenCodes(firebase, {
+        onProgress: (done, total) => {
+          state.codeProgress = "Codici verificati: " + done + " di " + total;
+          renderUnlessEditing();
+        }
+      });
+      state.codeRegistryStatus = "ready";
+      state.flash = "Registro dei codici attivo: " + result.count + " piante verificate.";
+    } catch (error) {
+      state.error = error instanceof SpecimenCodeError ? error.message :
+        "Impossibile completare l'assegnazione. Nessuna scheda è stata cancellata; puoi riprendere la procedura.";
+    } finally {
+      state.codeSyncing = false; state.codeProgress = ""; renderUnlessEditing();
+    }
+    return;
+  }
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
     await deletePlant(action.dataset.id);
   }
@@ -713,7 +726,7 @@ async function handleClick(event) {
 }
 function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form", "journal-form"].includes(form.id)) return;
+  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "journal-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
@@ -757,7 +770,6 @@ function handleSubmit(event) {
   if (!state.owner || !firebase) return;
   if (form.id === "plant-form") return savePlant(data, form.dataset.id);
   if (form.id === "journal-form") return saveJournal(data, form.dataset.id);
-  if (form.id === "username-form") return saveUsername(data);
 }
 function fillProfileFields(form, profile, cultivar = false) {
   const fields = cultivar
