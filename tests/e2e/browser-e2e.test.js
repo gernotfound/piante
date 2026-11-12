@@ -478,6 +478,14 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
         "Bozza della scheda da non perdere");
       assert.equal(await page.locator('textarea[name="eventNotes"]').inputValue(),
         "Attività non ancora registrata");
+      page.once("dialog", dialog => dialog.accept());
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.waitForURL("**/admin/piante", { timeout: 45000 });
+      assert.equal((await getDoc(doc(owner, "privatePlants", id))).data().description,
+        "Bozza della scheda da non perdere");
+      const events = (await getDocs(collection(owner, "privatePlants", id, "events")))
+        .docs.map(d => d.data());
+      assert.equal(events.filter(entry => entry.note === "Attività non ancora registrata").length, 1);
       assert.deepEqual(page.sandboxRequests, []);
     } finally {
       await context.close();

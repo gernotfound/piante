@@ -1,6 +1,7 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
 import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
-import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError } from "./plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError,
+  JournalValidationError, SeedLotConflictError } from "./plant-store.js";
 import { lifeStages, journalKinds, taxonId, lotIdOf, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
@@ -378,6 +379,8 @@ async function savePlant(form, id) {
   plant.minColdC = rawCold ? Number(rawCold.replace(",", ".")) : null;
   const cultivarName = String(form.get("cultivarName") || "").trim();
   const species = profileByName(state.profiles, "species", plant.name);
+  // Una diversa maiuscola non deve rinominare il profilo botanico condiviso.
+  if (species) plant.name = species.name;
   plant.speciesId = species?.id || taxonId("species", plant.name);
   const cultivar = cultivarName
     ? profileByName(state.profiles, "cultivar", cultivarName, plant.speciesId) : null;
@@ -424,6 +427,19 @@ async function savePlant(form, id) {
   if (cultivarError || cultivarData.fruitNotes.length > 750) {
     showFormError(cultivarError || "La descrizione del frutto supera 750 caratteri."); return;
   }
+  let pendingJournal = null;
+  if (journalDirty) {
+    const diaryForm = document.querySelector("#journal-form");
+    if (diaryForm?.dataset.id === id) {
+      const draft = new FormData(diaryForm);
+      pendingJournal = {
+        kind: String(draft.get("eventKind") || ""),
+        note: String(draft.get("eventNotes") || ""),
+        eventDate: String(draft.get("eventDate") || "")
+      };
+      if (!window.confirm("Il diario contiene una bozza. Vuoi salvare insieme, in un'unica operazione, le modifiche alla pianta e questa attività?")) return;
+    }
+  }
   const editor = document.querySelector("#plant-form");
   const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
   const shared = {
@@ -452,11 +468,11 @@ async function savePlant(form, id) {
   if (button) button.textContent = "Salvataggio…";
   let completed = false;
   try {
-    await savePlantRecord(firebase, { id, plant, expectedVersion, shared });
+    await savePlantRecord(firebase, { id, plant, expectedVersion, shared, pendingJournal });
     completed = true;
   } catch (err) {
-    showFormError(err instanceof PlantConflictError ? err.message :
-      err?.message?.includes("lotto") ? err.message :
+    showFormError(err instanceof PlantConflictError || err instanceof JournalValidationError ||
+      err instanceof SeedLotConflictError ? err.message :
       "Salvataggio non riuscito. I dati inseriti sono ancora nel modulo. Controlla la connessione e riprova.",
       err instanceof PlantConflictError);
   } finally {
@@ -465,7 +481,9 @@ async function savePlant(form, id) {
     if (button?.isConnected) button.textContent = "Salva pianta";
     if (completed) {
       state.error = "";
-      state.flash = "Pianta e schede botaniche salvate correttamente.";
+      state.flash = pendingJournal
+        ? "Pianta, schede botaniche e attività del diario salvate correttamente."
+        : "Pianta e schede botaniche salvate correttamente.";
       formDirty = false; journalDirty = false;
       go("/admin/piante");
     }
@@ -721,7 +739,10 @@ function handlePlantSelection(event) {
   if (event.target.name === "name") {
     const species = profileByName(state.profiles, "species", event.target.value);
     const oldId = form.dataset.speciesId;
-    if (species) fillProfileFields(form, species);
+    if (species) {
+      event.target.value = species.name;
+      fillProfileFields(form, species);
+    }
     // Un nome ancora sconosciuto può essere una correzione lessicale: non
     // cancellare categoria e dati già compilati, né bloccare il salvataggio.
     form.dataset.speciesId = species?.id || "";

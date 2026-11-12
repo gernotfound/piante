@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, doc, getDoc, getDocs, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
-import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError } from "../../src/plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError,
+  JournalValidationError, SeedLotConflictError } from "../../src/plant-store.js";
 import { taxonId, lotIdOf, sharedProfileDraft, resolvePlantProfiles } from "../../src/taxonomy.js";
 
 let environment;
@@ -346,4 +347,60 @@ test("specie associata soltanto a esemplare privato non è enumerabile dal pubbl
   });
   assert.equal((await data(guest, "plantProfiles", speciesId)).public, true);
   assert.equal(await data(guest, "catalog", id), null);
+});
+
+
+test("una bozza del diario viene registrata atomicamente con la modifica della pianta", async () => {
+  const id = await savePlantRecord(adapter(owner), { plant: { ...plant, published: true } });
+  const original = await data(owner, "privatePlants", id);
+  const expectedVersion = plantVersion(original);
+  await assert.rejects(savePlantRecord(adapter(owner), {
+    id, expectedVersion, plant: { ...plant, description: "Non deve essere salvata", published: true },
+    pendingJournal: { kind: "Rinvaso", note: "Test", eventDate: "2026-99-99" }
+  }), JournalValidationError);
+  assert.equal((await data(owner, "privatePlants", id)).description, original.description);
+  await savePlantRecord(adapter(owner), {
+    id, expectedVersion,
+    plant: { ...plant, description: "Descrizione confermata", published: true },
+    pendingJournal: { kind: "Rinvaso", note: "Terriccio drenante", eventDate: "2026-11-12" }
+  });
+  const updated = await data(owner, "privatePlants", id);
+  assert.equal(updated.description, "Descrizione confermata");
+  assert.ok(updated.lastJournalActivityAt);
+  assert.equal((await data(guest, "catalog", id)).description, "Descrizione confermata");
+  const records = (await getDocs(collection(owner, "privatePlants", id, "events"))).docs.map(d => d.data());
+  assert.equal(records.filter(d => d.note === "Terriccio drenante").length, 1);
+  assert.ok(records.some(d => d.type === "Modifica"));
+  await assert.rejects(deletePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion(updated)
+  }), PlantJournalRetentionError);
+});
+
+test("lotto riutilizzato con provenienza discordante è rifiutato senza alterare l'inventario", async () => {
+  const name = "Avocado lotti";
+  const speciesId = taxonId("species", name);
+  const lotId = lotIdOf(speciesId, "Semina 2026");
+  const originalLot = {
+    name: "Semina 2026", speciesId, sownOn: "2026-04-10",
+    sourceDetails: "Frutto del vivaio A", seedSourceCultivar: "Hass"
+  };
+  const firstId = await savePlantRecord(adapter(owner), {
+    plant: { ...plant, name, speciesId, lotId, lotName: originalLot.name, published: false },
+    shared: { lot: { id: lotId, data: originalLot } }
+  });
+  await assert.rejects(savePlantRecord(adapter(owner), {
+    plant: { ...plant, name, speciesId, lotId, lotName: originalLot.name, published: false },
+    shared: { lot: { id: lotId, data: {
+      ...originalLot, sourceDetails: "Frutto del vivaio B"
+    } } }
+  }), SeedLotConflictError);
+  assert.equal((await data(owner, "seedLots", lotId)).sourceDetails, originalLot.sourceDetails);
+  assert.ok(await data(owner, "privatePlants", firstId));
+  const inventory = await getDocs(collection(owner, "privatePlants"));
+  assert.equal(inventory.docs.filter(d => d.data().lotId === lotId).length, 1);
+  const secondId = await savePlantRecord(adapter(owner), {
+    plant: { ...plant, name, speciesId, lotId, lotName: originalLot.name, published: false },
+    shared: { lot: { id: lotId, data: { ...originalLot } } }
+  });
+  assert.notEqual(firstId, secondId);
 });
