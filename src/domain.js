@@ -67,6 +67,19 @@ export function groupForCategory(category) {
   return "Altre piante";
 }
 
+// Mantiene il gruppo esplicito delle schede legacy finché la categoria non cambia.
+export function groupForEditedPlant(category, previous = null) {
+  if (previous?.category === category && plantGroups.includes(previous.plantGroup)) {
+    return previous.plantGroup;
+  }
+  return groupForCategory(category);
+}
+
+export function decodeRouteId(value) {
+  try { return decodeURIComponent(value); }
+  catch { return ""; }
+}
+
 export function plantGroupOf(plant) {
   if (plantGroups.includes(plant.plantGroup)) return plant.plantGroup;
   return groupForCategory(plant.category);

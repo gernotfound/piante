@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, plantPresets, groupForCategory, normalizeUsername, validUsername, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, plantPresets, groupForEditedPlant, decodeRouteId, normalizeUsername, validUsername, validatePlant } from "./domain.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "./plant-store.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
@@ -175,7 +175,7 @@ function render() {
   let page;
   if (path === "/") page = homepage();
   else if (path === "/piante") page = catalogPage();
-  else if (path.startsWith("/piante/")) page = detailPage(decodeURIComponent(path.slice(8)));
+  else if (path.startsWith("/piante/")) page = detailPage(decodeRouteId(path.slice(8)));
   else if (path === "/chi-siamo") page = aboutPage();
   else if (path === "/contatti") page = contactPage();
   else if (path === "/login") page = !state.authReady && firebaseConfigured
@@ -196,7 +196,7 @@ async function startFirebase() {
     const app = appMod.initializeApp(firebaseConfig);
     firebase = { ...authMod, ...dbMod, auth: authMod.getAuth(app), db: dbMod.getFirestore(app) };
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
-      state.catalog = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      state.catalog = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
       state.dbError = ""; renderUnlessEditing();
     }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; renderUnlessEditing(); });
@@ -216,7 +216,10 @@ async function startFirebase() {
             if (serial !== authCheckSerial) return;
             state.username = profile.exists() ? profile.data().username || "" : "";
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
-              state.inventory = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+              state.inventory = snap.docs.map((d) => {
+                const data = d.data();
+                return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+              })
                 .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
               state.inventoryReady = true; state.inventoryError = ""; renderUnlessEditing();
             }, () => { state.inventoryError = "Impossibile leggere l'inventario privato."; renderUnlessEditing(); });
@@ -269,7 +272,8 @@ async function savePlant(form, id) {
   }
   const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability", "propagationMethod", "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
-  plant.plantGroup = groupForCategory(plant.category);
+  const previous = id && editBaseline?.id === id ? editBaseline : null;
+  plant.plantGroup = groupForEditedPlant(plant.category, previous);
   if (plant.plantGroup !== "Piante da frutto") plant.fruitType = "";
   plant.published = form.has("published");
   plant.harvestMonths = [...new Set(form.getAll("harvestMonth").map(Number))].sort((a, b) => a - b);
@@ -518,7 +522,8 @@ function handlePlantSelection(event) {
   if (event.target.name === "plantPreset" || event.target.name === "category") {
     const typeField = form.querySelector("[data-fruit-type-field]");
     if (typeField) typeField.hidden =
-      groupForCategory(form.elements.namedItem("category")?.value) !== "Piante da frutto";
+      groupForEditedPlant(form.elements.namedItem("category")?.value,
+        form.dataset.id && editBaseline?.id === form.dataset.id ? editBaseline : null) !== "Piante da frutto";
   }
 }
 function markPlantDirty(event) {

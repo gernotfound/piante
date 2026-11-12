@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PROJECT = "demo-piante-browser";
@@ -209,6 +209,9 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
     assert.equal(await page.locator("#harvest-filter").inputValue(), "9");
     assert.equal(await page.locator("#pot-filter").inputValue(), "Adatta");
     assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
+    await page.goto(baseUrl + "/piante/%", { waitUntil: "domcontentloaded" });
+    await page.locator("h1").filter({ hasText: "Pianta non trovata" }).waitFor();
+    assert.equal(page.diagnostic.filter((entry) => entry.startsWith("JavaScript:")).length, 0);
   } finally {
     await context.close();
   }
@@ -355,3 +358,39 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await context.close();
     }
   });
+
+test("scheda legacy: ID documentale autorevole e gruppo/fruttifera preservati", { timeout: 90000 }, async () => {
+  const id = "esemplare-legacy";
+  await setDoc(doc(owner, "privatePlants", id), {
+    id: "id-nel-record-diverso", name: "Fico d'India legacy", category: "Succulente",
+    plantGroup: "Piante da frutto", fruitType: "Mediterranee", published: false
+  });
+  const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
+  try {
+    const page = await openPage(context, "/login");
+    await login(page);
+    await page.goto(baseUrl + "/admin/piante", { waitUntil: "domcontentloaded" });
+    await page.locator('a[href="/admin/modifica/' + id + '"]').waitFor({ timeout: 45000 });
+    await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
+    await page.locator("#plant-form").waitFor({ timeout: 45000 });
+    assert.equal(await page.locator('input[name="name"]').inputValue(), "Fico d'India legacy");
+    assert.equal(await page.locator('[data-fruit-type-field]').isVisible(), true);
+    assert.equal(await page.locator('select[name="fruitType"]').inputValue(), "Mediterranee");
+    assert.match(await page.locator("input.specimen-code").inputValue(), /^#Z[0-9A-F]+$/);
+    await page.locator('textarea[name="description"]').fill("Scheda storica aggiornata");
+    await page.locator('#plant-form button[type="submit"]').click();
+    await page.waitForURL("**/admin/piante", { timeout: 45000 });
+    const saved = (await getDoc(doc(owner, "privatePlants", id))).data();
+    assert.equal(saved.description, "Scheda storica aggiornata");
+    assert.equal(saved.plantGroup, "Piante da frutto");
+    assert.equal(saved.fruitType, "Mediterranee");
+    assert.equal(saved.id, "id-nel-record-diverso", "Metadati legacy non cancellati");
+    await page.goto(baseUrl + "/admin/modifica/%", { waitUntil: "domcontentloaded" });
+    await page.locator("h1").filter({ hasText: "Scheda non trovata" }).waitFor();
+    assert.equal(page.diagnostic.filter((entry) => entry.startsWith("JavaScript:")).length, 0);
+    assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
+  } finally {
+    await context.close();
+    await deleteDoc(doc(owner, "privatePlants", id));
+  }
+});

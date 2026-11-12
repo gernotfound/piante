@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogProjection, escapeHtml, groupForCategory, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, validUsername, validatePlant } from "../../src/domain.js";
+import { catalogProjection, escapeHtml, groupForCategory, groupForEditedPlant, decodeRouteId, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, validUsername, validatePlant } from "../../src/domain.js";
 
 test("un alias utente viene normalizzato ed è limitato a caratteri sicuri", () => {
   assert.equal(normalizeUsername("  Vivaio.G  "), "vivaio.g");
@@ -38,6 +38,13 @@ test("categoria univoca in editor e specie precompilate senza varietà dedotta d
   assert.equal(groupForCategory("Agrumi"), "Piante da frutto");
   assert.equal(groupForCategory("Orto e tuberi"), "Orto e tuberi");
   assert.equal(groupForCategory("Succulente"), "Altre piante");
+  const legacy = { category: "Succulente", plantGroup: "Piante da frutto" };
+  assert.equal(groupForEditedPlant("Succulente", legacy), "Piante da frutto");
+  assert.equal(groupForEditedPlant("Ornamentali", legacy), "Altre piante");
+  assert.equal(groupForEditedPlant("Succulente", { ...legacy, plantGroup: "ignoto" }), "Altre piante");
+  assert.equal(decodeRouteId("esemplare%20uno"), "esemplare uno");
+  assert.equal(decodeRouteId("%"), "");
+  assert.equal(decodeRouteId("%E0%A4%A"), "");
   const papaya = plantPresets.find((preset) => preset.key === "papaya");
   const avocado = plantPresets.find((preset) => preset.key === "avocado");
   assert.equal(papaya.scientificName, "Carica papaya");

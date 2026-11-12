@@ -16,7 +16,7 @@
 ## Dati
 
 - `siteOwner/primary`: UID proprietario, applicato dalle Security Rules.
-- `privatePlants/{id}`: inventario riservato, note interne, provenienza e altri metadati. Il codice `#` usa l'ID documentale.
+- `privatePlants/{id}`: inventario riservato, note interne, provenienza e altri metadati. Il codice `#` usa l'ID documentale (autorevole anche se nel record legacy esiste un campo `id`). L'editor preserva un gruppo botanico storico esplicito se la categoria non viene cambiata, evitando riclassificazioni involontarie.
 - `catalog/{id}`: proiezione dei soli campi pubblicabili. Le operazioni sulle due raccolte sono atomiche; l'editor conserva la versione caricata e blocca sovrascritture concorrenti.
 - Firebase Authentication contiene password e sessioni. Gli alias opzionali non conferiscono privilegi.
 

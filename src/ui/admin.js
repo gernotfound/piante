@@ -1,4 +1,4 @@
-import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, plantPresets, propagationMethods, materialSources, specimenSexes, groupForCategory, specimenCodeOf, safeImageUrl, escapeHtml } from "../domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, plantPresets, propagationMethods, materialSources, specimenSexes, groupForEditedPlant, decodeRouteId, specimenCodeOf, safeImageUrl, escapeHtml } from "../domain.js";
 import { filterInventory } from "../catalog.js";
 import { plantVersion } from "../plant-store.js";
 
@@ -125,8 +125,9 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
     // La versione rimane quella mostrata quando l'editor è stato aperto.
     // Le notifiche Firestore non devono sostituirla mentre il modulo è modificato.
     if (item) {
-      const { id: documentId, ...data } = item;
-      setEditBaseline({ id: documentId, version: plantVersion(data) });
+      const { id: documentId, __snapshotVersion, ...data } = item;
+      setEditBaseline({ id: documentId, version: __snapshotVersion || plantVersion(data),
+        category: data.category, plantGroup: data.plantGroup });
     } else {
       setEditBaseline(null);
     }
@@ -147,7 +148,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       <p>Il calendario è indicativo per il clima locale e non determina la data effettiva di maturazione.</p>
     </fieldset>`;
     const selectedFruitType = p.fruitType || "";
-    const fruitSelect = `<label class="form-field" data-fruit-type-field ${groupForCategory(p.category) === "Piante da frutto" ? "" : "hidden"}>
+    const fruitSelect = `<label class="form-field" data-fruit-type-field ${groupForEditedPlant(p.category, item) === "Piante da frutto" ? "" : "hidden"}>
       <span>Tipo di fruttifera (facoltativo)</span><select class="select" name="fruitType">
       ${["", ...fruitTypes].map((type) => `<option value="${h(type)}" ${selectedFruitType === type ? "selected" : ""}>${h(type || "Non specificato")}</option>`).join("")}
     </select></label>`;
@@ -286,7 +287,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         "Caricamento", "Verifica in corso dei dati privati.");
     }
     if (state.route === "/admin/nuova") return editPage("");
-    if (state.route.startsWith("/admin/modifica/")) return editPage(decodeURIComponent(state.route.slice("/admin/modifica/".length)));
+    if (state.route.startsWith("/admin/modifica/")) return editPage(decodeRouteId(state.route.slice("/admin/modifica/".length)));
     if (state.route === "/admin/piante") return inventoryPage();
     if (state.route === "/admin/impostazioni") return settingsPage();
     return overviewPage();
