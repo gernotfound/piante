@@ -52,9 +52,10 @@ export async function consolidateSpecimenCodes(firebase, {
   const catalogRef = firebase.collection(firebase.db, "catalog");
   const inventory = (await firebase.getDocs(inventoryRef)).docs.sort((a, b) => a.id.localeCompare(b.id));
   const publicDocs = (await firebase.getDocs(catalogRef)).docs;
-  const inventoryIds = new Set(inventory.map(item => item.id));
-  if (publicDocs.some(item => !inventoryIds.has(item.id))) {
-    throw new SpecimenCodeError("Il catalogo contiene schede prive dell'esemplare privato: verificare prima di completare i codici.");
+  const inventoryById = new Map(inventory.map(item => [item.id, item.data()]));
+  if (publicDocs.some(item => !inventoryById.has(item.id) ||
+    inventoryById.get(item.id).published !== true)) {
+    throw new SpecimenCodeError("Il catalogo contiene schede orfane o non dichiarate pubbliche: verifica la visibilità prima di attivare i codici.");
   }
   const protectedCodes = new Set(inventory.map(item => {
     const stored = item.data().specimenCode;
