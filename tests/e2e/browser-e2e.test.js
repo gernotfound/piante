@@ -593,6 +593,7 @@ test("catalogo e inventario: cultivar riconoscibile, note climatiche senza numer
     });
     await setDoc(doc(owner, "privatePlants", plantId), plant);
     await setDoc(doc(owner, "catalog", plantId), catalogProjection(plant));
+    await setDoc(doc(owner, "privatePlants", oldId), legacy);
     await setDoc(doc(owner, "catalog", oldId), catalogProjection(legacy));
     const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
     try {
@@ -600,7 +601,7 @@ test("catalogo e inventario: cultivar riconoscibile, note climatiche senza numer
       const avocado = page.locator('.plant-card[href="/piante/' + plantId + '"]');
       await avocado.waitFor({ timeout: 45000 });
       assert.match(await avocado.locator(".plant-variety").innerText(), /Cultivar: Fuerte/);
-      assert.equal(await avocado.locator(".plant-category").innerText(), "TROPICALI DA FRUTTO");
+      assert.equal((await avocado.locator(".plant-category").textContent()).trim(), "Tropicali da frutto");
       const papaya = page.locator('.plant-card[href="/piante/' + oldId + '"]');
       await papaya.waitFor();
       assert.match(await papaya.locator(".plant-variety").innerText(), /da verificare.*Formosa/);
@@ -611,7 +612,7 @@ test("catalogo e inventario: cultivar riconoscibile, note climatiche senza numer
         /Informazioni sulla resistenza al freddo/);
       assert.doesNotMatch(await page.locator(".climate-detail").innerText(), /minima indicativa:/);
       assert.equal(await page.locator(".detail-variety").innerText(), "Cultivar: Fuerte");
-      assert.match(await page.locator(".detail-properties").innerText(), /Forma di crescita[\\s\\S]*Albero/);
+      assert.match(await page.locator(".detail-properties").innerText(), /Forma di crescita[\s\S]*Albero/);
       assert.match(await page.locator(".detail-properties").innerText(), /Tipologia fruttifera/);
       assert.doesNotMatch(await page.locator(".detail-properties").innerText(), /Varietà/);
       await noOverflow(page, "Dettaglio cultivar 320px");
@@ -622,11 +623,31 @@ test("catalogo e inventario: cultivar riconoscibile, note climatiche senza numer
       await row.waitFor({ timeout: 45000 });
       assert.equal(await row.locator(".inventory-variety").innerText(), "Cultivar: Fuerte");
       await noOverflow(page, "Inventario cultivar 320px");
+      await page.goto(baseUrl + "/admin/modifica/" + plantId, { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      await expandEditor(page);
+      assert.equal(await page.locator('input[name="cultivarName"]').inputValue(), "Fuerte");
+      assert.equal(await page.locator('textarea[name="cultivarFruitNotes"]').inputValue(),
+        "Caratteristiche verificate del frutto");
+      await page.locator('input[name="cultivarName"]').fill("Nuova cultivar");
+      page.once("dialog", dialog => dialog.dismiss());
+      await page.locator('input[name="cultivarName"]').blur();
+      assert.equal(await page.locator('input[name="cultivarName"]').inputValue(), "Fuerte",
+        "Il rifiuto del cambio di cultivar conserva il collegamento originale");
+      assert.equal(await page.locator('textarea[name="cultivarFruitNotes"]').inputValue(),
+        "Caratteristiche verificate del frutto");
+      await page.locator('select[name="lifeStage"]').selectOption("Ceduta");
+      await page.locator('[data-publication-status]').waitFor({ state: "visible" });
+      assert.equal(await page.locator('input[name="published"]').isChecked(), true,
+        "Lo stato Ceduta non deve cambiare la visibilità automaticamente");
+      await page.locator('input[name="published"]').uncheck();
+      assert.equal(await page.locator('[data-publication-status]').isVisible(), false);
       assert.deepEqual(page.sandboxRequests, []);
     } finally {
       await context.close();
       await deleteDoc(doc(owner, "catalog", plantId));
       await deleteDoc(doc(owner, "catalog", oldId));
       await deleteDoc(doc(owner, "privatePlants", plantId));
+      await deleteDoc(doc(owner, "privatePlants", oldId));
     }
   });
