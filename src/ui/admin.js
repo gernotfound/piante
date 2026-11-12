@@ -261,7 +261,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           <h3>Questo esemplare</h3><p>Informazioni proprie della pianta, sempre private.</p></div></div>
         <div class="form-grid">
           <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
-            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice breve della pianta">
+            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id, specimenCode: p.specimenCode }))}" aria-label="Codice breve della pianta">
             <small>È permanente, inizia con # e identifica soltanto questo esemplare dopo l'attivazione del registro.</small></label>` :
             `<p class="specimen-hint">Un codice univoco di 6 caratteri (A–Z e 0–9), preceduto da #, sarà assegnato al salvataggio.</p>`}</div>
           <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
