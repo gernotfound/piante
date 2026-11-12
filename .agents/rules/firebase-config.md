@@ -8,7 +8,7 @@ La configurazione Web in `src/config.js` (`apiKey`, `authDomain`, `projectId`, `
 
 - Le password stanno in Firebase Authentication, non in Firestore.
 - Il proprietario è riconosciuto quando `request.auth.uid` corrisponde al campo stringa `uid` del documento `siteOwner/primary`. Solo la console con accesso amministrativo deve poter modificare quel documento; le Rules lo proteggono dalla scrittura client.
-- Il primo login si effettua con email/password. Gli alias in `loginAliases` servono a risolvere email, NON concedono privilegi. La lettura puntuale pubblica di un alias può esporre l'email associata: non considerarla privata.
+- L'accesso avviene esclusivamente tramite email/password in Firebase Authentication. I nickname sono stati rimossi: le collezioni legacy `loginAliases` e `adminProfiles` non sono più accessibili via client, neppure dal proprietario. Eventuali record storici richiedono pulizia amministrativa esplicita, non una cancellazione automatica.
 - `privatePlants` contiene anche `internalNotes`; `catalog` contiene soltanto i campi di `catalogProjection` (vedere `src/domain.js`). `plantProfiles` è leggibile anonimamente solo per documenti `public == true` e deve contenere soltanto attributi botanici condivisi, mai provenienza privata o dati di un esemplare. `seedLots`, `specimenCodes`, `specimenRegistry` e `privatePlants/{id}/events` sono solo proprietario. Un documento non pubblicato non deve comparire in `catalog`. Le informazioni pubblicabili su rusticità, impollinazione, raccolta, forma di crescita e sinonimi sono facoltative: non inferire valori sconosciuti. `minColdC: null` nella scheda privata indica la cancellazione di una vecchia soglia e viene omesso dalla proiezione pubblica.
 - Il client usa transazioni Firestore per modificare o eliminare schede, verificando che la versione letta nell'editor sia ancora attuale; copia privata e proiezione pubblica vengono aggiornate o rimosse atomicamente. Non sostituire le transazioni con scritture non condizionali: eliminazioni e cambio visibilità devono restare coerenti.
 
@@ -17,7 +17,7 @@ La configurazione Web in `src/config.js` (`apiKey`, `authDomain`, `projectId`, `
 - Test `tests/unit/domain.test.js` e `tests/unit/search-filters.test.js` per validazione, ricerca e proiezione; test `tests/integration/rules.test.js`, `tests/integration/plant-store.test.js` e `tests/integration/specimen-codes.test.js` sull'emulatore Firestore; `tests/e2e/browser-e2e.test.js` sui due emulatori e Chrome. Dopo cambiamenti a auth/Rules pubblicazione, aggiungere test pertinenti. La CI del candidato non dimostra l'applicazione delle Rules live.
 - Non dedurre che Rules siano pubblicate perché un file esiste o i test passano. La console Firebase costituisce un sistema live distinto; anche le dichiarazioni dell'utente vanno registrate come tali.
 - Per modifiche alle Rules, confrontare database e collezioni reali. Un deploy Rules sovrascrive la policy per il database configurato e non è incluso nel workflow Hosting.
-- I record `siteOwner`, il catalogo e gli alias sono dati di produzione: non eliminarli, reimpostarli o seminarli automaticamente durante un test.
+- Il documento `siteOwner/primary`, il catalogo e gli eventuali record legacy di nickname sono dati di produzione: non eliminarli, reimpostarli o seminarli automaticamente durante un test. Un reset dei dati del vivaio non deve eliminare l'utente Firebase Authentication né `siteOwner/primary`: l'UID è il vincolo di autorizzazione.
 
 ## Hosting
 
