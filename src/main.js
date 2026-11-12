@@ -14,6 +14,7 @@ const state = {
   catalog: [],
   inventory: [],
   rawInventory: [], rawCatalog: [], profiles: [], profilesReady: false, profilesError: "",
+  publicProfiles: [], publicProfilesReady: false, ownerProfiles: [], ownerProfilesReady: false,
   lots: [], lotsReady: false, journalEntries: [], journalError: "", inventoryStage: "Tutte",
   inventoryReady: false,
   inventoryError: "",
@@ -106,7 +107,9 @@ function confirmDiscard() {
   return (!formDirty && !journalDirty) || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
 }
 function refreshSharedPlants() {
-  state.catalog = state.rawCatalog.map(item => resolvePlantProfiles(item, state.profiles));
+  state.profiles = state.owner ? state.ownerProfiles : state.publicProfiles;
+  state.profilesReady = state.owner ? state.ownerProfilesReady : state.publicProfilesReady;
+  state.catalog = state.rawCatalog.map(item => resolvePlantProfiles(item, state.publicProfiles));
   state.inventory = state.rawInventory.map(item => resolvePlantProfiles(item, state.profiles));
 }
 function syncJournalListener() {
@@ -234,18 +237,23 @@ async function startFirebase() {
     ]);
     const app = appMod.initializeApp(firebaseConfig);
     firebase = { ...authMod, ...dbMod, auth: authMod.getAuth(app), db: dbMod.getFirestore(app) };
-    profilesListener = firebase.onSnapshot(firebase.collection(firebase.db, "plantProfiles"), snap => {
-      state.profiles = snap.docs.map(d => {
-        const data = d.data();
-        return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+    // I visitatori vedono solo profili già pubblicati. Le specie legate
+    // soltanto a esemplari privati non sono enumerabili fuori dall'admin.
+    firebase.onSnapshot(
+      firebase.query(firebase.collection(firebase.db, "plantProfiles"),
+        firebase.where("public", "==", true)),
+      snap => {
+        state.publicProfiles = snap.docs.map(d => {
+          const data = d.data();
+          return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+        });
+        state.publicProfilesReady = true;
+        refreshSharedPlants(); renderUnlessEditing();
+      }, () => {
+        state.publicProfilesReady = false;
+        state.dbError = "Impossibile leggere le schede botaniche pubbliche.";
+        refreshSharedPlants(); renderUnlessEditing();
       });
-      state.profilesReady = true; state.profilesError = "";
-      refreshSharedPlants(); renderUnlessEditing();
-    }, () => {
-      state.profilesReady = false;
-      state.profilesError = "Impossibile leggere le schede botaniche condivise.";
-      renderUnlessEditing();
-    });
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
       state.rawCatalog = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
@@ -254,12 +262,15 @@ async function startFirebase() {
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
+      if (profilesListener) { profilesListener(); profilesListener = null; }
       if (lotsListener) { lotsListener(); lotsListener = null; }
       if (journalListener) { journalListener(); journalListener = null; }
       activeJournalId = "";
       state.user = user; state.owner = false; state.username = "";
+      state.ownerProfiles = []; state.ownerProfilesReady = false; state.profilesError = "";
       state.inventory = []; state.rawInventory = []; state.lots = []; state.journalEntries = [];
       state.lotsReady = false;
+      refreshSharedPlants();
       state.inventoryReady = false; state.inventoryError = ""; editBaseline = null;
       state.authReady = false; renderAfterAuthChange();
       if (user) {
@@ -268,9 +279,25 @@ async function startFirebase() {
           if (serial !== authCheckSerial) return;
           if (ownerDoc.exists() && ownerDoc.data().uid === user.uid) {
             state.owner = true;
+            refreshSharedPlants();
             const profile = await firebase.getDoc(firebase.doc(firebase.db, "adminProfiles", user.uid));
             if (serial !== authCheckSerial) return;
             state.username = profile.exists() ? profile.data().username || "" : "";
+            profilesListener = firebase.onSnapshot(
+              firebase.collection(firebase.db, "plantProfiles"), snap => {
+                if (serial !== authCheckSerial || !state.owner) return;
+                state.ownerProfiles = snap.docs.map(d => {
+                  const data = d.data();
+                  return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+                });
+                state.ownerProfilesReady = true; state.profilesError = "";
+                refreshSharedPlants(); renderUnlessEditing();
+              }, () => {
+                if (serial !== authCheckSerial || !state.owner) return;
+                state.ownerProfilesReady = false;
+                state.profilesError = "Impossibile leggere le schede botaniche private.";
+                refreshSharedPlants(); renderUnlessEditing();
+              });
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
               state.rawInventory = snap.docs.map((d) => {
                 const data = d.data();

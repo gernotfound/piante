@@ -398,6 +398,7 @@ test("scheda legacy: ID documentale autorevole e gruppo/fruttifera preservati", 
     assert.equal(await page.locator('select[name="fruitType"]').inputValue(), "Mediterranee");
     assert.match(await page.locator("input.specimen-code").inputValue(), /^#Z[0-9A-F]+$/);
     await page.locator('textarea[name="description"]').fill("Scheda storica aggiornata");
+    assert.equal(await page.locator('textarea[name="description"]').inputValue(), "Scheda storica aggiornata");
     await page.locator('#plant-form button[type="submit"]').click();
     await page.waitForURL("**/admin/piante", { timeout: 45000 });
     const saved = (await getDoc(doc(owner, "privatePlants", id))).data();
@@ -442,6 +443,8 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       const id = fresh.id;
       assert.equal(fresh.data().seedSourceCultivar, "Hass");
       assert.equal(fresh.data().cultivarId, "");
+      await assert.rejects(getDoc(doc(guest, "plantProfiles", fresh.data().speciesId)),
+        { code: "permission-denied" });
       assert.equal((await getDoc(doc(owner, "privatePlants", legacyId))).data().scientificName, undefined);
       await page.goto(baseUrl + "/admin/modifica/" + legacyId, { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });

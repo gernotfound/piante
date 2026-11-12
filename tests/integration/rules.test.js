@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   initializeTestEnvironment, assertSucceeds, assertFails
 } from "@firebase/rules-unit-testing";
-import { doc, collection, getDoc, getDocs, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, collection, query, where, getDoc, getDocs, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 
 let environment;
 const published = {
@@ -163,9 +163,15 @@ test("profili pubblici senza dati riservati, lotti e diario solo proprietario", 
   const guest = environment.unauthenticatedContext().firestore();
   const stranger = environment.authenticatedContext("estraneo", { email: "other@example.test" }).firestore();
   const ref = doc(owner, "plantProfiles", "s_avocado_test");
-  await assertSucceeds(setDoc(ref, { kind: "species", name: "Avocado", scientificName: "Persea americana" }));
+  const privateSpecies = { kind: "species", name: "Avocado", scientificName: "Persea americana", public: false };
+  await assertSucceeds(setDoc(ref, privateSpecies));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(getDoc(doc(guest, "plantProfiles", "s_avocado_test")));
+  await assertFails(getDocs(collection(guest, "plantProfiles")));
+  await assertSucceeds(setDoc(ref, { ...privateSpecies, public: true }));
   await assertSucceeds(getDoc(doc(guest, "plantProfiles", "s_avocado_test")));
-  await assertSucceeds(getDocs(collection(guest, "plantProfiles")));
+  await assertSucceeds(getDocs(query(collection(guest, "plantProfiles"), where("public", "==", true))));
+  await assertFails(getDocs(collection(guest, "plantProfiles")));
   await assertFails(setDoc(doc(guest, "plantProfiles", "s_unauthorized"), {
     kind: "species", name: "Altro"
   }));

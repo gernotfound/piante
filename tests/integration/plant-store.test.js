@@ -233,6 +233,7 @@ test("profili botanici: transazione atomica, cultivar e dati privati separati", 
   assert.equal(visible.lifeStage, undefined);
   assert.equal(visible.minColdC, -3);
   assert.equal(publicSpecies.internalNotes, undefined);
+  assert.equal(publicSpecies.public, true);
   assert.equal(visible.speciesId, speciesId);
   assert.equal(visible.cultivarId, cultivarId);
   const currentSpecies = await data(owner, "plantProfiles", speciesId);
@@ -306,4 +307,43 @@ test("eliminazione bloccata se il diario contiene osservazioni: nessun dato pers
   await assert.rejects(deletePlantRecord(adapter(owner), {
     id, expectedVersion: plantVersion({ ...current, lastJournalActivityAt: null })
   }), PlantJournalRetentionError);
+});
+
+
+test("specie associata soltanto a esemplare privato non è enumerabile dal pubblico", async () => {
+  const name = "Specie riservata di test";
+  const speciesId = taxonId("species", name);
+  const individual = { ...plant, name, speciesId, published: false, variety: "" };
+  const species = sharedProfileDraft("species", name, "", individual);
+  const id = await savePlantRecord(adapter(owner), { plant: individual, shared: {
+    species: { id: speciesId, data: species, expectedVersion: null }
+  } });
+  const privateProfile = await data(owner, "plantProfiles", speciesId);
+  assert.equal(privateProfile.public, false);
+  await assert.rejects(getDoc(doc(guest, "plantProfiles", speciesId)),
+    { code: "permission-denied" });
+  const existing = await data(owner, "privatePlants", id);
+  await savePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion(existing),
+    plant: { ...individual, published: true }, shared: {
+      species: {
+        id: speciesId, data: species,
+        expectedVersion: plantVersion(privateProfile)
+      }
+    }
+  });
+  assert.equal((await data(guest, "plantProfiles", speciesId)).public, true);
+  const nextPrivate = await data(owner, "privatePlants", id);
+  const publishedProfile = await data(owner, "plantProfiles", speciesId);
+  await savePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion(nextPrivate),
+    plant: { ...individual, published: false }, shared: {
+      species: {
+        id: speciesId, data: species,
+        expectedVersion: plantVersion(publishedProfile)
+      }
+    }
+  });
+  assert.equal((await data(guest, "plantProfiles", speciesId)).public, true);
+  assert.equal(await data(guest, "catalog", id), null);
 });

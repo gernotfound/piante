@@ -29,21 +29,22 @@ service cloud.firestore {
       allow read, write: if isOwner();
     }
 
-    // Solo attributi botanici riutilizzabili: questi documenti sono PUBBLICI.
-    // Mai registrarvi provenienza di semi, posizione, diario o note personali.
+    // I profili botanici associati solo a piante private restano riservati.
+    // Un profilo pubblico contiene unicamente attributi botanici condivisi.
     match /plantProfiles/{profileId} {
-      allow read: if true;
+      allow get, list: if isOwner() || resource.data.get('public', false) == true;
       allow create, update: if isOwner()
         && request.resource.data.keys().hasOnly([
           'kind', 'name', 'parentId', 'scientificName', 'category', 'fruitType',
           'growthHabit', 'searchAliases', 'origin', 'light', 'water',
           'description', 'pollination', 'potSuitability', 'harvestMonths',
-          'minColdC', 'coldSource', 'coldNotes', 'fruitNotes', 'createdAt', 'updatedAt'
+          'minColdC', 'coldSource', 'coldNotes', 'fruitNotes', 'public', 'createdAt', 'updatedAt'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 100
         && request.resource.data.kind in ['species', 'cultivar']
+        && request.resource.data.get('public', false) is bool
         && optionalText(request.resource.data, 'parentId', 900)
         && (request.resource.data.kind != 'cultivar' ||
           request.resource.data.get('parentId', '') != '')

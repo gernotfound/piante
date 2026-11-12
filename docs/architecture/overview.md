@@ -35,3 +35,7 @@ I documenti `catalog` mantengono una proiezione di compatibilità: i client che 
 ## Eliminazione in presenza di diario
 
 La cancellazione di una pianta con osservazioni manuali è rifiutata: si può invece mantenere la scheda con stato «Morta» o «Ceduta». Se lo storico contiene solo eventi automatici, il client legge gli eventi (massimo 250) e li elimina insieme alla scheda privata e alla proiezione pubblica in una transazione Firestore. Gli eventi sono normalmente append-only; le Rules consentono la cancellazione solo nello stesso commit che elimina il documento padre. Il salvataggio di una nuova osservazione aggiorna il padre e causa conflitto con una cancellazione concorrente. In presenza di troppi eventi, di un errore di rete o di una versione diversa, non viene effettuata alcuna eliminazione.
+
+## Visibilità dei profili botanici
+
+`plantProfiles.public` è inizialmente `false`: l'utente anonimo non può enumerare o leggere specie/cultivar registrate soltanto nell'inventario privato. La prima pubblicazione di un esemplare rende pubblico il relativo profilo botanico (`public=true`) nella stessa transazione; il catalogo anonimo legge soltanto `plantProfiles` filtrati per `public == true`. Il proprietario legge tutti i profili, inclusi quelli privati. Una volta pubblicato, il profilo generico rimane pubblico anche quando tutte le piante ritornano private; non contiene collegamenti all'inventario riservato, note o provenienza. Questo è un compromesso esplicito per mantenere storia botanica condivisa senza esporre esemplari non pubblicati.

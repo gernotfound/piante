@@ -76,7 +76,11 @@ export async function savePlantRecord(firebase, { id = "", plant, expectedVersio
       });
     }
     for (const { profile, snapshot } of profiles) {
-      const draft = profile.data;
+      // Una specie privata diventa consultabile soltanto dopo la prima
+      // pubblicazione. Le informazioni già rese pubbliche restano conoscenza
+      // botanica condivisa quando l'esemplare torna privato.
+      const draft = { ...profile.data,
+        public: plant.published === true || snapshot.data()?.public === true };
       const modified = !snapshot.exists() || Object.keys(draft).some(key =>
         JSON.stringify(normalized(snapshot.data()[key])) !== JSON.stringify(normalized(draft[key])));
       if (!modified) continue;
