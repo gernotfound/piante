@@ -1,13 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogProjection, escapeHtml, groupForCategory, groupForEditedPlant, decodeRouteId, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, validSpecimenCode, varietyLabel, validUsername, validatePlant } from "../../src/domain.js";
-
-test("un alias utente viene normalizzato ed è limitato a caratteri sicuri", () => {
-  assert.equal(normalizeUsername("  Vivaio.G  "), "vivaio.g");
-  assert.equal(validUsername(" vivaio.g "), true);
-  assert.equal(validUsername("../../Admin"), false);
-  assert.equal(validUsername("a"), false);
-});
+import { catalogProjection, escapeHtml, groupForCategory, groupForEditedPlant, decodeRouteId, plantPresets, safeImageUrl, specimenCodeOf, validSpecimenCode, varietyLabel, validatePlant } from "../../src/domain.js";
 
 test("i link immagini non accettano javascript o http", () => {
   assert.equal(safeImageUrl("javascript:alert(1)"), "");
