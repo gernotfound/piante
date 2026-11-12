@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, plantGroupOf, fruitTypeOf, coldMinimumOf, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, plantPresets, propagationMethods, materialSources, specimenSexes, groupForCategory, specimenCodeOf, plantGroupOf, fruitTypeOf, coldMinimumOf, normalizeUsername, validUsername, safeImageUrl, escapeHtml, catalogProjection, validatePlant } from "./domain.js";
 import { filterCatalog, filterInventory } from "./catalog.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "./plant-store.js";
 
@@ -542,7 +542,7 @@ function overviewPage() {
       ${recent.length ? `<div class="recent-list">${recent.map((plant) => `
         <a href="/admin/modifica/${encodeURIComponent(plant.id)}" data-nav class="recent-row">
           ${imageMarkup(plant)}
-          <span class="recent-name"><strong>${h(plant.name)}</strong><small>${h(plant.category || "")}</small></span>
+          <span class="recent-name"><strong>${h(plant.specimenLabel || plant.name)}</strong><small>${h(plant.category || "")}</small></span>
           <span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span>
           <span class="recent-arrow" aria-hidden="true">↗</span>
         </a>`).join("")}</div>` : empty("Non hai ancora aggiunto piante. Inizia creando la tua prima scheda.") }
@@ -555,7 +555,10 @@ function inventoryPage() {
   });
   const rows = plants.map((plant) => `<tr>
     <td data-label="Pianta"><div class="inventory-name">
-      ${imageMarkup(plant)}<div><strong>${h(plant.name)}</strong><small>${h(plant.scientificName || plant.variety || "")}</small></div>
+      ${imageMarkup(plant)}<div><strong>${h(plant.specimenLabel || plant.name)}</strong>
+      <small>${h(plant.specimenLabel ? plant.name + " · " : "")}${h(plant.scientificName || plant.variety || "")}</small>
+      <small class="specimen-code">${h(specimenCodeOf(plant))}</small>
+      ${plant.sourceDetails ? `<small>${h(plant.sourceDetails)}</small>` : ""}</div>
     </div></td>
     <td data-label="Categoria">${h(plant.category || "—")}</td>
     <td data-label="Visibilità"><span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span></td>
@@ -622,19 +625,30 @@ function editPage(id) {
     </div>
     <p>Il calendario è indicativo per il clima locale e non determina la data effettiva di maturazione.</p>
   </fieldset>`;
-  const selectedGroup = p.plantGroup || (id ? plantGroupOf(p) : "Piante da frutto");
-  const selectedFruitType = p.fruitType || (id ? fruitTypeOf(p) : "Altre fruttifere");
-  const groupSelect = `<label class="form-field"><span>Gruppo principale</span><select class="select" name="plantGroup">
-    ${plantGroups.map((group) => `<option value="${h(group)}" ${selectedGroup === group ? "selected" : ""}>${h(group)}</option>`).join("")}
-  </select></label>`;
-  const fruitSelect = `<label class="form-field"><span>Tipo di fruttifera (se applicabile)</span><select class="select" name="fruitType">
-    ${["", ...fruitTypes].map((type) => `<option value="${h(type)}" ${selectedFruitType === type ? "selected" : ""}>${h(type || "Non applicabile")}</option>`).join("")}
+  const selectedFruitType = p.fruitType || (id ? fruitTypeOf(p) : "");
+  const fruitSelect = `<label class="form-field" data-fruit-type-field ${groupForCategory(p.category) === "Piante da frutto" ? "" : "hidden"}>
+    <span>Tipo di fruttifera (facoltativo)</span><select class="select" name="fruitType">
+    ${["", ...fruitTypes].map((type) => `<option value="${h(type)}" ${selectedFruitType === type ? "selected" : ""}>${h(type || "Non specificato")}</option>`).join("")}
   </select></label>`;
   const habitSelect = `<label class="form-field"><span>Forma della pianta</span><select class="select" name="growthHabit">
     ${["", ...growthHabits].map((type) => `<option value="${h(type)}" ${p.growthHabit === type ? "selected" : ""}>${h(type || "Da indicare")}</option>`).join("")}
   </select></label>`;
-  const select = `<label class="form-field"><span>Categoria</span><select class="select" name="category">
-    ${categories.map((category) => `<option value="${h(category)}" ${(p.category || "Piante da frutto") === category ? "selected" : ""}>${h(category)}</option>`).join("")}
+  const select = `<label class="form-field"><span>Categoria *</span><select class="select" name="category" required>
+    <option value="" ${!p.category ? "selected" : ""}>Seleziona la categoria</option>
+    ${categories.map((category) => `<option value="${h(category)}" ${p.category === category ? "selected" : ""}>${h(category)}</option>`).join("")}
+  </select><small>Il gruppo principale viene ricavato automaticamente dalla categoria.</small></label>`;
+  const presetSelect = id ? "" : `<label class="form-field full-width"><span>Specie già presenti nella tua collezione (facoltativo)</span>
+    <select class="select" name="plantPreset"><option value="">Compila manualmente</option>
+      ${plantPresets.map((preset) => `<option value="${h(preset.key)}">${h(preset.label)}</option>`).join("")}
+    </select><small>Compila solo i campi botanici vuoti, senza attribuire una cultivar o caratteristiche non verificate.</small></label>`;
+  const propagationSelect = `<label class="form-field"><span>Come è nata la pianta?</span><select class="select" name="propagationMethod">
+    ${["", ...propagationMethods].map((value) => `<option value="${h(value)}" ${(p.propagationMethod || "") === value ? "selected" : ""}>${h(value || "Da indicare")}</option>`).join("")}
+  </select></label>`;
+  const sourceSelect = `<label class="form-field"><span>Provenienza del materiale</span><select class="select" name="materialSource">
+    ${["", ...materialSources].map((value) => `<option value="${h(value)}" ${(p.materialSource || "") === value ? "selected" : ""}>${h(value || "Da indicare")}</option>`).join("")}
+  </select></label>`;
+  const sexSelect = `<label class="form-field"><span>Sesso botanico (solo se accertato)</span><select class="select" name="specimenSex">
+    ${["", ...specimenSexes].map((value) => `<option value="${h(value)}" ${(p.specimenSex || "") === value ? "selected" : ""}>${h(value || "Non determinato / non pertinente")}</option>`).join("")}
   </select></label>`;
   return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}">
     <div class="editor-heading"><div><h2>${id ? "Dettagli della pianta" : "Nuova scheda"}</h2>
@@ -645,15 +659,16 @@ function editPage(id) {
       <div class="editor-section-heading"><span class="editor-step">01</span><div>
         <h3>Informazioni principali</h3><p>Identifica la pianta e la sua varietà.</p></div></div>
       <div class="form-grid">
-        ${inputField("Nome comune *", "name", p.name, "required maxlength='100'")}
+        ${presetSelect}
+        ${inputField("Nome comune *", "name", p.name, "required maxlength='100' placeholder='Es. Papaya'")}
         ${inputField("Nome scientifico", "scientificName", p.scientificName, "maxlength='150'")}
         ${select}
-        ${groupSelect}
         ${fruitSelect}
         ${habitSelect}
-        ${inputField("Varietà", "variety", p.variety, "maxlength='150'")}
+        ${inputField("Cultivar/varietà (solo se verificata)", "variety", p.variety, "maxlength='150'")}
+        <div class="full-width"><p class="specimen-hint">Un seme di avocado Hass o di papaya Formosa non identifica automaticamente la cultivar della nuova pianta. Registra il nome sull'etichetta del frutto nella provenienza privata.</p></div>
         <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", p.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
-        ${inputField("Origine", "origin", p.origin, "maxlength='150'")}
+        ${inputField("Origine geografica (pubblica)", "origin", p.origin, "maxlength='150'")}
         ${pollinationSelect}
         ${potSelect}
         ${harvestSelector}
@@ -661,6 +676,26 @@ function editPage(id) {
     </section>
     <section class="editor-section">
       <div class="editor-section-heading"><span class="editor-step">02</span><div>
+        <h3>Identità e provenienza dell'esemplare</h3><p>Dati privati: distingui più piante della stessa specie.</p></div></div>
+      <div class="form-grid">
+        ${inputField("Etichetta leggibile (facoltativa)", "specimenLabel", p.specimenLabel,
+          "maxlength='80' placeholder='Es. Papaya 01'")}
+        ${id ? `<label class="form-field"><span>Codice permanente dell'esemplare</span>
+          <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice univoco della pianta">
+          <small>Non cambia se modifichi nome o posizione; puoi copiarlo sull'etichetta.</small></label>` :
+          `<div class="form-field"><span>Codice permanente</span><p class="specimen-hint">Verrà generato automaticamente al primo salvataggio.</p></div>`}
+        ${propagationSelect}
+        ${sourceSelect}
+        <div class="full-width">${inputField("Dettagli della provenienza (privati)", "sourceDetails", p.sourceDetails,
+          "maxlength='300' placeholder='Es. frutto del supermercato etichettato Formosa'")}</div>
+        ${inputField("Data di semina (se nota)", "sownOn", p.sownOn, "type='date'")}
+        ${inputField("Posizione attuale (privata)", "plantLocation", p.plantLocation,
+          "maxlength='120' placeholder='Es. balcone, vaso grande'")}
+        ${sexSelect}
+      </div>
+    </section>
+    <section class="editor-section">
+      <div class="editor-section-heading"><span class="editor-step">03</span><div>
         <h3>Informazioni per i visitatori</h3><p>Descrizione e caratteristiche che possono apparire online.</p></div></div>
       <div class="form-grid">
         ${inputField("Esposizione", "light", p.light, "placeholder='Es. pieno sole' maxlength='120'")}
@@ -671,7 +706,7 @@ function editPage(id) {
       </div>
     </section>
     <section class="editor-section">
-      <div class="editor-section-heading"><span class="editor-step">03</span><div>
+      <div class="editor-section-heading"><span class="editor-step">04</span><div>
         <h3>Clima e resistenza al freddo</h3>
         <p>Facoltativo. Non assegnare valori presunti: il filtro pubblico utilizza solo soglie registrate.</p></div></div>
       <div class="form-grid">
@@ -684,7 +719,7 @@ function editPage(id) {
       <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
     </section>
     <section class="editor-section">
-      <div class="editor-section-heading"><span class="editor-step">04</span><div>
+      <div class="editor-section-heading"><span class="editor-step">05</span><div>
         <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
       <div class="form-grid">
         <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>
@@ -692,7 +727,7 @@ function editPage(id) {
       ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
     </section>
     <section class="editor-section">
-      <div class="editor-section-heading"><span class="editor-step">05</span><div>
+      <div class="editor-section-heading"><span class="editor-step">06</span><div>
         <h3>Visibilità e note riservate</h3><p>Le note private non vengono mai copiate nel catalogo pubblico.</p></div></div>
       <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
         <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
@@ -834,8 +869,10 @@ async function savePlant(form, id) {
     showFormError("Inventario non disponibile. I dati non sono stati salvati: verifica la connessione e riprova.");
     return;
   }
-  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "plantGroup", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability"];
+  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability", "specimenLabel", "propagationMethod", "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
+  plant.plantGroup = groupForCategory(plant.category);
+  if (plant.plantGroup !== "Piante da frutto") plant.fruitType = "";
   plant.published = form.has("published");
   plant.harvestMonths = [...new Set(form.getAll("harvestMonth").map(Number))].sort((a, b) => a - b);
   const coldRaw = String(form.get("minColdC") || "").trim();
@@ -1064,6 +1101,28 @@ function handleSubmit(event) {
   if (form.id === "plant-form") return savePlant(data, form.dataset.id);
   if (form.id === "username-form") return saveUsername(data);
 }
+function handlePlantSelection(event) {
+  const form = event.target.closest?.("#plant-form");
+  if (!form) return;
+  if (event.target.name === "plantPreset") {
+    const selected = plantPresets.find((preset) => preset.key === event.target.value);
+    const previous = plantPresets.find((preset) => preset.key === event.target.dataset.previous);
+    event.target.dataset.previous = selected?.key || "";
+    if (selected) {
+      for (const key of ["name", "scientificName", "category", "fruitType", "growthHabit"]) {
+        const field = form.elements.namedItem(key);
+        if (field && (!field.value || (previous && field.value === previous[key]))) {
+          field.value = selected[key] || "";
+        }
+      }
+    }
+  }
+  if (event.target.name === "plantPreset" || event.target.name === "category") {
+    const typeField = form.querySelector("[data-fruit-type-field]");
+    if (typeField) typeField.hidden =
+      groupForCategory(form.elements.namedItem("category")?.value) !== "Piante da frutto";
+  }
+}
 function markPlantDirty(event) {
   if (event.target.closest?.("#plant-form")) formDirty = true;
 }
@@ -1085,6 +1144,7 @@ document.addEventListener("click", handleClick);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("input", markPlantDirty);
 document.addEventListener("change", markPlantDirty);
+document.addEventListener("change", handlePlantSelection);
 document.addEventListener("error", (event) => {
   if (event.target instanceof HTMLImageElement && event.target.hasAttribute("data-photo")) {
     event.target.parentElement.innerHTML = leafArt;
