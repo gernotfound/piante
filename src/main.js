@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, plantPresets, groupForEditedPlant, decodeRouteId, normalizeUsername, validUsername, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, plantPresets, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError } from "./plant-store.js";
 import { lifeStages, journalKinds, taxonId, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
@@ -191,7 +191,7 @@ function go(path) {
   if (plantSaveInProgress) return false;
   const target = new URL(path, window.location.href);
   if (target.origin !== window.location.origin || !confirmDiscard()) return false;
-  formDirty = false;
+  formDirty = false; journalDirty = false;
   currentPath = target.pathname + target.search;
   window.history.pushState({}, "", currentPath);
   state.route = target.pathname;
@@ -598,7 +598,7 @@ async function handleClick(event) {
   const action = event.target.closest("[data-action]");
   if (action?.dataset.action === "reload-editor" && state.owner && !plantSaveInProgress) {
     if (!confirmDiscard()) return;
-    formDirty = false; state.error = ""; state.flash = "";
+    formDirty = false; journalDirty = false; state.error = ""; state.flash = "";
     render();
     return;
   }
@@ -606,7 +606,7 @@ async function handleClick(event) {
     await deletePlant(action.dataset.id);
   }
   if (action?.dataset.action === "logout" && firebase && !plantSaveInProgress && confirmDiscard()) {
-    formDirty = false;
+    formDirty = false; journalDirty = false;
     await firebase.signOut(firebase.auth);
     state.flash = "Hai effettuato la disconnessione.";
     go("/login");
@@ -614,7 +614,7 @@ async function handleClick(event) {
 }
 function handleSubmit(event) {
   const form = event.target;
-  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form"].includes(form.id)) return;
+  if (!["search-form", "climate-form", "traits-form", "inventory-search-form", "login-form", "plant-form", "username-form", "journal-form"].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   if (form.id === "search-form") {
@@ -649,31 +649,76 @@ function handleSubmit(event) {
     state.inventoryGroup = ["Tutte", ...plantGroups].includes(group) ? group : "Tutte";
     const visibility = String(data.get("visibility") || "Tutte");
     state.inventoryVisibility = ["Tutte", "Pubblicate", "Private"].includes(visibility) ? visibility : "Tutte";
+    const stage = String(data.get("stage") || "Tutte");
+    state.inventoryStage = ["Tutte", ...lifeStages].includes(stage) ? stage : "Tutte";
     render();
     return;
   }
   if (form.id === "login-form") return login(data);
   if (!state.owner || !firebase) return;
   if (form.id === "plant-form") return savePlant(data, form.dataset.id);
+  if (form.id === "journal-form") return saveJournal(data, form.dataset.id);
   if (form.id === "username-form") return saveUsername(data);
+}
+function fillProfileFields(form, profile, cultivar = false) {
+  const fields = cultivar
+    ? ["fruitNotes", "minColdC", "coldSource", "coldNotes", "pollination"]
+    : ["scientificName", "category", "fruitType", "growthHabit", "searchAliases",
+      "origin", "light", "water", "description", "pollination", "potSuitability",
+      "minColdC", "coldSource", "coldNotes"];
+  for (const key of fields) {
+    const name = cultivar ? "cultivar" + key[0].toUpperCase() + key.slice(1) : key;
+    const control = form.elements.namedItem(name);
+    if (control && "value" in control) control.value =
+      profile?.[key] === null ? "" : profile?.[key] ?? "";
+  }
+  const name = cultivar ? "cultivarHarvestMonth" : "harvestMonth";
+  const months = new Set(profile?.harvestMonths || []);
+  form.querySelectorAll('input[name="' + name + '"]').forEach(input => {
+    input.checked = months.has(Number(input.value));
+  });
 }
 function handlePlantSelection(event) {
   const form = event.target.closest?.("#plant-form");
   if (!form) return;
-  if (event.target.name === "plantPreset") {
-    const selected = plantPresets.find((preset) => preset.key === event.target.value);
-    const previous = plantPresets.find((preset) => preset.key === event.target.dataset.previous);
-    event.target.dataset.previous = selected?.key || "";
-    if (selected) {
-      for (const key of ["name", "scientificName", "category", "fruitType", "growthHabit"]) {
-        const field = form.elements.namedItem(key);
-        if (field && (!field.value || (previous && field.value === previous[key]))) {
-          field.value = selected[key] || "";
-        }
-      }
+  if (event.target.name === "name") {
+    const species = profileByName(state.profiles, "species", event.target.value);
+    const oldId = form.dataset.speciesId;
+    if (species) fillProfileFields(form, species);
+    else if (oldId) fillProfileFields(form, null);
+    form.dataset.speciesId = species?.id || "";
+    form.dataset.speciesVersion = species?.__snapshotVersion || "";
+    const choices = form.querySelector("#known-cultivars");
+    if (choices) choices.innerHTML = state.profiles
+      .filter(item => item.kind === "cultivar" && item.parentId === species?.id)
+      .map(item => '<option value="' + escapeHtml(item.name) + '"></option>').join("");
+    if (oldId !== (species?.id || "")) {
+      const cultivar = form.elements.namedItem("cultivarName");
+      if (cultivar) cultivar.value = "";
+      fillProfileFields(form, null, true);
+      form.dataset.cultivarId = ""; form.dataset.cultivarVersion = "";
     }
   }
-  if (event.target.name === "plantPreset" || event.target.name === "category") {
+  if (event.target.name === "cultivarName") {
+    const speciesId = form.dataset.speciesId ||
+      profileByName(state.profiles, "species", form.elements.namedItem("name")?.value)?.id ||
+      taxonId("species", form.elements.namedItem("name")?.value);
+    const cultivar = profileByName(state.profiles, "cultivar", event.target.value, speciesId);
+    fillProfileFields(form, cultivar, true);
+    form.dataset.cultivarId = cultivar?.id || "";
+    form.dataset.cultivarVersion = cultivar?.__snapshotVersion || "";
+  }
+  if (event.target.name === "lotName") {
+    const lot = state.lots.find(item => item.name.toLocaleLowerCase("it") ===
+      event.target.value.trim().toLocaleLowerCase("it"));
+    if (lot) for (const [key, value] of [
+      ["sownOn", lot.sownOn], ["sourceDetails", lot.sourceDetails],
+      ["seedSourceCultivar", lot.seedSourceCultivar]]) {
+      const control = form.elements.namedItem(key);
+      if (control && !control.value) control.value = value || "";
+    }
+  }
+  if (event.target.name === "name" || event.target.name === "category") {
     const typeField = form.querySelector("[data-fruit-type-field]");
     if (typeField) typeField.hidden =
       groupForEditedPlant(form.elements.namedItem("category")?.value,
@@ -682,13 +727,14 @@ function handlePlantSelection(event) {
 }
 function markPlantDirty(event) {
   if (event.target.closest?.("#plant-form")) formDirty = true;
+  if (event.target.closest?.("#journal-form")) journalDirty = true;
 }
 function handlePopState() {
   if (plantSaveInProgress || !confirmDiscard()) {
     window.history.pushState({}, "", currentPath);
     return;
   }
-  formDirty = false;
+  formDirty = false; journalDirty = false;
   currentPath = window.location.pathname + window.location.search;
   state.route = window.location.pathname;
   if (state.route === "/piante") readCatalogUrl();
