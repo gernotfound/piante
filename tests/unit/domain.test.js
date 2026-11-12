@@ -43,8 +43,8 @@ test("categoria univoca in editor e specie precompilate senza varietà dedotta d
   assert.equal(groupForEditedPlant("Ornamentali", legacy), "Altre piante");
   assert.equal(groupForEditedPlant("Succulente", { ...legacy, plantGroup: "ignoto" }), "Altre piante");
   assert.equal(decodeRouteId("esemplare%20uno"), "esemplare uno");
-  assert.equal(decodeRouteId("%"), "");
-  assert.equal(decodeRouteId("%E0%A4%A"), "");
+  assert.equal(decodeRouteId("%"), null);
+  assert.equal(decodeRouteId("%E0%A4%A"), null);
   const papaya = plantPresets.find((preset) => preset.key === "papaya");
   const avocado = plantPresets.find((preset) => preset.key === "avocado");
   assert.equal(papaya.scientificName, "Carica papaya");

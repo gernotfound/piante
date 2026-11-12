@@ -233,7 +233,15 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       }
       await page.setViewportSize({ width: 320, height: 740 });
       await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
-      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      try {
+        await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      } catch (error) {
+        const state = await page.evaluate(() => window.__pianteDebug?.());
+        const body = (await page.locator("#app").innerText()).slice(0, 1000);
+        throw new Error("Editor nuova pianta non pronto: " + JSON.stringify({
+          url: page.url(), state, body, diagnostic: page.diagnostic.slice(-15)
+        }) + "; " + error.message);
+      }
       for (const width of [320, 390, 768, 1024, 1440]) {
         await page.setViewportSize({ width, height: 740 });
         await noOverflow(page, "Editor " + width + "px");

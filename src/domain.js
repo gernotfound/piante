@@ -77,7 +77,7 @@ export function groupForEditedPlant(category, previous = null) {
 
 export function decodeRouteId(value) {
   try { return decodeURIComponent(value); }
-  catch { return ""; }
+  catch { return null; }
 }
 
 export function plantGroupOf(plant) {

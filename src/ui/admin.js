@@ -116,11 +116,14 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
   function textareaField(label, name, value, opts = "") {
     return `<label class="form-field"><span>${h(label)}</span><textarea class="textarea" name="${name}" ${opts}>${h(value || "")}</textarea></label>`;
   }
-  function editPage(id) {
-    const item = id ? state.inventory.find((plant) => plant.id === id) : null;
-    if (id && !item) return adminFrame(
+  function missingPlantPage() {
+    return adminFrame(
       `<div class="panel">Pianta non trovata. <a href="/admin/piante" data-nav class="text-link">Torna all'inventario</a></div>`,
       "Scheda non trovata", "La pianta non è presente nell'inventario.");
+  }
+  function editPage(id) {
+    const item = id ? state.inventory.find((plant) => plant.id === id) : null;
+    if (id && !item) return missingPlantPage();
     const p = item || {};
     // La versione rimane quella mostrata quando l'editor è stato aperto.
     // Le notifiche Firestore non devono sostituirla mentre il modulo è modificato.
@@ -287,7 +290,10 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         "Caricamento", "Verifica in corso dei dati privati.");
     }
     if (state.route === "/admin/nuova") return editPage("");
-    if (state.route.startsWith("/admin/modifica/")) return editPage(decodeRouteId(state.route.slice("/admin/modifica/".length)));
+    if (state.route.startsWith("/admin/modifica/")) {
+      const id = decodeRouteId(state.route.slice("/admin/modifica/".length));
+      return id ? editPage(id) : missingPlantPage();
+    }
     if (state.route === "/admin/piante") return inventoryPage();
     if (state.route === "/admin/impostazioni") return settingsPage();
     return overviewPage();
