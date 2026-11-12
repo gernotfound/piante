@@ -9,11 +9,11 @@ Per lavorare nel repository leggere [AGENTS.md](AGENTS.md); per lo stato delle c
 - **Home:** presentazione commerciale, categorie e anteprima delle piante pubblicate.
 - **Catalogo:** ricerca botanica locale (accenti, sinonimi, piccoli refusi), fruttifere in evidenza e filtri per tipologia, resistenza al freddo, impollinazione, mese di raccolta e coltivazione in vaso. Disponibilità e prezzi vengono mostrati solo quando registrati.
 - **Chi siamo / Contatti:** pagine informative, senza dati aziendali inventati.
-- **Area riservata:** dashboard, inventario filtrabile, metadati botanici opzionali (senza compilazione automatica), moduli a sezioni, pubblicazione, rimozione e configurazione del nome utente. Sidebar desktop e navigazione inferiore mobile.
+- **Area riservata:** dashboard, inventario filtrabile, metadati botanici opzionali (senza compilazione automatica), moduli a sezioni, pubblicazione e rimozione. L'accesso amministrativo usa soltanto email e password, con sidebar desktop e navigazione inferiore mobile.
 
 La progettazione dei filtri climatici e la cautela sui dati botanici sono descritte in [Ricerca fruttifere](docs/design/ricerca-fruttifere.md). Il design usa la palette botanico-commerciale approvata e parte da viewport di 320 px. La strategia, le verifiche mobile e i limiti dei browser datati sono documentati in [Frontend Mobile First](docs/design/mobile-first.md). Non sono presenti carrello o pagamenti.
 
-Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. Le modifiche e le rimozioni usano transazioni Firestore: se la scheda è cambiata da un'altra sessione, l'editor blocca la scrittura e conserva i campi compilati fino alla scelta esplicita di ricaricare. Gli aggiornamenti asincroni Firestore e Authentication non azzerano i moduli di login/impostazioni e i filtri ancora da applicare. Inventario e catalogo restano atomici.
+Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. Le modifiche e le rimozioni usano transazioni Firestore: se la scheda è cambiata da un'altra sessione, l'editor blocca la scrittura e conserva i campi compilati fino alla scelta esplicita di ricaricare. Gli aggiornamenti asincroni Firestore e Authentication non azzerano i moduli di login e i filtri ancora da applicare. Inventario e catalogo restano atomici.
 
 ## Struttura del codice e test
 
@@ -32,7 +32,7 @@ Comandi: `npm run check`, `npm run build`, `npm test`, `npm run test:rules`, `np
 2. Nella console abilita **Authentication > Sign-in method > Email/Password**. Crea **manualmente** il tuo utente amministratore in Authentication > Users. Non attivare la registrazione pubblica nell'interfaccia.
 3. Copia il suo **UID** dalla schermata degli utenti. Crea in Firestore, tramite console con privilegi amministrativi, il documento **siteOwner/primary** con il campo stringa **uid** uguale all'UID di quell'utente. Non è possibile crearlo dall'app: è una protezione deliberata contro l'appropriazione del ruolo amministratore.
 4. Crea il database **Cloud Firestore** se non è già presente. Pubblica le regole **firestore.rules** soltanto dopo aver controllato eventuali regole e dati già presenti: il deploy sostituisce le regole del database predefinito. Il file propone un modello **nuovo** e non migra raccolte precedenti.
-5. Il primo accesso avviene con **email e password**. Nell'area riservata, apri **Impostazioni accesso** per assegnarti un **nome utente**: da quel momento puoi usarlo nel login al posto dell'email. La password resta sempre in Firebase Authentication, **mai in Firestore**.
+5. L'accesso avviene esclusivamente con **email e password**, gestite da Firebase Authentication. In **Impostazioni accesso** puoi verificare l'email dell'account e uscire. Non sono supportati nickname o alias per il login.
 6. In Authentication > Settings > Authorized domains verifica che il dominio Firebase Hosting e gli eventuali domini personalizzati siano autorizzati.
 
 > La configurazione Firebase è già presente in `src/config.js`. Il documento `siteOwner/primary` e le regole Firestore sono stati configurati tramite console dall'utente; il funzionamento sul progetto reale deve ancora essere verificato con accesso e operazioni nel browser.
@@ -62,7 +62,7 @@ Su Spark, **Cloud Storage for Firebase non è accessibile**: dal 3 febbraio 2026
 - Gli accessi a Firestore sono disciplinati dalle regole, **non** dalla sola interfaccia.
 - Solo l'UID di **siteOwner/primary** può leggere le piante private e modificare il catalogo.
 - Il catalogo pubblico è interrogabile da chiunque.
-- La risoluzione nome utente → email è pubblica per alias esatto; non consente elenchi, ma chi conosce un alias può risalire all'email associata. Per non esporla, puoi effettuare l'accesso soltanto con email e non creare un alias.
+- Le vecchie collezioni di nickname `loginAliases` e `adminProfiles` non sono accessibili dal client: le Rules negano letture e scritture. Gli eventuali dati storici non vengono cancellati da un semplice deploy e richiedono una pulizia amministrativa separata.
 - Le immagini esterne possono essere non disponibili o imporre limiti: il layout visualizza un segnaposto.
 - I campi `prezzo` e `disponibilità` sono informativi: il sito non gestisce pagamenti né ordini.
 - La CLI, la configurazione della console, la verifica delle regole rispetto al database reale e i test end-to-end nel browser sono ancora necessari prima di considerare pronto il rilascio in produzione.
@@ -80,4 +80,4 @@ npx playwright install chromium # Solo su PC senza Chrome configurato per i test
 npm run test:browser
 ```
 
-I test unitari coprono normalizzazione alias, URL immagini, escaping HTML, separazione delle note interne e validazione. I test Firestore con emulatore verificano accesso pubblico, account non proprietario, protezione UID, creazione/aggiornamento/pubblicazione/rimozione atomici, conflitti tra editor, blocco dei campi interni e alias. La CI include inoltre Chrome in modalità automatizzata, con Firebase Auth e Firestore Emulator e una configurazione locale fittizia: verifica login, creazione/pubblicazione, modifiche concorrenti, recupero del modulo, eliminazione, logout e overflow da 320 a 1440 CSS px e navigazione mobile/desktop. Non scrive dati nel progetto reale. Rimangono necessari i collaudi su dispositivi effettivi e la verifica della configurazione del progetto reale.
+I test unitari coprono URL immagini, escaping HTML, codici degli esemplari, separazione delle note interne e validazione. I test Firestore con emulatore verificano accesso pubblico, account non proprietario, protezione UID, creazione/aggiornamento/pubblicazione/rimozione atomici, conflitti tra editor, blocco dei campi interni e diniego di lettura/scrittura degli alias legacy. La CI include inoltre Chrome in modalità automatizzata, con Firebase Auth e Firestore Emulator e una configurazione locale fittizia: verifica login, creazione/pubblicazione, modifiche concorrenti, recupero del modulo, eliminazione, logout e overflow da 320 a 1440 CSS px e navigazione mobile/desktop. Non scrive dati nel progetto reale. Rimangono necessari i collaudi su dispositivi effettivi e la verifica della configurazione del progetto reale.
