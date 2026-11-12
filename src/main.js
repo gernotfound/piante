@@ -1,7 +1,7 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
 import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError } from "./plant-store.js";
-import { lifeStages, journalKinds, taxonId, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
+import { lifeStages, journalKinds, taxonId, lotIdOf, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
 import { createAdminViews } from "./ui/admin.js";
@@ -359,15 +359,18 @@ async function savePlant(form, id) {
   if (cultivarName) plant.variety = cultivarName;
   else if (previous?.cultivarId) plant.variety = "";
   const lotName = String(form.get("lotName") || "").trim();
-  const existingLot = state.lots.find(lot =>
+  const existingLot = state.lots.find(lot => lot.speciesId === plant.speciesId &&
     lot.name.toLocaleLowerCase("it") === lotName.toLocaleLowerCase("it"));
   plant.lotName = lotName;
-  plant.lotId = lotName ? existingLot?.id || taxonId("species", lotName).replace(/^s_/, "l_") : "";
+  plant.lotId = lotName ? existingLot?.id || lotIdOf(plant.speciesId, lotName) : "";
   const validation = validatePlant(plant);
   if (validation) { showFormError(validation); return; }
   if (!plant.speciesId || plant.speciesId.length > 900 ||
       (plant.cultivarId && plant.cultivarId.length > 1100)) {
     showFormError("Il nome della specie o cultivar è troppo lungo."); return;
+  }
+  if (plant.lotId.length > 1200) {
+    showFormError("Nome del lotto troppo lungo per questa specie."); return;
   }
   if (cultivarName.length > 100 || lotName.length > 100 ||
       plant.seedSourceCultivar.length > 100) {
@@ -712,7 +715,10 @@ function handlePlantSelection(event) {
     form.dataset.cultivarVersion = cultivar?.__snapshotVersion || "";
   }
   if (event.target.name === "lotName") {
-    const lot = state.lots.find(item => item.name.toLocaleLowerCase("it") ===
+    const speciesId = form.dataset.speciesId ||
+      taxonId("species", form.elements.namedItem("name")?.value);
+    const lot = state.lots.find(item => item.speciesId === speciesId &&
+      item.name.toLocaleLowerCase("it") ===
       event.target.value.trim().toLocaleLowerCase("it"));
     if (lot) for (const [key, value] of [
       ["sownOn", lot.sownOn], ["sourceDetails", lot.sourceDetails],

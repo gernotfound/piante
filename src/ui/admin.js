@@ -264,7 +264,8 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
             <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
             `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
           ${inputField("Lotto di semina (facoltativo)", "lotName", p.lotName, "list='known-lots' maxlength='100' placeholder='Es. Papaya Formosa 2026-01'")}
-          <datalist id="known-lots">${state.lots.map(lot => `<option value="${h(lot.name)}"></option>`).join("")}</datalist>
+          <datalist id="known-lots">${state.lots.filter(lot => lot.speciesId === (p.speciesId || species?.id))
+             .map(lot => `<option value="${h(lot.name)}"></option>`).join("")}</datalist>
           ${inputField("Cultivar del frutto genitore (privata)", "seedSourceCultivar", p.seedSourceCultivar, "maxlength='100' placeholder='Es. Hass, senza attribuirla alla pianta'")}
           ${propagationSelect}
           ${sourceSelect}
