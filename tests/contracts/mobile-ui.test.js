@@ -64,8 +64,8 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
 test("Editor mobile: il recupero dei conflitti resta utilizzabile su schermi stretti", () => {
   assert.match(ui, /reload\.dataset\.action = "reload-editor"/);
   assert.match(ui, /reload\.textContent = "Ricarica la scheda"/);
-  assert.match(ui, /plantSaveInProgress \|\| !confirmDiscard\(\)/);
-  assert.match(ui, /if \(plantSaveInProgress\) return false/);
+  assert.match(ui, /plantSaveInProgress \|\| journalSaveInProgress \|\| !confirmDiscard\(\)/);
+  assert.match(ui, /if \(plantSaveInProgress \|\| journalSaveInProgress\) return false/);
   assert.match(ui, /state\.inventoryReady = true/);
   assert.match(ui, /Caricamento dell'inventario/);
   assert.match(css, /\.notice\.error \.btn\{[^}]*max-width:100%/);
