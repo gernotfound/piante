@@ -214,35 +214,78 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       </div>
       <section class="editor-section">
         <div class="editor-section-heading"><span class="editor-step">01</span><div>
-          <h3>Informazioni principali</h3><p>Identifica la pianta e la sua varietà.</p></div></div>
+          <h3>Identificazione</h3><p>Specie, categoria e cultivar, se accertata.</p></div></div>
         <div class="form-grid">
           <label class="form-field full-width"><span>Specie (nome comune) *</span>
             <input class="input" name="name" value="${h(p.name || "")}" required maxlength="100"
               list="known-species" autocomplete="off" placeholder="Scrivi Avocado, Papaya...">
             <datalist id="known-species">${speciesChoices}</datalist>
-            <small>Scrivi liberamente. Le specie già registrate recuperano i dati condivisi: correggendoli, si aggiornano gli esemplari collegati. Un nome nuovo conserva i campi del modulo. I dati generali restano privati fino alla prima pubblicazione; dopo, le informazioni botaniche generiche restano consultabili anche se l'esemplare torna privato.</small>
+            <small>Scrivi liberamente o scegli una specie già registrata.</small>
           </label>
-          ${inputField("Nome scientifico", "scientificName", shared.scientificName, "maxlength='150'")}
           ${select}
-          ${fruitSelect}
-          ${habitSelect}
-          <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", shared.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
-          ${inputField("Origine geografica (pubblica)", "origin", shared.origin, "maxlength='150'")}
-          ${pollinationSelect}
-          ${potSelect}
-          ${harvestSelector}
-        </div>
-      </section>
-      <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">02</span><div>
-          <h3>Cultivar (facoltativa)</h3><p>Le caratteristiche si condividono solo fra esemplari della stessa cultivar verificata.</p></div></div>
-        <div class="form-grid">
           <label class="form-field full-width"><span>Cultivar accertata</span>
             <input class="input" name="cultivarName" list="known-cultivars" maxlength="100"
               autocomplete="off" value="${h(cultivar?.name || "")}" placeholder="Es. Hass, Bacon, Fuerte">
             <datalist id="known-cultivars">${cultivarChoices}</datalist>
             <small>La cultivar del frutto da cui hai estratto un seme non identifica automaticamente la nuova pianta.</small>
           </label>
+          <p class="specimen-hint full-width" data-species-status role="status">${species ? "Specie registrata: informazioni botaniche recuperate." : ""}</p>
+          <p class="profile-edit-warning full-width" data-shared-warning="species" role="status" hidden>Le modifiche alle caratteristiche della specie aggiorneranno anche gli altri esemplari collegati quando salvi.</p>
+          <p class="profile-edit-warning full-width" data-shared-warning="cultivar" role="status" hidden>Le modifiche alle caratteristiche della cultivar aggiorneranno anche gli esemplari collegati quando salvi.</p>
+        </div>
+      </section>
+      <section class="editor-section">
+        <div class="editor-section-heading"><span class="editor-step">02</span><div>
+          <h3>Questo esemplare</h3><p>Informazioni proprie della pianta, sempre private.</p></div></div>
+        <div class="form-grid">
+          <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
+            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice alfanumerico univoco della pianta">
+            <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
+            `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
+          <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
+            ${["", ...lifeStages].map(value => `<option value="${h(value)}" ${(p.lifeStage || "") === value ? "selected" : ""}>${h(value || "Non specificato")}</option>`).join("")}
+          </select></label>          ${propagationSelect}
+          ${inputField("Data di semina (se nota)", "sownOn", p.sownOn, "type='date'")}
+          ${inputField("Posizione attuale (privata)", "plantLocation", p.plantLocation,
+            "maxlength='120' placeholder='Es. balcone, vaso grande'")}
+        ${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}        </div>
+      </section>
+      <details class="editor-section editor-fold" id="editor-origin">
+        <summary class="editor-fold-summary"><span>Provenienza e lotto di semina</span><small>Origine del materiale, frutto genitore e altri dati privati</small></summary>
+        <div class="form-grid">
+          ${inputField("Lotto di semina (facoltativo)", "lotName", p.lotName, "list='known-lots' maxlength='100' placeholder='Es. Papaya Formosa 2026-01'")}
+          <p class="specimen-hint full-width">Usa lo stesso lotto soltanto per piante con data di semina e provenienza compatibili. In caso contrario crea un lotto distinto.</p>
+          <datalist id="known-lots">${state.lots.filter(lot => lot.speciesId === (p.speciesId || species?.id))
+             .map(lot => `<option value="${h(lot.name)}"></option>`).join("")}</datalist>
+          ${inputField("Cultivar del frutto genitore (privata)", "seedSourceCultivar", p.seedSourceCultivar, "maxlength='100' placeholder='Es. Hass, senza attribuirla alla pianta'")}
+          ${sourceSelect}
+          <div class="full-width">${inputField("Dettagli della provenienza (privati)", "sourceDetails", p.sourceDetails,
+            "maxlength='300' placeholder='Es. frutto del supermercato etichettato Formosa'")}</div>
+          ${sexSelect}
+        </div>
+      </details>
+      <details class="editor-section editor-fold" id="editor-botany">
+        <summary class="editor-fold-summary"><span>Dati botanici della specie</span><small>Caratteristiche condivise, coltivazione, raccolta e clima</small></summary>
+        <div class="form-grid">
+          ${inputField("Nome scientifico", "scientificName", shared.scientificName, "maxlength='150'")}
+          ${fruitSelect}
+          ${habitSelect}
+          <div class="full-width">${inputField("Altri nomi e sinonimi (separati da virgola)", "searchAliases", shared.searchAliases, "maxlength='250' placeholder='Es. maracujà, frutto della passione'")}</div>
+          ${inputField("Origine geografica (pubblica)", "origin", shared.origin, "maxlength='150'")}
+          ${pollinationSelect}
+          ${potSelect}
+          ${harvestSelector}          ${inputField("Esposizione", "light", shared.light, "placeholder='Es. pieno sole' maxlength='120'")}
+          ${inputField("Irrigazione", "water", shared.water, "placeholder='Es. moderata' maxlength='120'")}
+          <div class="full-width">${textareaField("Descrizione pubblica della specie", "description", shared.description, "maxlength='3000'")}</div>          ${inputField("Temperatura minima indicativa (°C)", "minColdC", shared.minColdC,
+            "type='number' step='0.5' min='-40' max='25' inputmode='decimal' placeholder='Es. -3'")}
+          ${inputField("Fonte HTTPS (facoltativa)", "coldSource", shared.coldSource,
+            "type='url' inputmode='url' maxlength='500' placeholder='https://...'")}
+          <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", shared.coldNotes, "maxlength='250'")}</div>        </div>
+        <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
+      </details>
+      <details class="editor-section editor-fold" id="editor-cultivar">
+        <summary class="editor-fold-summary"><span>Caratteristiche della cultivar</span><small>Solo per cultivar verificate; facoltativo</small></summary>
+        <div class="form-grid">
           ${p.variety && !cultivar ? inputField("Varietà storica (da verificare)", "variety", p.variety, "maxlength='150'") :
             `<input type="hidden" name="variety" value="${h(p.variety || "")}">`}
           <div class="full-width">${textareaField("Caratteristiche del frutto", "cultivarFruitNotes", cultivarData.fruitNotes, "maxlength='750'")}</div>
@@ -252,75 +295,28 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           ${inputField("Fonte climatica cultivar", "cultivarColdSource", cultivarData.coldSource,
             "type='url' maxlength='500' placeholder='https://...'")}
           <div class="full-width">${textareaField("Note climatiche cultivar", "cultivarColdNotes", cultivarData.coldNotes, "maxlength='250'")}</div>
-          ${cultivarHarvest}
-        </div>
-      </section>
-      <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">03</span><div>
-          <h3>Esemplare, lotto e provenienza</h3><p>Dati privati: distingui più piante della stessa specie.</p></div></div>
+          ${cultivarHarvest}        </div>
+      </details>
+      <details class="editor-section editor-fold" id="editor-catalog">
+        <summary class="editor-fold-summary"><span>Altri dettagli del catalogo</span><small>Informazioni facoltative relative a questo esemplare</small></summary>
         <div class="form-grid">
-          <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
-            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice alfanumerico univoco della pianta">
-            <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
-            `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
-          ${inputField("Lotto di semina (facoltativo)", "lotName", p.lotName, "list='known-lots' maxlength='100' placeholder='Es. Papaya Formosa 2026-01'")}
-          <p class="specimen-hint full-width">Usa lo stesso lotto soltanto per piante con data di semina e provenienza compatibili. In caso contrario crea un lotto distinto.</p>
-          <datalist id="known-lots">${state.lots.filter(lot => lot.speciesId === (p.speciesId || species?.id))
-             .map(lot => `<option value="${h(lot.name)}"></option>`).join("")}</datalist>
-          ${inputField("Cultivar del frutto genitore (privata)", "seedSourceCultivar", p.seedSourceCultivar, "maxlength='100' placeholder='Es. Hass, senza attribuirla alla pianta'")}
-          ${propagationSelect}
-          ${sourceSelect}
-          <div class="full-width">${inputField("Dettagli della provenienza (privati)", "sourceDetails", p.sourceDetails,
-            "maxlength='300' placeholder='Es. frutto del supermercato etichettato Formosa'")}</div>
-          ${inputField("Data di semina (se nota)", "sownOn", p.sownOn, "type='date'")}
-          ${inputField("Posizione attuale (privata)", "plantLocation", p.plantLocation,
-            "maxlength='120' placeholder='Es. balcone, vaso grande'")}
-          ${sexSelect}
-          <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
-            ${["", ...lifeStages].map(value => `<option value="${h(value)}" ${(p.lifeStage || "") === value ? "selected" : ""}>${h(value || "Non specificato")}</option>`).join("")}
-          </select></label>
-        </div>
-      </section>
-      <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">04</span><div>
-          <h3>Informazioni per i visitatori</h3><p>Descrizione e caratteristiche che possono apparire online.</p></div></div>
-        <div class="form-grid">
-          ${inputField("Esposizione", "light", shared.light, "placeholder='Es. pieno sole' maxlength='120'")}
-          ${inputField("Irrigazione", "water", shared.water, "placeholder='Es. moderata' maxlength='120'")}
           ${inputField("Disponibilità (facoltativa)", "availability", p.availability, "placeholder='Es. su richiesta' maxlength='120'")}
           ${inputField("Prezzo indicativo (facoltativo)", "price", p.price, "placeholder='Es. 15 €' maxlength='50'")}
-          <div class="full-width">${textareaField("Descrizione pubblica della specie", "description", shared.description, "maxlength='3000'")}</div>
         </div>
-      </section>
-      <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">05</span><div>
-          <h3>Clima e resistenza al freddo</h3>
-          <p>Facoltativo. Non assegnare valori presunti: il filtro pubblico utilizza solo soglie registrate.</p></div></div>
+      </details>
+      <details class="editor-section editor-fold" id="editor-photo">
+        <summary class="editor-fold-summary"><span>Fotografia</span><small>Aggiungi l'indirizzo HTTPS di una foto autentica</small></summary>
         <div class="form-grid">
-          ${inputField("Temperatura minima indicativa (°C)", "minColdC", shared.minColdC,
-            "type='number' step='0.5' min='-40' max='25' inputmode='decimal' placeholder='Es. -3'")}
-          ${inputField("Fonte HTTPS (facoltativa)", "coldSource", shared.coldSource,
-            "type='url' inputmode='url' maxlength='500' placeholder='https://...'")}
-          <div class="full-width">${textareaField("Note climatiche pubbliche", "coldNotes", shared.coldNotes, "maxlength='250'")}</div>
-        </div>
-        <p class="climate-help">La soglia è orientativa per una pianta adulta acclimatata in piena terra e un episodio breve. Durata, vento, cultivar e coltivazione in vaso possono cambiare l'esito. Valori sconosciuti restano vuoti.</p>
-      </section>
-      <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">06</span><div>
-          <h3>Fotografia</h3><p>Inserisci l'indirizzo HTTPS diretto di un'immagine.</p></div></div>
-        <div class="form-grid">
-          <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>
-        </div>
+          <div class="full-width">${inputField("URL HTTPS della foto", "imageUrl", p.imageUrl, "type='url' inputmode='url' maxlength='4096' placeholder='https://...'")}</div>        </div>
         ${p.imageUrl && safeImageUrl(p.imageUrl) ? `<div class="editor-photo">${imageMarkup(p)}</div>` : ""}
-      </section>
+      </details>
       <section class="editor-section">
-        <div class="editor-section-heading"><span class="editor-step">07</span><div>
-          <h3>Visibilità e note riservate</h3><p>Le note private non vengono mai copiate nel catalogo pubblico.</p></div></div>
+        <div class="editor-section-heading"><span class="editor-step">03</span><div>
+          <h3>Visibilità</h3><p>Decidi se mostrare l'esemplare nel catalogo pubblico.</p></div></div>
         <label class="visibility-toggle"><input type="checkbox" name="published" ${p.published ? "checked" : ""}>
           <span><strong>Pubblica nel catalogo</strong><small>Se disattivato, la scheda resta visibile solo nel gestionale.</small></span></label>
-        ${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}
       </section>
-      <div class="editor-actions">
+      <div class="editor-actions" aria-label="Azioni scheda pianta">
         <button class="btn btn-primary" type="submit">Salva pianta</button>
         <a href="/admin/piante" data-nav class="btn btn-outline">Annulla</a>
       </div>
