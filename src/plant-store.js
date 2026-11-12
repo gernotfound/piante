@@ -1,4 +1,5 @@
 import { catalogProjection } from "./domain.js";
+import { changedPlantFields, resolvePlantProfiles } from "./taxonomy.js";
 
 // La versione è calcolata su tutti i campi letti, inclusi quelli non gestiti dall'editor.
 // Così anche schede legacy e modifiche esterne prive di updatedAt rilevano conflitti.
@@ -31,14 +32,30 @@ function assertCurrent(snapshot, expectedVersion) {
 
 // Tutte le letture precedono le scritture; le transazioni Firestore ritentano su
 // aggiornamenti concorrenti, quindi una versione obsoleta non può fare overwrite.
-export async function savePlantRecord(firebase, { id = "", plant, expectedVersion = null }) {
+export async function savePlantRecord(firebase, { id = "", plant, expectedVersion = null, shared = null }) {
   if (id && typeof expectedVersion !== "string") throw new PlantConflictError();
   const documentId = id || firebase.doc(firebase.collection(firebase.db, "privatePlants")).id;
   const privateRef = firebase.doc(firebase.db, "privatePlants", documentId);
   const publicRef = firebase.doc(firebase.db, "catalog", documentId);
 
+  const profileRefs = [shared?.species, shared?.cultivar].filter(Boolean)
+    .map(item => ({ ...item, ref: firebase.doc(firebase.db, "plantProfiles", item.id) }));
+  const lotRef = shared?.lot ? firebase.doc(firebase.db, "seedLots", shared.lot.id) : null;
   return firebase.runTransaction(firebase.db, async (tx) => {
     const previous = await tx.get(privateRef);
+    const profiles = [];
+    for (const profile of profileRefs) {
+      const snapshot = await tx.get(profile.ref);
+      if (snapshot.exists()) {
+        if (typeof profile.expectedVersion !== "string" ||
+            plantVersion(snapshot.data()) !== profile.expectedVersion) throw new PlantConflictError();
+      } else if (profile.expectedVersion !== null) throw new PlantConflictError();
+      profiles.push({ profile, snapshot });
+    }
+    const lotSnapshot = lotRef ? await tx.get(lotRef) : null;
+    if (lotSnapshot?.exists() && lotSnapshot.data().speciesId !== plant.speciesId) {
+      throw new Error("Il lotto selezionato appartiene a un'altra specie.");
+    }
     if (id) {
       assertCurrent(previous, expectedVersion);
       // update preserva i metadati non modificati dall'editor, anche dopo future evoluzioni dello schema.
@@ -51,8 +68,29 @@ export async function savePlantRecord(firebase, { id = "", plant, expectedVersio
         updatedAt: firebase.serverTimestamp()
       });
     }
-    if (plant.published) tx.set(publicRef, catalogProjection(plant));
+    for (const { profile, snapshot } of profiles) {
+      const draft = profile.data;
+      const modified = !snapshot.exists() || Object.keys(draft).some(key =>
+        JSON.stringify(normalized(snapshot.data()[key])) !== JSON.stringify(normalized(draft[key])));
+      if (!modified) continue;
+      if (snapshot.exists()) tx.update(profile.ref, { ...draft, updatedAt: firebase.serverTimestamp() });
+      else tx.set(profile.ref, { ...draft, createdAt: firebase.serverTimestamp(),
+        updatedAt: firebase.serverTimestamp() });
+    }
+    if (lotRef && !lotSnapshot.exists()) {
+      tx.set(lotRef, { ...shared.lot.data, createdAt: firebase.serverTimestamp() });
+    }
+    const resolved = profiles.length ? resolvePlantProfiles(plant,
+      profiles.map(({ profile }) => ({ ...profile.data, id: profile.id }))) : plant;
+    if (plant.published) tx.set(publicRef, catalogProjection(resolved));
     else tx.delete(publicRef);
+    const eventRef = firebase.doc(firebase.collection(privateRef, "events"));
+    tx.set(eventRef, {
+      type: id ? "Modifica" : "Creazione",
+      changedFields: changedPlantFields(previous.exists() ? previous.data() : {}, plant),
+      note: "", eventDate: new Date().toISOString().slice(0, 10),
+      createdAt: firebase.serverTimestamp()
+    });
     return documentId;
   });
 }
@@ -66,5 +104,28 @@ export async function deletePlantRecord(firebase, { id, expectedVersion }) {
     assertCurrent(previous, expectedVersion);
     tx.delete(privateRef);
     tx.delete(publicRef);
+  });
+}
+
+
+// Le attività e le modifiche sono conservate in una sottoraccolta privata;
+// non aggiornano l'esemplare, per non invalidare moduli già aperti altrove.
+export async function saveJournalEntry(firebase, { plantId, kind, note, eventDate }) {
+  if (!plantId || !["Osservazione", "Irrigazione", "Concimazione", "Rinvaso",
+    "Trattamento", "Potatura", "Fioritura", "Raccolta", "Problema", "Altro"].includes(kind) ||
+    !note?.trim() || note.trim().length > 1500 ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(eventDate) ||
+    new Date(eventDate).toISOString().slice(0, 10) !== eventDate) {
+    throw new Error("Compila attività, data valida e descrizione (massimo 1500 caratteri).");
+  }
+  const parent = firebase.doc(firebase.db, "privatePlants", plantId);
+  const eventRef = firebase.doc(firebase.collection(parent, "events"));
+  await firebase.runTransaction(firebase.db, async (tx) => {
+    const snapshot = await tx.get(parent);
+    if (!snapshot.exists()) throw new PlantConflictError();
+    tx.set(eventRef, {
+      type: kind, note: note.trim(), eventDate, changedFields: [],
+      createdAt: firebase.serverTimestamp()
+    });
   });
 }

@@ -160,6 +160,8 @@ export function catalogProjection(plant) {
     pollination: pollinationTypes.includes(plant.pollination) ? plant.pollination : "",
     potSuitability: potSuitabilityTypes.includes(plant.potSuitability) ? plant.potSuitability : "",
     harvestMonths: normalizedHarvestMonths(plant.harvestMonths),
+    ...(plant.speciesId ? { speciesId: String(plant.speciesId) } : {}),
+    ...(plant.cultivarId ? { cultivarId: String(plant.cultivarId) } : {}),
     ...(coldMinimumOf(plant) !== null ? { minColdC: coldMinimumOf(plant) } : {})
   };
 }
