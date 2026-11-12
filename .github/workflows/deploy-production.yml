@@ -90,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --location --silent --show-error --retry 3 --max-time 20 https://piantee.web.app/ -o /tmp/piante-home.html
-          grep -q 'Piante — Vivaio e catalogo botanico' /tmp/piante-home.html
+          grep -q 'Piantee — Vivaio e catalogo botanico' /tmp/piante-home.html
           # Il rewrite SPA può restituire HTML con HTTP 200 anche per asset mancanti.
           # Verificare il Content-Type impedisce falsi positivi sui moduli e sui fogli di stile.
           for asset in styles/base.css styles/public.css styles/admin.css styles/responsive.css src/main.js src/ui/public.js src/ui/admin.js src/ui/artwork.js; do

@@ -81,6 +81,10 @@ test("asset senza hash non vengono serviti da cache persistenti e lo smoke test 
   assert.ok(workflow.indexOf("npm run build") > 0 &&
     workflow.indexOf("npm run build") < workflow.indexOf("npx firebase deploy"),
     "La compilazione pubblica deve precedere il rilascio.");
+  const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
+  assert.ok(title, "Titolo HTML mancante");
+  assert.ok(workflow.includes(`grep -q '${title}' /tmp/piante-home.html`),
+    "Lo smoke test di Hosting deve cercare il titolo realmente distribuito.");
   assert.match(workflow, /content_type=.*--write-out/);
   assert.doesNotMatch(workflow, /piantee\.web\.app\/styles\.css/);
 });
