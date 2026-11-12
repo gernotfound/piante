@@ -93,3 +93,20 @@
 .diary-date{display:block;color:var(--muted);font-size:.76rem}
 .diary-panel #journal-form>.btn{margin-top:12px}
 .diary-panel #journal-form>[role="status"]{min-height:1.5em;font-size:.85rem;color:var(--leaf)}
+
+/* Campi essenziali subito disponibili; dettagli avanzati accessibili con tastiera e tocco. */
+.editor-fold{min-width:0}
+.editor-fold-summary{display:flex;position:relative;flex-direction:column;gap:4px;min-height:54px;padding:3px 26px 12px 0;cursor:pointer;list-style:none;color:var(--forest)}
+.editor-fold-summary::-webkit-details-marker{display:none}
+.editor-fold-summary::after{content:"";position:absolute;right:5px;top:14px;width:9px;height:9px;border:solid var(--leaf);border-width:0 2px 2px 0;transform:rotate(45deg);transition:transform .16s ease}
+.editor-fold[open]>.editor-fold-summary::after{transform:rotate(225deg)}
+.editor-fold-summary>span{font-size:.96rem;font-weight:700;line-height:1.4}
+.editor-fold-summary small{font-size:.76rem;font-weight:400;color:var(--muted);line-height:1.45}
+.editor-fold[open]>.editor-fold-summary{margin-bottom:12px}
+.editor-fold-summary:focus-visible{outline:2px solid var(--leaf);outline-offset:3px;border-radius:4px}
+.profile-edit-warning{border:1px solid #C7D8C1;background:#F0F5ED;border-radius:8px;padding:11px 12px;margin:0 0 14px;font-size:.8rem;line-height:1.55;color:var(--forest)}
+.profile-edit-warning[hidden]{display:none}
+[data-species-status]:empty{display:none}
+.editor-panel .editor-actions{position:sticky;bottom:calc(70px + env(safe-area-inset-bottom, 0px));z-index:20;background:var(--white);padding:12px 0;border-top:1px solid var(--line);box-shadow:0 -10px 14px -14px rgba(17,43,33,.4)}
+.editor-panel .editor-actions .btn{flex:1}
+@media (min-width:1000px){.editor-panel .editor-actions{bottom:0}}

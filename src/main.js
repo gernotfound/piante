@@ -167,7 +167,13 @@ function renderUnlessEditing() {
     const field = document.querySelector(selector);
     return field && field.value !== value;
   })) return;
+  const expanded = [...document.querySelectorAll("#plant-form details.editor-fold[open]")]
+    .map(section => section.id);
   render();
+  for (const id of expanded) {
+    const section = document.getElementById(id);
+    if (section?.closest("#plant-form")) section.open = true;
+  }
 }
 function renderAfterAuthChange() {
   // Le pagine private devono riflettere immediatamente l'autenticazione;
@@ -762,6 +768,47 @@ function fillProfileFields(form, profile, cultivar = false) {
     input.checked = months.has(Number(input.value));
   });
 }
+function updateSharedProfileWarnings(form) {
+  const species = profileByName(state.profiles, "species",
+    form.elements.namedItem("name")?.value);
+  const cultivarName = form.elements.namedItem("cultivarName")?.value || "";
+  const cultivar = species && cultivarName
+    ? profileByName(state.profiles, "cultivar", cultivarName, species.id) : null;
+  const changed = (profile, prefix, fields, monthField) => {
+    if (!profile) return false;
+    if (fields.some(name => {
+      const key = prefix ? prefix + name[0].toUpperCase() + name.slice(1) : name;
+      const input = form.elements.namedItem(key);
+      return input && String(input.value ?? "").trim() !== String(profile[name] ?? "").trim();
+    })) return true;
+    const months = [...form.querySelectorAll('input[name="' + monthField + '"]:checked')]
+      .map(input => Number(input.value)).sort((a, b) => a - b);
+    return JSON.stringify(months) !==
+      JSON.stringify([...(profile.harvestMonths || [])].sort((a, b) => a - b));
+  };
+  const speciesChanged = species && form.dataset.speciesId === species.id &&
+    changed(species, "", ["scientificName", "category", "fruitType", "growthHabit",
+      "searchAliases", "origin", "light", "water", "description", "pollination",
+      "potSuitability", "minColdC", "coldSource", "coldNotes"], "harvestMonth");
+  const cultivarChanged = cultivar && form.dataset.cultivarId === cultivar.id &&
+    changed(cultivar, "cultivar", ["fruitNotes", "minColdC", "coldSource",
+      "coldNotes", "pollination"], "cultivarHarvestMonth");
+  for (const [kind, show] of [["species", speciesChanged], ["cultivar", cultivarChanged]]) {
+    const warning = form.querySelector('[data-shared-warning="' + kind + '"]');
+    if (warning) warning.hidden = !show;
+  }
+}
+function updateSpeciesStatus(form) {
+  const indicator = form.querySelector("[data-species-status]");
+  if (!indicator) return;
+  const species = profileByName(state.profiles, "species",
+    form.elements.namedItem("name")?.value);
+  indicator.textContent = species
+    ? "Specie registrata: informazioni botaniche recuperate."
+    : form.elements.namedItem("name")?.value.trim()
+      ? "Specie non registrata: verifica i dati botanici prima del salvataggio."
+      : "";
+}
 function handlePlantSelection(event) {
   const form = event.target.closest?.("#plant-form");
   if (!form) return;
@@ -809,12 +856,14 @@ function handlePlantSelection(event) {
       if (control && !control.value) control.value = value || "";
     }
   }
+  if (event.target.name === "name") updateSpeciesStatus(form);
   if (event.target.name === "name" || event.target.name === "category") {
     const typeField = form.querySelector("[data-fruit-type-field]");
     if (typeField) typeField.hidden =
       groupForEditedPlant(form.elements.namedItem("category")?.value,
         form.dataset.id && editBaseline?.id === form.dataset.id ? editBaseline : null) !== "Piante da frutto";
   }
+  updateSharedProfileWarnings(form);
 }
 function markPlantDirty(event) {
   if (event.target.closest?.("#plant-form")) formDirty = true;
@@ -837,8 +886,17 @@ function handlePopState() {
 document.addEventListener("click", handleClick);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("input", markPlantDirty);
+document.addEventListener("input", event => {
+  const form = event.target.closest?.("#plant-form");
+  if (form) updateSharedProfileWarnings(form);
+});
 document.addEventListener("change", markPlantDirty);
 document.addEventListener("change", handlePlantSelection);
+// I controlli non validi dentro <details> chiusi devono poter ricevere il focus.
+document.addEventListener("invalid", event => {
+  const section = event.target.closest?.("#plant-form details.editor-fold");
+  if (section) section.open = true;
+}, true);
 document.addEventListener("error", (event) => {
   if (event.target instanceof HTMLImageElement && event.target.hasAttribute("data-photo")) {
     event.target.parentElement.innerHTML = leafArt;
