@@ -1,4 +1,4 @@
-import { coldMinimumOf, fruitTypeOf, plantGroupOf } from "./domain.js";
+import { coldMinimumOf, fruitTypeOf, plantGroupOf, specimenCodeOf } from "./domain.js";
 
 export function normalizePlantQuery(value) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -42,7 +42,8 @@ function isSingleEditAway(a, b) {
 function plantSearchFields(plant) {
   const aliases = String(plant.searchAliases || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
   return [plant.name, plant.scientificName, plant.variety, plant.category,
-    plant.plantGroup, plant.fruitType, plant.growthHabit, ...aliases]
+    plant.plantGroup, plant.fruitType, plant.growthHabit, plant.specimenLabel,
+    specimenCodeOf(plant), plant.sourceDetails, ...aliases]
     .map(normalizePlantQuery).filter(Boolean);
 }
 
