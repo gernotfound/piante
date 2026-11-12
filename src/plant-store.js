@@ -81,36 +81,33 @@ export async function savePlantRecord(firebase, {
   const profileRefs = [shared?.species, shared?.cultivar].filter(Boolean)
     .map(item => ({ ...item, ref: firebase.doc(firebase.db, "plantProfiles", item.id) }));
   const lotRef = shared?.lot ? firebase.doc(firebase.db, "seedLots", shared.lot.id) : null;
-  const registryRef = firebase.doc(firebase.db, "specimenRegistry", "activation");
+  // Il codice viene prenotato atomicamente con la scheda, senza attivazioni
+  // preliminari. Eventuali record senza codice lo ricevono al primo salvataggio.
   for (let attempt = 0; attempt < 24; attempt++) {
-    const proposed = id ? "" : generateCode();
-    if (!id && !validSpecimenCode(proposed)) {
+    const proposed = generateCode();
+    if (!validSpecimenCode(proposed)) {
       throw new SpecimenCodeError("Impossibile generare un codice di sei caratteri valido.");
     }
     const outcome = await firebase.runTransaction(firebase.db, async (tx) => {
     const previous = await tx.get(privateRef);
     if (id) assertCurrent(previous, expectedVersion);
-    const assigned = id ? previous.data().specimenCode || "" : proposed;
-    if (assigned && !validSpecimenCode(assigned)) {
+    const registered = id ? previous.data().specimenCode : "";
+    if (registered && !validSpecimenCode(registered)) {
       throw new SpecimenCodeError("La scheda contiene un codice non valido. Nessun dato è stato modificato.");
     }
-    const codeRef = assigned ? firebase.doc(firebase.db, "specimenCodes", assigned) : null;
-    const [registry, reservation] = await Promise.all([
-      !id ? tx.get(registryRef) : Promise.resolve(null),
-      codeRef ? tx.get(codeRef) : Promise.resolve(null)
-    ]);
-    if (!id && (!registry.exists() || registry.data().status !== "ready")) {
-      throw new SpecimenCodeError("Attiva prima i codici univoci dall'inventario: nessuna pianta è stata salvata.");
-    }
-    if (reservation?.exists()) {
-      if (!id) return { collision: true };
+    const assigned = registered || proposed;
+    const newReservation = !registered;
+    const codeRef = firebase.doc(firebase.db, "specimenCodes", assigned);
+    const reservation = await tx.get(codeRef);
+    if (reservation.exists()) {
+      if (newReservation) return { collision: true };
       if (reservation.data().plantId !== documentId) {
         throw new SpecimenCodeError("Il codice della pianta è prenotato da un altro esemplare.");
       }
-    } else if (id && assigned) {
+    } else if (!newReservation) {
       throw new SpecimenCodeError("La prenotazione del codice non esiste: modifica interrotta per sicurezza.");
     }
-    const storedPlant = assigned ? { ...plant, specimenCode: assigned } : plant;
+    const storedPlant = { ...plant, specimenCode: assigned };
     const profiles = [];
     for (const profile of profileRefs) {
       const snapshot = await tx.get(profile.ref);
@@ -145,7 +142,7 @@ export async function savePlantRecord(firebase, {
         updatedAt: firebase.serverTimestamp()
       });
     }
-    if (!id) tx.set(codeRef, { plantId: documentId, createdAt: firebase.serverTimestamp() });
+    if (newReservation) tx.set(codeRef, { plantId: documentId, createdAt: firebase.serverTimestamp() });
     for (const { profile, snapshot } of profiles) {
       // Una specie privata diventa consultabile soltanto dopo la prima
       // pubblicazione. Le informazioni già rese pubbliche restano conoscenza
