@@ -22,7 +22,7 @@
 - `specimenCodes/{code}`: prenotazioni immutabili riservate al proprietario con riferimento `plantId`; create atomicamente con la scheda privata e, quando pubblicata, con la relativa proiezione.
 - `seedLots/{id}`: lotti privati con nome, specie e provenienza; `privatePlants/{id}/events/{eventId}`: diario e storico immutabile delle operazioni, entrambi leggibili solo dal proprietario.
 - `catalog/{id}`: proiezione dei soli campi pubblicabili. Le operazioni sulle raccolte private/pubbliche e sulle schede condivise coinvolte sono atomiche; l'editor conserva la versione caricata e blocca sovrascritture concorrenti.
-- Firebase Authentication contiene password e sessioni. Gli alias opzionali non conferiscono privilegi.
+- Firebase Authentication contiene password e sessioni. L'accesso al gestionale usa soltanto email e password: non esistono più nickname o alias di login nel frontend. Le raccolte legacy `adminProfiles` e `loginAliases` sono negate dalle Rules e non vanno trattate come dati di accesso attivi.
 
 ## Test e rilascio
 
