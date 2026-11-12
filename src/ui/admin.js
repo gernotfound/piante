@@ -330,8 +330,8 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         <p class="profile-edit-warning" data-publication-status role="status" ${p.published && ["Morta", "Ceduta"].includes(p.lifeStage) ? "" : "hidden"}>Questa pianta è contrassegnata come morta o ceduta, ma rimane pubblicata: verifica se vuoi mantenerla nel catalogo.</p>
       </section>
       <div class="editor-actions" aria-label="Azioni scheda pianta">
-        <button class="btn btn-primary" type="submit">Salva pianta</button>
         <a href="/admin/piante" data-nav class="btn btn-outline">Annulla</a>
+        <button class="btn btn-primary" type="submit">Salva pianta</button>
       </div>
       ${id ? `<div class="editor-danger"><p>L'eliminazione è definitiva e rimuove anche gli eventi automatici. Se il diario contiene osservazioni personali, per conservarle imposta lo stato a «Morta» o «Ceduta» invece di eliminare la scheda.</p>
         <button class="btn btn-danger" type="button" data-action="delete-plant" data-id="${h(id)}">Elimina pianta</button></div>` : ""}
