@@ -60,6 +60,9 @@ jobs:
       - name: Installa la CLI Firebase
         run: npm install --no-audit --no-fund
 
+      - name: Costruisci la directory pubblica isolata
+        run: npm run build
+
       - name: Controlla la configurazione Workload Identity Federation
         env:
           WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}

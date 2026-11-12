@@ -1,22 +1,8 @@
 {
   "hosting": {
-    "public": ".",
+    "public": "dist",
     "ignore": [
-      "firebase.json",
-      ".firebaserc",
-      "firestore.rules",
-      "README.md",
-      "**/.*",
-      "**/node_modules/**",
-      "tests/**",
-      "scripts/**",
-      "package.json",
-      "package-lock.json",
-      "AGENTS.md",
-      "docs/**",
-      ".agents/**",
-      "gha-creds-*.json",
-      ".github/**"
+      "**/.*"
     ],
     "rewrites": [
       {

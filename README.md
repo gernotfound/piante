@@ -22,9 +22,9 @@ Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi
 - `src/domain.js`, `src/catalog.js` e `src/plant-store.js` separano validazione, ricerca e transazioni; `src/config.js` contiene la configurazione Web Firebase pubblica.
 - `styles/` contiene `base.css`, `public.css`, `admin.css` e `responsive.css`, caricati in ordine per preservare la cascata.
 - `tests/unit/`, `tests/contracts/`, `tests/integration/` e `tests/e2e/` separano test puri, contratti, emulatori Firestore e flussi browser.
-- `scripts/`, `.github/workflows/` e `docs/` custodiscono strumenti operativi, CI/deploy e documentazione. Test e file interni non sono pubblicati da Hosting.
+- `scripts/`, `.github/workflows/` e `docs/` custodiscono strumenti operativi, CI/deploy e documentazione. `scripts/build-site.mjs` genera `dist/` con soli asset pubblici, mentre `scripts/check-syntax.mjs` individua ricorsivamente i nuovi JS. Hosting non pubblica direttamente il repository.
 
-Comandi: `npm run check`, `npm test`, `npm run test:rules`, `npm run test:browser`. Gli ultimi due usano emulatori; non eseguire test su dati reali.
+Comandi: `npm run check`, `npm run build`, `npm test`, `npm run test:rules`, `npm run test:browser`. Gli ultimi due usano emulatori; non eseguire test su dati reali.
 
 ## Configurazione iniziale (necessaria)
 
@@ -39,7 +39,7 @@ Comandi: `npm run check`, `npm test`, `npm run test:rules`, `npm run test:browse
 
 ## Pubblicazione automatica diretta — `piantee.web.app`
 
-La CI `.github/workflows/ci.yml` verifica sintassi, test unitari, Firestore Emulator, browser E2E isolato e CodeQL su `main`. Dopo `Canonical Verification` riuscita, `.github/workflows/deploy-firestore-rules.yml` riconcilia le Rules del database `(default)` e ne verifica la release attiva. Solo dopo il suo successo `.github/workflows/deploy-production.yml` pubblica **il target Hosting `piantee`**. Non ci sono anteprime PR né deploy automatici di dati o indici.
+La CI `.github/workflows/ci.yml` verifica sintassi, test unitari, Firestore Emulator, browser E2E isolato e CodeQL su `main`. Dopo `Canonical Verification` riuscita, `.github/workflows/deploy-firestore-rules.yml` riconcilia le Rules del database `(default)` e ne verifica la release attiva. Solo dopo il suo successo `.github/workflows/deploy-production.yml` genera `dist/` e pubblica **il target Hosting `piantee`**. Non ci sono anteprime PR né deploy automatici di dati o indici.
 
 Il collegamento a Google Cloud usa **Workload Identity Federation (WIF)**, senza chiavi JSON permanenti, con identità distinte per Firestore Rules e Hosting. I workflow richiedono le repository variables `GCP_FIRESTORE_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIRESTORE_DEPLOY_SERVICE_ACCOUNT` per le Rules, oltre a `GCP_WORKLOAD_IDENTITY_PROVIDER` e `GCP_FIREBASE_DEPLOY_SERVICE_ACCOUNT` per Hosting. Le identità e i privilegi effettivi devono essere verificati nel provider.
 

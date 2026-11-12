@@ -10,7 +10,8 @@
 - `src/ui/artwork.js`: fallback grafici SVG inline; foto autentiche via URL registrati.
 - `src/domain.js`: modelli, validazione e allowlist `catalogProjection`.
 - `src/catalog.js`: ricerca e filtri puri; `src/plant-store.js`: transazioni atomiche e conflitti; `src/config.js`: configurazione Firebase Web pubblica.
-- `firebase.json` e `.firebaserc`: Hosting target `piantee`, Rules ed emulatori. Hosting serve solo gli asset statici e ignora script, test, documenti e file interni.
+- `scripts/build-site.mjs`: genera `dist/` da una allowlist di file pubblici e moduli/stili frontend; `scripts/check-syntax.mjs` verifica ricorsivamente i sorgenti JavaScript senza elenchi manuali.
+- `firebase.json` e `.firebaserc`: Hosting target `piantee`, Rules ed emulatori. La directory servita è soltanto `dist/`; documenti, test e strumenti non vengono copiati.
 
 ## Dati
 
@@ -22,5 +23,5 @@
 ## Test e rilascio
 
 - `tests/unit/`: funzioni pure; `tests/contracts/`: vincoli di struttura e sicurezza dei workflow; `tests/integration/`: Firestore Rules e transazioni sull'emulatore; `tests/e2e/`: flussi Auth/Firestore in browser isolato.
-- `npm run check`, `npm test`, `npm run test:rules` e `npm run test:browser` alimentano la CI con CodeQL e Canonical Verification.
+- `npm run check`, `npm run build`, `npm test`, `npm run test:rules` e `npm run test:browser` alimentano la CI con CodeQL e Canonical Verification.
 - Le PR non pubblicano il sito. Da `main`, dopo i gate, il workflow Firestore Rules precede Hosting con identità WIF distinte. I controlli CI non dimostrano lo stato live del provider.

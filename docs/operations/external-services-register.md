@@ -2,6 +2,12 @@
 
 **Rilevazione:** 2026-11-06. **Scopo:** preservare decisioni e checkpoint su GitHub, Firebase e Google Cloud. Gli stati possono cambiare senza modifiche al repository. Non contengono credenziali né UID reali.
 
+## 2026-11-12 — isolamento degli asset Hosting (VERIFIED-REPO candidato, VERIFY-LIVE post-merge)
+
+- La PR [#19](https://github.com/gernotfound/piante/pull/19) introduce una directory `dist/` generata da `scripts/build-site.mjs` tramite allowlist (HTML, favicon, anteprima social, JS e CSS), anziché pubblicare la radice del repository. Test, Rules, documenti, script operativi e configurazioni interne restano fuori dal build.
+- La CI esegue il build prima dei test contrattuali e il workflow Hosting lo rigenera sul commit da distribuire. Gli account e i pool WIF, il target `piantee`, le Firestore Rules e i dati non cambiano. `scripts/check-syntax.mjs` verifica ricorsivamente i sorgenti JS.
+- Questo checkpoint documenta il **candidato**, non lo stato live. Sono richiesti Canonical Verification sullo SHA finale, merge autorizzato, CI `main`, catena Rules→Hosting e smoke HTTP sugli asset reali.
+
 ## Legenda delle evidenze
 
 - **VERIFIED-REPO:** letto direttamente nei file/metadata GitHub; non certifica configurazione live.
