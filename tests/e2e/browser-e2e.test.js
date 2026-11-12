@@ -26,6 +26,10 @@ const sandboxMain = originalMain.replace(hook, hook + '\n' +
   ' error: state.error, flash: state.flash});' +
   '\nwindow.__pianteTestSetInventoryError = (value) => {' +
   ' state.inventoryError = value; renderUnlessEditing(); };' +
+  '\nwindow.__pianteTestSetJournalSaving = (value) => { journalSaveInProgress = value; };' +
+  '\nwindow.__pianteTestSetPublicErrors = (profile, catalog) => {' +
+  ' state.publicProfilesError = profile; state.catalogError = catalog;' +
+  ' updatePublicErrors(); render(); };' +
   '\nwindow.__pianteTestSnapshotRerender = () => renderUnlessEditing();' +
   '\nwindow.__pianteTestAuthRerender = () => renderAfterAuthChange();';
 const sandboxConfig = [
@@ -193,6 +197,11 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
       await page.locator("#search-form").waitFor();
       await noOverflow(page, "Catalogo " + width + "px");
     }
+    await page.evaluate(() => window.__pianteTestSetPublicErrors("Profilo non disponibile", "Catalogo non disponibile"));
+    await page.locator(".notice.error").filter({ hasText: "Profilo non disponibile" }).waitFor();
+    await page.evaluate(() => window.__pianteTestSetPublicErrors("Profilo non disponibile", ""));
+    assert.match(await page.locator(".notice.error").first().innerText(), /Profilo non disponibile/);
+    await page.evaluate(() => window.__pianteTestSetPublicErrors("", ""));
     await page.locator("#catalog-search-input").fill("ricerca in corso");
     await page.locator("#catalog-search-input").evaluate((input) => input.blur());
     await page.evaluate(() => window.__pianteTestSnapshotRerender());
@@ -480,6 +489,10 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       assert.equal(await page.locator('input[name="published"]').isChecked(), false);
       await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
       await page.locator("#journal-form").waitFor({ timeout: 45000 });
+      await page.evaluate(() => window.__pianteTestSetJournalSaving(true));
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.locator(".notice.error").filter({ hasText: "salvataggio del diario" }).waitFor();
+      await page.evaluate(() => window.__pianteTestSetJournalSaving(false));
       await page.locator('textarea[name="eventNotes"]').fill("Rinvaso di prova");
       await page.locator('#journal-form button[type="submit"]').click();
       await page.locator(".diary-item").filter({ hasText: "Rinvaso di prova" })
