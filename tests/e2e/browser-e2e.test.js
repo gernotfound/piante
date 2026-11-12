@@ -159,10 +159,10 @@ async function login(page) {
   // Il primo onAuthStateChanged può ridisegnare il form: non compilare i campi prima della sua conclusione.
   await page.waitForFunction(() => window.__pianteDebug?.().authReady === true,
     null, { timeout: 30000 });
-  await page.locator('input[name="identity"]').fill(EMAIL);
+  await page.locator('input[name="email"]').fill(EMAIL);
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.evaluate(() => window.__pianteTestSnapshotRerender());
-  assert.equal(await page.locator('input[name="identity"]').inputValue(), EMAIL);
+  assert.equal(await page.locator('input[name="email"]').inputValue(), EMAIL);
   assert.equal(await page.locator('input[name="password"]').inputValue(), PASSWORD);
   await page.locator('#login-form button[type="submit"]').click();
   try {
@@ -485,11 +485,17 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal((await getDoc(doc(guest, "catalog", id))).exists(), false);
 
       await page.goto(baseUrl + "/admin/impostazioni", { waitUntil: "domcontentloaded" });
-      await page.locator('input[name="username"]').fill("nuovonome");
-      await page.evaluate(() => window.__pianteTestSnapshotRerender());
-      assert.equal(await page.locator('input[name="username"]').inputValue(), "nuovonome");
+      await page.locator(".settings-logout [data-action='logout']").waitFor();
+      assert.equal(await page.locator("#username-form").count(), 0);
+      assert.equal(await page.locator('[data-action="logout"]').count(), 1);
+      assert.match(await page.locator(".admin-body").innerText(), /Email dell'account:/);
       await page.locator(".settings-logout [data-action='logout']").click();
       await page.waitForURL("**/login", { timeout: 45000 });
+      assert.equal(await page.locator('#login-form input[name="identity"]').count(), 0);
+      assert.equal(await page.locator('#login-form input[name="email"][type="email"]').count(), 1);
+      await login(page);
+      assert.match(page.url(), /\/admin/);
+      await page.locator('.settings-logout [data-action="logout"]').count();
       assert.deepEqual(page.sandboxRequests, [], "Richieste fuori dagli emulatori");
       assert.deepEqual(other.sandboxRequests, [], "Richieste fuori dagli emulatori");
     } finally {
