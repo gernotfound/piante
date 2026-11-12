@@ -25,8 +25,215 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
+    function validSpecimenCode(code) {
+      return code is string && code.matches('^[A-Z0-9]{6}
+
+    // I profili botanici associati solo a piante private restano riservati.
+    // Un profilo pubblico contiene unicamente attributi botanici condivisi.
+    match /plantProfiles/{profileId} {
+      allow get, list: if isOwner() || resource.data.get('public', false) == true;
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly([
+          'kind', 'name', 'parentId', 'scientificName', 'category', 'fruitType',
+          'growthHabit', 'searchAliases', 'origin', 'light', 'water',
+          'description', 'pollination', 'potSuitability', 'harvestMonths',
+          'minColdC', 'coldSource', 'coldNotes', 'fruitNotes', 'public', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.kind in ['species', 'cultivar']
+        && request.resource.data.get('public', false) is bool
+        && optionalText(request.resource.data, 'parentId', 900)
+        && (request.resource.data.kind != 'cultivar' ||
+          request.resource.data.get('parentId', '') != '')
+        && optionalText(request.resource.data, 'scientificName', 150)
+        && optionalText(request.resource.data, 'category', 100)
+        && optionalText(request.resource.data, 'fruitType', 60)
+        && optionalText(request.resource.data, 'growthHabit', 60)
+        && optionalText(request.resource.data, 'searchAliases', 250)
+        && optionalText(request.resource.data, 'origin', 150)
+        && optionalText(request.resource.data, 'light', 120)
+        && optionalText(request.resource.data, 'water', 120)
+        && optionalText(request.resource.data, 'description', 3000)
+        && optionalText(request.resource.data, 'fruitNotes', 750)
+        && optionalText(request.resource.data, 'pollination', 70)
+        && optionalText(request.resource.data, 'potSuitability', 70)
+        && optionalText(request.resource.data, 'coldNotes', 250)
+        && optionalHttps(request.resource.data, 'coldSource', 500)
+        && request.resource.data.get('harvestMonths', []) is list
+        && request.resource.data.get('harvestMonths', []).size() <= 12
+        && request.resource.data.get('harvestMonths', []).hasOnly([
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        ])
+        && (!request.resource.data.keys().hasAny(['minColdC']) ||
+            request.resource.data.minColdC == null ||
+            (request.resource.data.minColdC is number &&
+             request.resource.data.minColdC >= -40 &&
+             request.resource.data.minColdC <= 25));
+      allow delete: if false;
+    }
+
+    // Lotti riservati. Non cancellabili per evitare riferimenti sospesi.
+    match /seedLots/{lotId} {
+      allow get, list, create, update: if isOwner();
+      allow delete: if false;
+    }
+
+    match /privatePlants/{plantId}/events/{eventId} {
+      allow get, list: if isOwner();
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly(['type', 'note', 'changedFields',
+          'eventDate', 'createdAt'])
+        && optionalText(request.resource.data, 'type', 50)
+        && optionalText(request.resource.data, 'note', 1500)
+        && optionalText(request.resource.data, 'eventDate', 10)
+        && request.resource.data.get('changedFields', []) is list
+        && request.resource.data.get('changedFields', []).size() <= 40;
+      allow update: if false;
+      // Eliminazione dei soli eventi insieme alla scheda madre, nella stessa
+      // transazione. Il proprietario non può cancellare voci singolarmente.
+      allow delete: if isOwner()
+        && !existsAfter(/databases/$(database)/documents/privatePlants/$(plantId));
+    }
+
+    match /catalog/{plantId} {
+      allow read: if true;
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly([
+          'name', 'scientificName', 'category', 'variety', 'description',
+          'light', 'water', 'origin', 'imageUrl', 'availability', 'price',
+          'plantGroup', 'fruitType', 'growthHabit', 'searchAliases',
+          'minColdC', 'coldSource', 'coldNotes',
+          'pollination', 'potSuitability', 'harvestMonths',
+          'speciesId', 'cultivarId', 'specimenCode'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 3000
+        && optionalText(request.resource.data, 'scientificName', 150)
+        && optionalText(request.resource.data, 'category', 100)
+        && optionalText(request.resource.data, 'variety', 150)
+        && optionalText(request.resource.data, 'origin', 150)
+        && optionalText(request.resource.data, 'light', 120)
+        && optionalText(request.resource.data, 'water', 120)
+        && optionalText(request.resource.data, 'availability', 120)
+        && optionalText(request.resource.data, 'price', 50)
+        && optionalHttps(request.resource.data, 'imageUrl', 4096)
+        && request.resource.data.get('plantGroup', '') in ['', 'Piante da frutto', 'Orto e tuberi', 'Altre piante']
+        && request.resource.data.get('fruitType', '') in [
+          '', 'Agrumi', 'Tropicali e subtropicali', 'Mediterranee',
+          'Temperate', 'Piccoli frutti', 'Altre fruttifere'
+        ]
+        && request.resource.data.get('growthHabit', '') in [
+          '', 'Albero', 'Arbusto', 'Rampicante', 'Erbacea', 'Succulenta', 'Altra'
+        ]
+        && request.resource.data.get('pollination', '') in [
+          '', 'Autofertile', 'Richiede impollinazione', 'Variabile'
+        ]
+        && request.resource.data.get('potSuitability', '') in [
+          '', 'Adatta', 'Con accorgimenti', 'Non consigliata'
+        ]
+        && request.resource.data.get('harvestMonths', []) is list
+        && request.resource.data.get('harvestMonths', []).size() <= 12
+        && request.resource.data.get('harvestMonths', []).hasOnly([
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+        ])
+        && request.resource.data.get('harvestMonths', []).toSet().size()
+          == request.resource.data.get('harvestMonths', []).size()
+        && (!request.resource.data.keys().hasAny(['specimenCode'])
+          || validSpecimenCode(request.resource.data.specimenCode))
+        && (!existsAfter(/databases/$(database)/documents/privatePlants/$(plantId))
+          || request.resource.data.get('specimenCode', '') ==
+            getAfter(/databases/$(database)/documents/privatePlants/$(plantId)).data.get('specimenCode', ''))
+        && optionalText(request.resource.data, 'speciesId', 900)
+        && optionalText(request.resource.data, 'cultivarId', 1100)
+        && optionalText(request.resource.data, 'searchAliases', 250)
+        && optionalText(request.resource.data, 'coldNotes', 250)
+        && optionalHttps(request.resource.data, 'coldSource', 500)
+        && (!request.resource.data.keys().hasAny(['minColdC']) ||
+            (request.resource.data.minColdC is number &&
+             request.resource.data.minColdC >= -40 &&
+             request.resource.data.minColdC <= 25));
+      allow delete: if isOwner();
+    }
+
+    match /adminProfiles/{uid} {
+      allow get, create, update: if isOwner() && request.auth.uid == uid;
+      allow list, delete: if false;
+    }
+
+    match /loginAliases/{username} {
+      // L'alias è consultabile soltanto per ID esatto per risolvere la email.
+      // Non contiene password né autorizzazioni.
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isOwner()
+        && username.matches('^[a-z0-9._-]{3,32}$')
+        && request.resource.data.keys().hasOnly(['email'])
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+);
+    }
+
+    function claimedAfter(plantId, code) {
+      return existsAfter(/databases/$(database)/documents/specimenCodes/$(code))
+        && getAfter(/databases/$(database)/documents/specimenCodes/$(code)).data.plantId == plantId;
+    }
+
+    function codeValidForPlant(plantId, data) {
+      return !data.keys().hasAny(['specimenCode'])
+        || (validSpecimenCode(data.specimenCode)
+          && claimedAfter(plantId, data.specimenCode));
+    }
+
+    // La conversione si avvia manualmente ed è riprendibile.
+    match /specimenRegistry/{id} {
+      allow get: if isOwner();
+      allow list, delete: if false;
+      allow create: if isOwner() && id == 'activation'
+        && request.resource.data.keys().hasOnly(['status', 'startedAt'])
+        && request.resource.data.status == 'migrating';
+      allow update: if isOwner() && id == 'activation'
+        && resource.data.status == 'migrating'
+        && request.resource.data.keys().hasOnly(['status', 'startedAt', 'completedAt'])
+        && request.resource.data.status == 'ready'
+        && request.resource.data.startedAt == resource.data.startedAt;
+    }
+
+    // Le prenotazioni non sono rilasciate dopo la cancellazione della pianta.
+    match /specimenCodes/{code} {
+      allow get: if isOwner();
+      allow list, update, delete: if false;
+      allow create: if isOwner() && validSpecimenCode(code)
+        && request.resource.data.keys().hasOnly(['plantId', 'createdAt'])
+        && request.resource.data.plantId is string
+        && request.resource.data.plantId.size() > 0
+        && existsAfter(/databases/$(database)/documents/privatePlants/$(request.resource.data.plantId))
+        && getAfter(/databases/$(database)/documents/privatePlants/$(request.resource.data.plantId)).data.specimenCode == code;
+    }
+
     match /privatePlants/{plantId} {
-      allow read, write: if isOwner();
+      allow read: if isOwner();
+      allow create: if isOwner() && codeValidForPlant(plantId, request.resource.data)
+        && (!exists(/databases/$(database)/documents/specimenRegistry/activation)
+          || (get(/databases/$(database)/documents/specimenRegistry/activation).data.status == 'ready'
+            && request.resource.data.keys().hasAny(['specimenCode'])));
+      allow update: if isOwner()
+        && (!resource.data.keys().hasAny(['specimenCode'])
+          || request.resource.data.get('specimenCode', '') == resource.data.specimenCode)
+        && codeValidForPlant(plantId, request.resource.data);
+      allow delete: if isOwner();
     }
 
     // I profili botanici associati solo a piante private restano riservati.
