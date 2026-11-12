@@ -1,4 +1,4 @@
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, monthNames, plantGroupOf, fruitTypeOf, coldMinimumOf, safeImageUrl, escapeHtml } from "../domain.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, monthNames, plantGroupOf, fruitTypeOf, coldMinimumOf, varietyLabel, safeImageUrl, escapeHtml } from "../domain.js";
 import { filterCatalog } from "../catalog.js";
 import { firebaseConfigured } from "../config.js";
 import { leafArt, heroArt } from "./artwork.js";
@@ -59,9 +59,10 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
     return `<a class="plant-card" href="/piante/${encodeURIComponent(item.id)}" data-nav>
       ${imageMarkup(item)}
       <div class="plant-info">
-        <span class="plant-category">${h(plantGroupOf(item) === "Piante da frutto" ? fruitTypeOf(item) : item.category || "Pianta")}</span>
+        <span class="plant-category">${h(item.category || "Pianta")}</span>
         <h3 class="plant-name">${h(item.name)}</h3>
-        <p class="plant-latin">${h(item.scientificName || item.variety || "")}</p>
+        ${item.scientificName ? `<p class="plant-latin">${h(item.scientificName)}</p>` : ""}
+        ${varietyLabel(item) ? `<p class="plant-variety">${h(varietyLabel(item))}</p>` : ""}
         ${item.availability ? `<p class="plant-availability">${h(item.availability)}</p>` : ""}
         ${coldMinimumOf(item) !== null ? `<p class="plant-climate">Freddo indicativo: ${h(coldMinimumOf(item))} °C</p>` : ""}
         <div class="plant-bottom"><strong>${item.price ? h(item.price) : "Scopri la pianta"}</strong><span aria-hidden="true">↗</span></div>
@@ -239,8 +240,11 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
     if (!item) return pageHero("Catalogo", "Pianta non trovata", "Questa pianta non è presente nel catalogo pubblico.") +
       `<section class="section"><div class="container"><a class="btn btn-primary" href="/piante" data-nav>Torna al catalogo</a></div></section>`;
     const properties = [
-      ["Nome scientifico", item.scientificName], ["Varietà", item.variety],
-      ["Categoria", item.category], ["Origine", item.origin],
+      ["Nome scientifico", item.scientificName],
+      ["Categoria", item.category],
+      ["Tipologia fruttifera", plantGroupOf(item) === "Piante da frutto" ? item.fruitType : ""],
+      ["Forma di crescita", item.growthHabit],
+      ["Origine", item.origin],
       ["Esposizione", item.light], ["Irrigazione", item.water],
       ["Impollinazione", item.pollination], ["Coltivazione in vaso", item.potSuitability],
       ["Raccolta indicativa", Array.isArray(item.harvestMonths)
@@ -255,16 +259,18 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
           <span class="eyebrow">${h(item.category || "Collezione")}</span>
           <h1>${h(item.name)}</h1>
           ${item.scientificName ? `<p class="plant-latin">${h(item.scientificName)}</p>` : ""}
-          ${item.variety ? `<p class="detail-variety">${item.cultivarId ? "Cultivar" : "Indicazione varietale (da verificare)"}: ${h(item.variety)}</p>` : ""}
+          ${varietyLabel(item) ? `<p class="detail-variety">${h(varietyLabel(item))}</p>` : ""}
           ${item.fruitNotes ? `<p class="detail-description"><strong>Frutto della cultivar:</strong> ${h(item.fruitNotes)}</p>` : ""}
           ${item.price || item.availability ? `<div class="product-availability">
             ${item.price ? `<div><span class="detail-label">Prezzo indicativo</span><strong class="detail-price">${h(item.price)}</strong></div>` : ""}
             ${item.availability ? `<div><span class="detail-label">Disponibilità</span><strong>${h(item.availability)}</strong></div>` : ""}
           </div>` : ""}
           <p class="detail-description">${h(item.description || "La scheda di questa pianta verrà arricchita con altre informazioni.")}</p>
-          ${coldMinimumOf(item) !== null ? `<div class="climate-detail">
-            <strong>Temperatura minima indicativa: ${h(coldMinimumOf(item))} °C</strong>
-            <p>Dato orientativo per piante adulte acclimatate in piena terra. La resistenza dipende da durata del freddo, cultivar, esposizione e protezione.</p>
+          ${coldMinimumOf(item) !== null || item.coldNotes || safeImageUrl(item.coldSource) ? `<div class="climate-detail">
+            <strong>${coldMinimumOf(item) !== null
+              ? `Temperatura minima indicativa: ${h(coldMinimumOf(item))} °C`
+              : "Informazioni sulla resistenza al freddo"}</strong>
+            ${coldMinimumOf(item) !== null ? `<p>Dato orientativo per piante adulte acclimatate in piena terra. La resistenza dipende da durata del freddo, cultivar, esposizione e protezione.</p>` : ""}
             ${item.coldNotes ? `<p>${h(item.coldNotes)}</p>` : ""}
             ${safeImageUrl(item.coldSource) ? `<a href="${h(safeImageUrl(item.coldSource))}" target="_blank" rel="noopener noreferrer">Consulta la fonte</a>` : ""}
           </div>` : ""}

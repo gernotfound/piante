@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogProjection, escapeHtml, groupForCategory, groupForEditedPlant, decodeRouteId, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, validUsername, validatePlant } from "../../src/domain.js";
+import { catalogProjection, escapeHtml, groupForCategory, groupForEditedPlant, decodeRouteId, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, varietyLabel, validUsername, validatePlant } from "../../src/domain.js";
 
 test("un alias utente viene normalizzato ed è limitato a caratteri sicuri", () => {
   assert.equal(normalizeUsername("  Vivaio.G  "), "vivaio.g");
@@ -74,4 +74,21 @@ test("esemplari omonimi mantengono codici diversi e informazioni private escluse
   }
   assert.match(validatePlant({ ...plant, sownOn: "2026-02-30" }), /Data di semina/);
   assert.match(validatePlant({ ...plant, propagationMethod: "Metodologia inesistente" }), /propagazione/);
+});
+
+test("La cultivar verificata e le indicazioni varietali storiche restano distinguibili", () => {
+  assert.equal(varietyLabel({ name: "Avocado", variety: "Fuerte", cultivarId: "c_verificata" }),
+    "Cultivar: Fuerte");
+  assert.equal(varietyLabel({ name: "Papaya", variety: "Formosa" }),
+    "Indicazione varietale (da verificare): Formosa");
+  assert.equal(varietyLabel({ name: "Avocado", seedSourceCultivar: "Hass" }), "");
+  assert.equal(varietyLabel({ name: "Avocado", variety: " " }), "");
+  const publicData = catalogProjection({
+    name: "Avocado", variety: "Fuerte", cultivarId: "c_verificata",
+    seedSourceCultivar: "Hass", internalNotes: "Riservato"
+  });
+  assert.equal(publicData.variety, "Fuerte");
+  assert.equal(publicData.cultivarId, "c_verificata");
+  assert.equal("seedSourceCultivar" in publicData, false);
+  assert.equal("internalNotes" in publicData, false);
 });

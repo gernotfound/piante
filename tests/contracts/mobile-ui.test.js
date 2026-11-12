@@ -63,6 +63,11 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
   assert.match(ui, /id="editor-origin"/);
   assert.match(ui, /data-shared-warning="species"/);
   assert.match(css, /\.editor-panel \.editor-actions\{position:sticky/);
+  assert.match(ui, /data-publication-status/);
+  assert.match(ui, /profileFieldsWouldOverwrite/);
+  assert.match(ui, /caratteristiche della cultivar senza indicarne il nome/);
+  assert.match(ui, /varietyLabel\(plant\)/);
+  assert.match(ui, /varietyLabel\(item\)/);
 });
 
 test("Editor mobile: il recupero dei conflitti resta utilizzabile su schermi stretti", () => {

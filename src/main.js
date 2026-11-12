@@ -450,6 +450,15 @@ async function savePlant(form, id) {
   if (cultivarError || cultivarData.fruitNotes.length > 750) {
     showFormError(cultivarError || "La descrizione del frutto supera 750 caratteri."); return;
   }
+  if (!cultivarName && (
+    cultivarData.fruitNotes || cultivarData.minColdC !== null ||
+    cultivarData.coldSource || cultivarData.coldNotes ||
+    cultivarData.pollination || cultivarData.harvestMonths.length
+  )) {
+    document.querySelector("#editor-cultivar")?.setAttribute("open", "");
+    showFormError("Hai compilato caratteristiche della cultivar senza indicarne il nome. Indica una cultivar accertata oppure cancella i dettagli varietali: nessun dato è stato salvato.");
+    return;
+  }
   let pendingJournal = null;
   if (journalDirty) {
     const diaryForm = document.querySelector("#journal-form");
@@ -768,6 +777,31 @@ function fillProfileFields(form, profile, cultivar = false) {
     input.checked = months.has(Number(input.value));
   });
 }
+function profileFieldsWouldOverwrite(form, profile, cultivar = false) {
+  const keys = cultivar
+    ? ["fruitNotes", "minColdC", "coldSource", "coldNotes", "pollination"]
+    : ["scientificName", "category", "fruitType", "growthHabit", "searchAliases",
+      "origin", "light", "water", "description", "pollination", "potSuitability",
+      "minColdC", "coldSource", "coldNotes"];
+  if (keys.some(key => {
+    const name = cultivar ? "cultivar" + key[0].toUpperCase() + key.slice(1) : key;
+    const original = String(form.elements.namedItem(name)?.value ?? "").trim();
+    const replacement = String(profile?.[key] ?? "").trim();
+    return original && original !== replacement;
+  })) return true;
+  const name = cultivar ? "cultivarHarvestMonth" : "harvestMonth";
+  const selected = [...form.querySelectorAll('input[name="' + name + '"]:checked')]
+    .map(input => Number(input.value)).sort((a, b) => a - b);
+  const incoming = [...(profile?.harvestMonths || [])].sort((a, b) => a - b);
+  return selected.length > 0 && JSON.stringify(selected) !== JSON.stringify(incoming);
+}
+function updatePublicationStatus(form) {
+  const notice = form.querySelector("[data-publication-status]");
+  if (notice) notice.hidden = !(
+    form.elements.namedItem("published")?.checked &&
+    ["Morta", "Ceduta"].includes(form.elements.namedItem("lifeStage")?.value)
+  );
+}
 function updateSharedProfileWarnings(form) {
   const species = profileByName(state.profiles, "species",
     form.elements.namedItem("name")?.value);
@@ -815,23 +849,41 @@ function handlePlantSelection(event) {
   if (event.target.name === "name") {
     const species = profileByName(state.profiles, "species", event.target.value);
     const oldId = form.dataset.speciesId;
+    const switched = oldId !== (species?.id || "");
+    const cultivarName = form.elements.namedItem("cultivarName");
+    const clearsCultivar = switched && (cultivarName?.value.trim() ||
+      profileFieldsWouldOverwrite(form, null, true));
+    const overwritesSpecies = switched && species &&
+      profileFieldsWouldOverwrite(form, species);
+    if ((clearsCultivar || overwritesSpecies) && !window.confirm(
+      "Il cambio di specie sostituirà caratteristiche botaniche già compilate" +
+      (clearsCultivar ? " e azzererà la cultivar selezionata" : "") +
+      ". Vuoi continuare?"
+    )) {
+      event.target.value = form.dataset.acceptedName || "";
+      updateSpeciesStatus(form);
+      updateSharedProfileWarnings(form);
+      return;
+    }
     if (species) {
       event.target.value = species.name;
-      fillProfileFields(form, species);
+      if (switched) fillProfileFields(form, species);
     }
-    // Un nome ancora sconosciuto può essere una correzione lessicale: non
-    // cancellare categoria e dati già compilati, né bloccare il salvataggio.
+    // Un nome ancora sconosciuto conserva i campi botanici: vanno verificati
+    // prima di attribuirli alla nuova specie.
+    form.dataset.acceptedName = event.target.value.trim();
     form.dataset.speciesId = species?.id || "";
     form.dataset.speciesVersion = species?.__snapshotVersion || "";
     const choices = form.querySelector("#known-cultivars");
     if (choices) choices.innerHTML = state.profiles
       .filter(item => item.kind === "cultivar" && item.parentId === species?.id)
       .map(item => '<option value="' + escapeHtml(item.name) + '"></option>').join("");
-    if (oldId !== (species?.id || "")) {
-      const cultivar = form.elements.namedItem("cultivarName");
-      if (cultivar) cultivar.value = "";
+    if (switched) {
+      if (cultivarName) cultivarName.value = "";
       fillProfileFields(form, null, true);
-      form.dataset.cultivarId = ""; form.dataset.cultivarVersion = "";
+      form.dataset.cultivarId = "";
+      form.dataset.cultivarVersion = "";
+      form.dataset.acceptedCultivar = "";
     }
   }
   if (event.target.name === "cultivarName") {
@@ -839,9 +891,22 @@ function handlePlantSelection(event) {
       profileByName(state.profiles, "species", form.elements.namedItem("name")?.value)?.id ||
       taxonId("species", form.elements.namedItem("name")?.value);
     const cultivar = profileByName(state.profiles, "cultivar", event.target.value, speciesId);
-    fillProfileFields(form, cultivar, true);
+    const oldId = form.dataset.cultivarId;
+    const switched = oldId !== (cultivar?.id || "");
+    if (switched && (cultivar
+      ? profileFieldsWouldOverwrite(form, cultivar, true)
+      : oldId && profileFieldsWouldOverwrite(form, null, true)) &&
+      !window.confirm("Il cambio di cultivar sostituirà i dettagli varietali già compilati. Vuoi continuare?")) {
+      event.target.value = form.dataset.acceptedCultivar || "";
+      updateSharedProfileWarnings(form);
+      return;
+    }
+    if (cultivar) event.target.value = cultivar.name;
+    // Una cultivar nuova, non ancora registrata, conserva i dati già digitati.
+    if (switched && (cultivar || oldId)) fillProfileFields(form, cultivar, true);
     form.dataset.cultivarId = cultivar?.id || "";
     form.dataset.cultivarVersion = cultivar?.__snapshotVersion || "";
+    form.dataset.acceptedCultivar = event.target.value.trim();
   }
   if (event.target.name === "lotName") {
     const speciesId = form.dataset.speciesId ||
@@ -864,6 +929,7 @@ function handlePlantSelection(event) {
         form.dataset.id && editBaseline?.id === form.dataset.id ? editBaseline : null) !== "Piante da frutto";
   }
   updateSharedProfileWarnings(form);
+  updatePublicationStatus(form);
 }
 function markPlantDirty(event) {
   if (event.target.closest?.("#plant-form")) formDirty = true;
@@ -888,7 +954,10 @@ document.addEventListener("submit", handleSubmit);
 document.addEventListener("input", markPlantDirty);
 document.addEventListener("input", event => {
   const form = event.target.closest?.("#plant-form");
-  if (form) updateSharedProfileWarnings(form);
+  if (form) {
+    updateSharedProfileWarnings(form);
+    updatePublicationStatus(form);
+  }
 });
 document.addEventListener("change", markPlantDirty);
 document.addEventListener("change", handlePlantSelection);

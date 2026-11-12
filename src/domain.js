@@ -116,6 +116,12 @@ export function safeImageUrl(input) {
   }
 }
 
+export function varietyLabel(plant) {
+  if (!String(plant?.variety || "").trim()) return "";
+  return (plant.cultivarId ? "Cultivar: " : "Indicazione varietale (da verificare): ") +
+    String(plant.variety).trim();
+}
+
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
