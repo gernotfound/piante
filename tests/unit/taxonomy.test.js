@@ -68,3 +68,11 @@ test("il gruppo esplicito legacy non cambia solo perché la specie viene collega
   assert.equal(resolvePlantProfiles({ ...legacy, category: "Ornamentali" }, [species]).plantGroup,
     "Altre piante");
 });
+
+test("l'identità cultivar verificata è distinta dall'indicazione sul seme", () => {
+  const speciesId = taxonId("species", "Avocado");
+  const seedling = { name: "Avocado", speciesId, seedSourceCultivar: "Hass", variety: "" };
+  const species = sharedProfileDraft("species", "Avocado", "", { scientificName: "Persea americana" });
+  assert.equal(resolvePlantProfiles(seedling, [{ ...species, id: speciesId }]).variety, "");
+  assert.equal(resolvePlantProfiles(seedling, [{ ...species, id: speciesId }]).seedSourceCultivar, "Hass");
+});

@@ -147,7 +147,8 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
     if (item) {
       const { id: documentId, __snapshotVersion, ...data } = item;
       setEditBaseline({ id: documentId, version: __snapshotVersion || plantVersion(data),
-        category: data.category, plantGroup: data.plantGroup });
+        category: data.category, plantGroup: data.plantGroup,
+        cultivarId: data.cultivarId || "" });
     } else {
       setEditBaseline(null);
     }

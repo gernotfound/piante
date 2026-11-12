@@ -1,5 +1,5 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, plantPresets, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError } from "./plant-store.js";
 import { lifeStages, journalKinds, taxonId, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
@@ -332,7 +332,7 @@ async function savePlant(form, id) {
   if (plantSaveInProgress || !firebase) return;
   if (!state.inventoryReady || !state.lotsReady || !state.profilesReady ||
       state.inventoryError || state.profilesError) {
-    showFormError("Schede botaniche, lotti o inventario non disponibili. I dati non sono stati salvati.");
+    showFormError("Inventario non disponibile oppure schede botaniche o lotti non accessibili. I dati non sono stati salvati.");
     return;
   }
   const keys = ["name", "scientificName", "category", "variety", "origin",
@@ -357,6 +357,7 @@ async function savePlant(form, id) {
   plant.cultivarId = cultivarName
     ? cultivar?.id || taxonId("cultivar", cultivarName, plant.speciesId) : "";
   if (cultivarName) plant.variety = cultivarName;
+  else if (previous?.cultivarId) plant.variety = "";
   const lotName = String(form.get("lotName") || "").trim();
   const existingLot = state.lots.find(lot =>
     lot.name.toLocaleLowerCase("it") === lotName.toLocaleLowerCase("it"));

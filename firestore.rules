@@ -44,7 +44,7 @@ service cloud.firestore {
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 100
         && request.resource.data.kind in ['species', 'cultivar']
-        && optionalText(request.resource.data, 'parentId', 400)
+        && optionalText(request.resource.data, 'parentId', 900)
         && (request.resource.data.kind != 'cultivar' ||
           request.resource.data.get('parentId', '') != '')
         && optionalText(request.resource.data, 'scientificName', 150)
@@ -139,8 +139,8 @@ service cloud.firestore {
         ])
         && request.resource.data.get('harvestMonths', []).toSet().size()
           == request.resource.data.get('harvestMonths', []).size()
-        && optionalText(request.resource.data, 'speciesId', 400)
-        && optionalText(request.resource.data, 'cultivarId', 400)
+        && optionalText(request.resource.data, 'speciesId', 900)
+        && optionalText(request.resource.data, 'cultivarId', 1100)
         && optionalText(request.resource.data, 'searchAliases', 250)
         && optionalText(request.resource.data, 'coldNotes', 250)
         && optionalHttps(request.resource.data, 'coldSource', 500)
