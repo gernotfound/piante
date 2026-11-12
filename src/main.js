@@ -474,6 +474,10 @@ async function savePlant(form, id) {
 
 async function saveJournal(form, plantId) {
   if (!state.owner || !firebase || !state.inventoryReady || !plantId || plantSaveInProgress) return;
+  if (formDirty) {
+    showFormError("Salva prima le modifiche alla scheda della pianta: il diario non è stato registrato e i dati nel modulo sono rimasti invariati.");
+    return;
+  }
   const note = String(form.get("eventNotes") || "").trim();
   const kind = String(form.get("eventKind") || "");
   const date = String(form.get("eventDate") || "");

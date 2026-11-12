@@ -470,6 +470,14 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       await page.locator('#journal-form button[type="submit"]').click();
       await page.locator(".diary-item").filter({ hasText: "Rinvaso di prova" })
         .waitFor({ timeout: 30000 });
+      await page.locator('textarea[name="description"]').fill("Bozza della scheda da non perdere");
+      await page.locator('textarea[name="eventNotes"]').fill("Attività non ancora registrata");
+      await page.locator('#journal-form button[type="submit"]').click();
+      await page.locator(".notice.error").filter({ hasText: "Salva prima le modifiche" }).waitFor();
+      assert.equal(await page.locator('textarea[name="description"]').inputValue(),
+        "Bozza della scheda da non perdere");
+      assert.equal(await page.locator('textarea[name="eventNotes"]').inputValue(),
+        "Attività non ancora registrata");
       assert.deepEqual(page.sandboxRequests, []);
     } finally {
       await context.close();
