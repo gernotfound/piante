@@ -133,10 +133,14 @@ export function displayText(value, fallback = "—") {
   return text || fallback;
 }
 
-// Il documento Firestore rimane l'identità canonica. Il codice breve, derivato
-// dall'ID anche per i record legacy, è stabile ma non può garantire l'assenza
-// matematica di collisioni nello spazio di 36^6 combinazioni.
+export function validSpecimenCode(code) {
+  return typeof code === "string" && /^[A-Z0-9]{6}$/.test(code);
+}
+
+// Un codice registrato è definitivo. Le vecchie schede usano temporaneamente
+// il codice storico finché il proprietario non completa la conversione.
 export function specimenCodeOf(plant) {
+  if (validSpecimenCode(plant?.specimenCode)) return "#" + plant.specimenCode;
   const id = String(plant?.id ?? "");
   if (!id) return "";
   let hash = 2166136261;
@@ -149,6 +153,7 @@ export function specimenCodeOf(plant) {
 export function catalogProjection(plant) {
   return {
     name: plant.name,
+    ...(validSpecimenCode(plant.specimenCode) ? { specimenCode: plant.specimenCode } : {}),
     scientificName: plant.scientificName || "",
     category: plant.category || "Altre",
     variety: plant.variety || "",
