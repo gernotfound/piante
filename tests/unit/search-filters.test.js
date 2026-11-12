@@ -90,9 +90,13 @@ test("Proiezione pubblica: solo i metadati ammessi; vecchie schede ancora leggib
 test("il codice con # e i dettagli privati sono ricercabili soltanto nell'inventario", () => {
   const plant = { id: "1234567890abcdefghij", name: "Papaya",
     category: "Tropicali da frutto", sourceDetails: "Frutto etichettato Formosa", published: true };
+  const shortCode = specimenCodeOf(plant);
+  assert.deepEqual(filterInventory([plant], { query: shortCode }).map(item => item.id), [plant.id]);
+  assert.deepEqual(filterCatalog([plant], { query: shortCode }).map(item => item.id), [plant.id]);
   assert.deepEqual(filterInventory([plant], { query: "#1234567890abcdefghij" }).map(item => item.id),
-    [plant.id]);
+    [plant.id], "Il vecchio ID documentale resta ricercabile dal proprietario");
+  assert.deepEqual(filterCatalog([plant], { query: "#1234567890abcdefghij" }), [],
+    "La ricerca pubblica indicizza solo il codice breve");
   assert.deepEqual(filterInventory([plant], { query: "Formosa" }).map(item => item.id), [plant.id]);
-  assert.deepEqual(filterCatalog([plant], { query: "#1234567890abcdefghij" }), []);
   assert.deepEqual(filterCatalog([plant], { query: "Formosa" }), []);
 });
