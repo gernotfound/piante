@@ -363,6 +363,7 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.locator('[data-action="delete-plant"]').click();
       await page.waitForURL("**/admin/piante", { timeout: 45000 });
       assert.equal((await getDoc(doc(owner, "privatePlants", id))).exists(), false);
+      assert.equal((await getDocs(collection(owner, "privatePlants", id, "events"))).size, 0);
       assert.equal((await getDoc(doc(guest, "catalog", id))).exists(), false);
 
       await page.goto(baseUrl + "/admin/impostazioni", { waitUntil: "domcontentloaded" });

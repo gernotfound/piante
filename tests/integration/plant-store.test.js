@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, doc, getDoc, getDocs, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
-import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError } from "../../src/plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError } from "../../src/plant-store.js";
 import { taxonId, lotIdOf, sharedProfileDraft, resolvePlantProfiles } from "../../src/taxonomy.js";
 
 let environment;
@@ -25,7 +25,7 @@ const plant = {
   published: false
 };
 
-const adapter = (db) => ({ db, collection, doc, runTransaction, serverTimestamp });
+const adapter = (db) => ({ db, collection, doc, getDocs, runTransaction, serverTimestamp });
 const data = async (db, collectionName, id) => {
   const snapshot = await getDoc(doc(db, collectionName, id));
   return snapshot.exists() ? snapshot.data() : null;
@@ -137,6 +137,7 @@ test("un editor obsoleto non può cancellare una scheda aggiornata altrove", asy
   assert.equal((await data(guest, "catalog", id)).name, "Aggiornata");
   const currentVersion = plantVersion(await data(owner, "privatePlants", id));
   await deletePlantRecord(adapter(owner), { id, expectedVersion: currentVersion });
+  assert.equal((await getDocs(collection(owner, "privatePlants", id, "events"))).size, 0);
   assert.equal(await data(owner, "privatePlants", id), null);
   assert.equal(await data(guest, "catalog", id), null);
   await assert.rejects(savePlantRecord(adapter(owner), { id, expectedVersion: currentVersion,
@@ -284,4 +285,25 @@ test("lotti e diario sono privati e non contaminano i campi del catalogo", async
   await assert.rejects(getDocs(collection(guest, "privatePlants", id, "events")),
     { code: "permission-denied" });
   await assert.rejects(getDoc(doc(guest, "seedLots", lotId)), { code: "permission-denied" });
+});
+
+
+test("eliminazione bloccata se il diario contiene osservazioni: nessun dato perso", async () => {
+  const id = await savePlantRecord(adapter(owner), { plant: { ...plant, published: true } });
+  await saveJournalEntry(adapter(owner), {
+    plantId: id, kind: "Osservazione", note: "Frutto campione da conservare",
+    eventDate: "2026-11-12"
+  });
+  const current = await data(owner, "privatePlants", id);
+  assert.ok(current.lastJournalActivityAt, "L'attività aggiorna il documento padre");
+  await assert.rejects(deletePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion(current)
+  }), PlantJournalRetentionError);
+  assert.ok(await data(owner, "privatePlants", id));
+  assert.ok(await data(guest, "catalog", id));
+  const events = await getDocs(collection(owner, "privatePlants", id, "events"));
+  assert.ok(events.docs.some(event => event.data().note.includes("Frutto campione")));
+  await assert.rejects(deletePlantRecord(adapter(owner), {
+    id, expectedVersion: plantVersion({ ...current, lastJournalActivityAt: null })
+  }), PlantJournalRetentionError);
 });

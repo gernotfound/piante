@@ -24,6 +24,13 @@ export class PlantConflictError extends Error {
   }
 }
 
+export class PlantJournalRetentionError extends Error {
+  constructor() {
+    super("Il diario contiene osservazioni da conservare o è troppo esteso per un'eliminazione sicura. Imposta lo stato della pianta a Morta o Ceduta e conserva la scheda.");
+    this.name = "PlantJournalRetentionError";
+  }
+}
+
 function assertCurrent(snapshot, expectedVersion) {
   if (!snapshot.exists() || plantVersion(snapshot.data()) !== expectedVersion) {
     throw new PlantConflictError();
@@ -99,17 +106,27 @@ export async function deletePlantRecord(firebase, { id, expectedVersion }) {
   if (!id || typeof expectedVersion !== "string") throw new PlantConflictError();
   const privateRef = firebase.doc(firebase.db, "privatePlants", id);
   const publicRef = firebase.doc(firebase.db, "catalog", id);
+  // Firestore non elimina le sottoraccolte insieme al documento padre.
+  // Se il diario contiene osservazioni, la cancellazione è bloccata: non
+  // cancelliamo dati di coltivazione e non lasciamo eventi orfani.
+  const events = await firebase.getDocs(firebase.collection(privateRef, "events"));
+  if (events.size > 250 || events.docs.some(event =>
+    String(event.data().note || "").trim())) throw new PlantJournalRetentionError();
   await firebase.runTransaction(firebase.db, async (tx) => {
     const previous = await tx.get(privateRef);
     assertCurrent(previous, expectedVersion);
+    const eventSnapshots = await Promise.all(events.docs.map(event => tx.get(event.ref)));
+    if (eventSnapshots.some(snapshot => !snapshot.exists() ||
+        String(snapshot.data().note || "").trim())) throw new PlantJournalRetentionError();
+    for (const snapshot of eventSnapshots) tx.delete(snapshot.ref);
     tx.delete(privateRef);
     tx.delete(publicRef);
   });
 }
 
 
-// Le attività e le modifiche sono conservate in una sottoraccolta privata;
-// non aggiornano l'esemplare, per non invalidare moduli già aperti altrove.
+// Il diario è privato e append-only. L'aggiornamento del padre rende rilevabili
+// attività concorrenti mentre un'altra sessione prova a eliminare la pianta.
 export async function saveJournalEntry(firebase, { plantId, kind, note, eventDate }) {
   const validDate = typeof eventDate === "string" &&
     /^\d{4}-\d{2}-\d{2}$/.test(eventDate) &&
@@ -129,5 +146,6 @@ export async function saveJournalEntry(firebase, { plantId, kind, note, eventDat
       type: kind, note: note.trim(), eventDate, changedFields: [],
       createdAt: firebase.serverTimestamp()
     });
+    tx.update(parent, { lastJournalActivityAt: firebase.serverTimestamp() });
   });
 }

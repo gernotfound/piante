@@ -31,3 +31,7 @@
 ## Limiti noti del modello condiviso
 
 I documenti `catalog` mantengono una proiezione di compatibilità: i client che leggono direttamente Firestore senza applicare il profilo condiviso possono mostrare il valore precedente di un attributo. Il frontend Piante risolve i profili in tempo reale. Le note private, il lotto, il diario e lo stato non vengono copiati in `catalog` o `plantProfiles`. La cancellazione definitiva di un documento Firestore non elimina automaticamente la sottoraccolta privata `events`: preferire la conservazione dello stato storico e valutare una politica esplicita di eliminazione degli eventi prima di abilitare cancellazioni massive.
+
+## Eliminazione in presenza di diario
+
+La cancellazione di una pianta con osservazioni manuali è rifiutata: si può invece mantenere la scheda con stato «Morta» o «Ceduta». Se lo storico contiene solo eventi automatici, il client legge gli eventi (massimo 250) e li elimina insieme alla scheda privata e alla proiezione pubblica in una transazione Firestore. Gli eventi sono normalmente append-only; le Rules consentono la cancellazione solo nello stesso commit che elimina il documento padre. Il salvataggio di una nuova osservazione aggiorna il padre e causa conflitto con una cancellazione concorrente. In presenza di troppi eventi, di un errore di rete o di una versione diversa, non viene effettuata alcuna eliminazione.

@@ -183,4 +183,8 @@ test("profili pubblici senza dati riservati, lotti e diario solo proprietario", 
     { type: "Osservazione", note: "Privato", changedFields: [] }));
   await assertFails(setDoc(doc(owner, "privatePlants", "mango", "events", "leak"),
     { type: "Osservazione", note: "Evento", changedFields: [], publicNotes: "Non previsto" }));
+  const automaticEvent = doc(owner, "privatePlants", "mango", "events", "history");
+  await assertSucceeds(setDoc(automaticEvent, { type: "Modifica", note: "", changedFields: [] }));
+  await assertFails(deleteDoc(automaticEvent));
+  await assertFails(deleteDoc(doc(guest, "privatePlants", "mango", "events", "history")));
 });

@@ -1,6 +1,6 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
 import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
-import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError } from "./plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError } from "./plant-store.js";
 import { lifeStages, journalKinds, taxonId, lotIdOf, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
@@ -476,7 +476,7 @@ async function deletePlant(id) {
     showFormError("Inventario non disponibile. Nessuna eliminazione eseguita: verifica la connessione e riprova.");
     return;
   }
-  if (!window.confirm("Eliminare definitivamente questa pianta dall'inventario e dal catalogo pubblico?")) return;
+  if (!window.confirm("Eliminare definitivamente questa pianta, le modifiche automatiche e la proiezione pubblica? Se il diario contiene osservazioni personali, l'eliminazione sarà bloccata per conservarle.")) return;
   const expectedVersion = editBaseline?.id === id ? editBaseline.version : null;
   const editor = document.querySelector("#plant-form");
   const controls = Array.from(editor?.querySelectorAll("input, select, textarea, button") || [])
@@ -488,8 +488,8 @@ async function deletePlant(id) {
     await deletePlantRecord(firebase, { id, expectedVersion });
     completed = true;
   } catch (err) {
-    showFormError(err instanceof PlantConflictError ? err.message :
-      "Eliminazione non riuscita. La scheda non è stata modificata da questa operazione.",
+    showFormError(err instanceof PlantConflictError || err instanceof PlantJournalRetentionError
+      ? err.message : "Eliminazione non riuscita. La scheda non è stata modificata da questa operazione.",
       err instanceof PlantConflictError);
   } finally {
     plantSaveInProgress = false;

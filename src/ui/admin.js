@@ -323,7 +323,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         <button class="btn btn-primary" type="submit">Salva pianta</button>
         <a href="/admin/piante" data-nav class="btn btn-outline">Annulla</a>
       </div>
-      ${id ? `<div class="editor-danger"><p>Per rimuovere definitivamente questa pianta dall'inventario e dal catalogo:</p>
+      ${id ? `<div class="editor-danger"><p>L'eliminazione è definitiva e rimuove anche gli eventi automatici. Se il diario contiene osservazioni personali, per conservarle imposta lo stato a «Morta» o «Ceduta» invece di eliminare la scheda.</p>
         <button class="btn btn-danger" type="button" data-action="delete-plant" data-id="${h(id)}">Elimina pianta</button></div>` : ""}
     </form>
     ${id ? `<section class="panel diary-panel">
