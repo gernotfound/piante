@@ -74,6 +74,12 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
   assert.match(ui, /varietyLabel\(item\)/);
 });
 
+test("Codici delle piante: nessun comando di attivazione manuale", () => {
+  assert.doesNotMatch(ui, /activate-codes|codeRegistryStatus|consolidateSpecimenCodes/);
+  assert.doesNotMatch(css, /\.code-registry-notice/);
+  assert.match(ui, /specimenCodeOf\(plant\)/);
+});
+
 test("Accesso: solo email/password e nessun percorso nickname residuo", () => {
   assert.match(ui, /<input class="input" type="email" name="email" autocomplete="username"/);
   assert.doesNotMatch(ui, /name="identity"/);
