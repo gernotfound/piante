@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { filterCatalog, filterInventory, normalizePlantQuery } from "../../src/catalog.js";
-import { catalogProjection, coldMinimumOf, fruitTypeOf, plantGroupOf, normalizedHarvestMonths, validatePlant } from "../../src/domain.js";
+import { catalogProjection, coldMinimumOf, fruitTypeOf, plantGroupOf, normalizedHarvestMonths, specimenCodeOf, validatePlant } from "../../src/domain.js";
 
 const items = [
   { id: "a", name: "Avocado", scientificName: "Persea americana", category: "Tropicali da frutto", variety: "da seme", minColdC: -2, pollination: "Variabile", potSuitability: "Con accorgimenti", harvestMonths: [10, 11], published: true },
@@ -87,12 +87,16 @@ test("Proiezione pubblica: solo i metadati ammessi; vecchie schede ancora leggib
 });
 
 
-test("il codice con # e i dettagli privati sono ricercabili soltanto nell'inventario", () => {
+test("il codice breve è ricercabile nel catalogo, mentre i dettagli privati restano nell'inventario", () => {
   const plant = { id: "1234567890abcdefghij", name: "Papaya",
     category: "Tropicali da frutto", sourceDetails: "Frutto etichettato Formosa", published: true };
+  const shortCode = specimenCodeOf(plant);
+  assert.deepEqual(filterInventory([plant], { query: shortCode }).map(item => item.id), [plant.id]);
+  assert.deepEqual(filterCatalog([plant], { query: shortCode }).map(item => item.id), [plant.id]);
   assert.deepEqual(filterInventory([plant], { query: "#1234567890abcdefghij" }).map(item => item.id),
-    [plant.id]);
+    [plant.id], "Il vecchio ID documentale resta ricercabile dal proprietario");
+  assert.deepEqual(filterCatalog([plant], { query: "#1234567890abcdefghij" }), [],
+    "La ricerca pubblica indicizza solo il codice breve");
   assert.deepEqual(filterInventory([plant], { query: "Formosa" }).map(item => item.id), [plant.id]);
-  assert.deepEqual(filterCatalog([plant], { query: "#1234567890abcdefghij" }), []);
   assert.deepEqual(filterCatalog([plant], { query: "Formosa" }), []);
 });

@@ -1,4 +1,4 @@
-import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, monthNames, plantGroupOf, fruitTypeOf, coldMinimumOf, varietyLabel, safeImageUrl, escapeHtml } from "../domain.js";
+import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, monthNames, plantGroupOf, fruitTypeOf, coldMinimumOf, varietyLabel, specimenCodeOf, safeImageUrl, escapeHtml } from "../domain.js";
 import { filterCatalog } from "../catalog.js";
 import { firebaseConfigured } from "../config.js";
 import { leafArt, heroArt } from "./artwork.js";
@@ -60,7 +60,7 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
       ${imageMarkup(item)}
       <div class="plant-info">
         <span class="plant-category">${h(item.category || "Pianta")}</span>
-        <h3 class="plant-name">${h(item.name)}</h3>
+        <h3 class="plant-name plant-title-line"><span>${h(item.name)}</span><span class="specimen-code public-specimen-code">${h(specimenCodeOf(item))}</span></h3>
         ${item.scientificName ? `<p class="plant-latin">${h(item.scientificName)}</p>` : ""}
         ${varietyLabel(item) ? `<p class="plant-variety">${h(varietyLabel(item))}</p>` : ""}
         ${item.availability ? `<p class="plant-availability">${h(item.availability)}</p>` : ""}
@@ -257,7 +257,7 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
         ${imageMarkup(item, true)}
         <div class="detail-info">
           <span class="eyebrow">${h(item.category || "Collezione")}</span>
-          <h1>${h(item.name)}</h1>
+          <h1 class="plant-title-line detail-title"><span>${h(item.name)}</span><span class="specimen-code public-specimen-code">${h(specimenCodeOf(item))}</span></h1>
           ${item.scientificName ? `<p class="plant-latin">${h(item.scientificName)}</p>` : ""}
           ${varietyLabel(item) ? `<p class="detail-variety">${h(varietyLabel(item))}</p>` : ""}
           ${item.fruitNotes ? `<p class="detail-description"><strong>Frutto della cultivar:</strong> ${h(item.fruitNotes)}</p>` : ""}

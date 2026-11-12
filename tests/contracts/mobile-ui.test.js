@@ -49,6 +49,8 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
   assert.match(ui, /id="plant-form"/);
   assert.doesNotMatch(ui, /name="specimenLabel"/);
   assert.match(ui, /class="plant-title-line"/);
+  assert.match(ui, /public-specimen-code/);
+  assert.match(css, /\.public-specimen-code\{/);
   assert.match(ui, /specimenCodeOf\(plant\)/);
   assert.doesNotMatch(ui, /name="plantPreset"/);
   assert.match(ui, /id="known-species"/);
@@ -62,7 +64,9 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
   assert.match(ui, /id="editor-botany"/);
   assert.match(ui, /id="editor-origin"/);
   assert.match(ui, /data-shared-warning="species"/);
-  assert.match(css, /\.editor-panel \.editor-actions\{position:sticky/);
+  assert.match(css, /\.editor-panel \.editor-actions\{position:static/);
+  assert.doesNotMatch(css, /\.editor-panel \.editor-actions\{position:sticky/);
+  assert.match(ui, /<a href="\/admin\/piante" data-nav class="btn btn-outline">Annulla<\/a>\s*<button class="btn btn-primary" type="submit">Salva pianta<\/button>/);
   assert.match(ui, /data-publication-status/);
   assert.match(ui, /profileFieldsWouldOverwrite/);
   assert.match(ui, /caratteristiche della cultivar senza indicarne il nome/);

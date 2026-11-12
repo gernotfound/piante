@@ -21,13 +21,14 @@ DM Sans è usato nei controlli e nel testo; Playfair Display nei titoli editoria
 - **600 px:** più spazio, forme a due colonne, categorie in quattro colonne.
 - **760 px:** menu orizzontale, filtri fissi del catalogo, prodotto in due colonne.
 - **1000 px:** sidebar del gestionale e inventario tabellare. Sotto, barra inferiore a quattro destinazioni con attenzione alla safe area.
+- Nell'editor del gestionale i comandi «Annulla» e «Salva pianta» sono affiancati e restano alla fine del modulo, nel normale flusso della pagina; non si sovrappongono ai campi né alla navigazione inferiore.
 - Layout non dipendenti da hover, immagini con fallback, stato vuoto reale, preferenza riduzione delle animazioni rispettata. Nei browser senza CSS Grid il contenuto resta impilabile, ma richiede verifica manuale.
 
 I breakpoint seguono la larghezza utile, non modelli o produttori di smartphone. Verificare schermi con zoom testo al 200%, tastiera virtuale aperta, rotazione e viewport di altezza limitata.
 
 ## Navigazione e dati
 
-- La vetrina ha Home, Catalogo, Il vivaio e Contatti. Le tessere delle categorie collegano a `/piante?categoria=...` (condivisione/refresh preservano la categoria).
+- La vetrina ha Home, Catalogo, Il vivaio e Contatti. Le tessere e il dettaglio mostrano accanto al nome il codice breve dell'esemplare (`#` seguito da sei caratteri A–Z/0–9), identico a quello visibile nel gestionale, anche per piante omonime, e ricercabile nel catalogo pubblico. L'identificativo documentale lungo resta ricercabile solo nell'inventario privato. Le tessere delle categorie collegano a `/piante?categoria=...` (condivisione/refresh preservano la categoria).
 - Ricerca e filtri del catalogo operano solo sui documenti già pubblici in `catalog`. Il prezzo e la disponibilità compaiono soltanto quando presenti nei dati, senza interpretare testo libero come quantità o stati certificati.
 - La dashboard mostra totale, pubblicate, private ed elementi modificati di recente. La lista non introduce nuove raccolte o scritture.
 - L’editor accetta liberamente il nome comune della specie (es. Avocado) con suggerimenti dalle specie già registrate; le informazioni botaniche condivise sono recuperate da profili persistenti, modificabili con controllo delle versioni. Le cultivar verificate hanno un profilo distinto; la cultivar del frutto genitore è soltanto un attributo di provenienza privata, mai un'identificazione automatica della pianta nata da seme. Ogni esemplare conserva un codice alfanumerico automatico preceduto da `#`, visualizzato nell’inventario e nella dashboard; gruppo derivato dalla categoria, stato, lotto, diario e duplicazione prudente sono presenti nella gestione. I dati botanici condivisi rimangono riservati finché non è pubblicato il primo esemplare; le note, le attività, i lotti e la posizione non escono mai dall'inventario privato.

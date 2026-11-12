@@ -244,9 +244,9 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           <h3>Questo esemplare</h3><p>Informazioni proprie della pianta, sempre private.</p></div></div>
         <div class="form-grid">
           <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
-            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice alfanumerico univoco della pianta">
-            <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
-            `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
+            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice breve della pianta">
+            <small>È stabile, inizia con # e puoi copiarlo per riconoscere questo esemplare.</small></label>` :
+            `<p class="specimen-hint">Un codice breve di 6 caratteri (A–Z e 0–9), preceduto da #, sarà assegnato al salvataggio.</p>`}</div>
           <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
             ${["", ...lifeStages].map(value => `<option value="${h(value)}" ${(p.lifeStage || "") === value ? "selected" : ""}>${h(value || "Non specificato")}</option>`).join("")}
           </select></label>
@@ -330,8 +330,8 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         <p class="profile-edit-warning" data-publication-status role="status" ${p.published && ["Morta", "Ceduta"].includes(p.lifeStage) ? "" : "hidden"}>Questa pianta è contrassegnata come morta o ceduta, ma rimane pubblicata: verifica se vuoi mantenerla nel catalogo.</p>
       </section>
       <div class="editor-actions" aria-label="Azioni scheda pianta">
-        <button class="btn btn-primary" type="submit">Salva pianta</button>
         <a href="/admin/piante" data-nav class="btn btn-outline">Annulla</a>
+        <button class="btn btn-primary" type="submit">Salva pianta</button>
       </div>
       ${id ? `<div class="editor-danger"><p>L'eliminazione è definitiva e rimuove anche gli eventi automatici. Se il diario contiene osservazioni personali, per conservarle imposta lo stato a «Morta» o «Ceduta» invece di eliminare la scheda.</p>
         <button class="btn btn-danger" type="button" data-action="delete-plant" data-id="${h(id)}">Elimina pianta</button></div>` : ""}

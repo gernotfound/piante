@@ -42,8 +42,8 @@ function isSingleEditAway(a, b) {
 function plantSearchFields(plant, includePrivate = false) {
   const aliases = String(plant.searchAliases || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
   return [plant.name, plant.scientificName, plant.variety, plant.category,
-    plant.plantGroup, plant.fruitType, plant.growthHabit, ...aliases,
-    ...(includePrivate ? [specimenCodeOf(plant), plant.sourceDetails,
+    plant.plantGroup, plant.fruitType, plant.growthHabit, specimenCodeOf(plant), ...aliases,
+    ...(includePrivate ? [plant.id, plant.sourceDetails,
       plant.seedSourceCultivar, plant.lotName, plant.lifeStage] : [])]
     .map(normalizePlantQuery).filter(Boolean);
 }
