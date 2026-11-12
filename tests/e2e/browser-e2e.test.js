@@ -487,7 +487,8 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.goto(baseUrl + "/admin/impostazioni", { waitUntil: "domcontentloaded" });
       await page.locator(".settings-logout [data-action='logout']").waitFor();
       assert.equal(await page.locator("#username-form").count(), 0);
-      assert.equal(await page.locator('[data-action="logout"]').count(), 1);
+      assert.equal(await page.locator('.settings-logout [data-action="logout"]').count(), 1);
+      assert.equal(await page.locator('.admin-sidebar [data-action="logout"]').count(), 1);
       assert.match(await page.locator(".admin-body").innerText(), /Email dell'account:/);
       await page.locator(".settings-logout [data-action='logout']").click();
       await page.waitForURL("**/login", { timeout: 45000 });
