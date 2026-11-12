@@ -691,7 +691,8 @@ function handlePlantSelection(event) {
     const species = profileByName(state.profiles, "species", event.target.value);
     const oldId = form.dataset.speciesId;
     if (species) fillProfileFields(form, species);
-    else if (oldId) fillProfileFields(form, null);
+    // Un nome ancora sconosciuto può essere una correzione lessicale: non
+    // cancellare categoria e dati già compilati, né bloccare il salvataggio.
     form.dataset.speciesId = species?.id || "";
     form.dataset.speciesVersion = species?.__snapshotVersion || "";
     const choices = form.querySelector("#known-cultivars");

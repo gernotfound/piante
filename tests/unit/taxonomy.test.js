@@ -48,6 +48,8 @@ test("la duplicazione non conserva attributi personali o pubblicazione", () => {
   assert.equal(clone.propagationMethod, "");
   assert.equal(clone.materialSource, "");
   assert.equal(clone.variety, "");
+  assert.equal(preparePlantDuplicate({ variety: "Hass", cultivarId: "" }).variety, "");
+  assert.equal(preparePlantDuplicate({ variety: "Hass", cultivarId: "c_verified" }).variety, "Hass");
 });
 
 test("diff storico contiene solo nomi di campi, senza valori sensibili", () => {

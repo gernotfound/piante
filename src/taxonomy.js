@@ -108,7 +108,7 @@ export function preparePlantDuplicate(source) {
     plantLocation: "", specimenSex: "", internalNotes: "", imageUrl: "",
     availability: "", price: "", lifeStage: "", lotId: "", lotName: "",
     propagationMethod: "", materialSource: "",
-    variety: source.cultivarId ? plant.variety : "",
+    variety: source.cultivarId ? plant.variety || "" : "",
     seedSourceCultivar: ""
   };
 }

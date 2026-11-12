@@ -220,7 +220,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
             <input class="input" name="name" value="${h(p.name || "")}" required maxlength="100"
               list="known-species" autocomplete="off" placeholder="Scrivi Avocado, Papaya...">
             <datalist id="known-species">${speciesChoices}</datalist>
-            <small>Scrivi liberamente. Le specie già registrate recuperano i dati condivisi: modificandoli, vengono aggiornate tutte le piante collegate.</small>
+            <small>Scrivi liberamente. Le specie già registrate recuperano i dati condivisi; correggendo i loro attributi si aggiornano gli esemplari collegati. Un nome nuovo conserva i campi del modulo: verificane la correttezza prima di salvare.</small>
           </label>
           ${inputField("Nome scientifico", "scientificName", shared.scientificName, "maxlength='150'")}
           ${select}
