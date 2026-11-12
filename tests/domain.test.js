@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogProjection, escapeHtml, normalizeUsername, safeImageUrl, validUsername, validatePlant } from "../src/domain.js";
+import { catalogProjection, escapeHtml, groupForCategory, normalizeUsername, plantPresets, safeImageUrl, specimenCodeOf, validUsername, validatePlant } from "../src/domain.js";
 
 test("un alias utente viene normalizzato ed è limitato a caratteri sicuri", () => {
   assert.equal(normalizeUsername("  Vivaio.G  "), "vivaio.g");
@@ -31,4 +31,38 @@ test("validazione dei campi fondamentali", () => {
   assert.match(validatePlant({name:""}), /nome/);
   assert.match(validatePlant({name:"Mango",imageUrl:"http://example.org/a.jpg"}), /HTTPS/);
   assert.equal(validatePlant({name:"Mango"}), "");
+});
+
+test("categoria univoca in editor e specie precompilate senza varietà dedotta da seme", () => {
+  assert.equal(groupForCategory("Tropicali da frutto"), "Piante da frutto");
+  assert.equal(groupForCategory("Agrumi"), "Piante da frutto");
+  assert.equal(groupForCategory("Orto e tuberi"), "Orto e tuberi");
+  assert.equal(groupForCategory("Succulente"), "Altre piante");
+  const papaya = plantPresets.find((preset) => preset.key === "papaya");
+  const avocado = plantPresets.find((preset) => preset.key === "avocado");
+  assert.equal(papaya.scientificName, "Carica papaya");
+  assert.equal(avocado.scientificName, "Persea americana");
+  assert.equal("variety" in papaya, false);
+  assert.equal("variety" in avocado, false);
+});
+
+test("esemplari omonimi mantengono codici diversi e informazioni private escluse dal catalogo", () => {
+  const plant = { id: "1234567890abcdefghij", name: "Papaya", category: "Tropicali da frutto",
+    propagationMethod: "Da seme",
+    materialSource: "Frutto acquistato", sourceDetails: "Frutto etichettato Formosa",
+    sownOn: "2026-06-01", plantLocation: "Balcone", specimenSex: "" };
+  assert.equal(validatePlant(plant), "");
+  assert.equal(specimenCodeOf(plant), "#1234567890abcdefghij");
+  assert.notEqual(specimenCodeOf(plant), specimenCodeOf({ ...plant, id: "1234567890abcdefghik" }));
+  assert.equal(specimenCodeOf({ ...plant, name: "Papaya rinominata" }), specimenCodeOf(plant));
+  assert.match(specimenCodeOf({ id: "legacy-1" }), /^#[a-zA-Z0-9]+$/);
+  assert.notEqual(specimenCodeOf({ id: "legacy-1" }), specimenCodeOf({ id: "legacy-2" }));
+  assert.equal(specimenCodeOf({}), "");
+  const publicPlant = catalogProjection(plant);
+  for (const field of ["specimenLabel", "propagationMethod", "materialSource",
+    "sourceDetails", "sownOn", "plantLocation", "specimenSex"]) {
+    assert.equal(field in publicPlant, false, field + " non deve uscire nel catalogo");
+  }
+  assert.match(validatePlant({ ...plant, sownOn: "2026-02-30" }), /Data di semina/);
+  assert.match(validatePlant({ ...plant, propagationMethod: "Metodologia inesistente" }), /propagazione/);
 });

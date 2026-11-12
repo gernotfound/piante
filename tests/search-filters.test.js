@@ -85,3 +85,14 @@ test("Proiezione pubblica: solo i metadati ammessi; vecchie schede ancora leggib
   assert.match(validatePlant({ name: "Avocado", pollination: "Certamente" }), /impollinazione/);
   assert.match(validatePlant({ name: "Avocado", potSuitability: "Non so" }), /vaso/);
 });
+
+
+test("il codice con # e i dettagli privati sono ricercabili soltanto nell'inventario", () => {
+  const plant = { id: "1234567890abcdefghij", name: "Papaya",
+    category: "Tropicali da frutto", sourceDetails: "Frutto etichettato Formosa", published: true };
+  assert.deepEqual(filterInventory([plant], { query: "#1234567890abcdefghij" }).map(item => item.id),
+    [plant.id]);
+  assert.deepEqual(filterInventory([plant], { query: "Formosa" }).map(item => item.id), [plant.id]);
+  assert.deepEqual(filterCatalog([plant], { query: "#1234567890abcdefghij" }), []);
+  assert.deepEqual(filterCatalog([plant], { query: "Formosa" }), []);
+});

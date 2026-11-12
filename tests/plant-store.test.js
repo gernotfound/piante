@@ -183,3 +183,22 @@ test("assenza della versione iniziale impedisce modifiche distruttive", async ()
   await assert.rejects(deletePlantRecord(adapter(owner), { id }), PlantConflictError);
   assert.ok(await data(owner, "privatePlants", id));
 });
+
+test("esemplari distinti dalla stessa specie conservano provenienza privata, senza perdita di isolamento", async () => {
+  const base = { ...plant, name: "Papaya", variety: "", published: true,
+    category: "Tropicali da frutto", plantGroup: "Piante da frutto",
+    propagationMethod: "Da seme",
+    materialSource: "Frutto acquistato", sourceDetails: "Frutto Formosa" };
+  const firstId = await savePlantRecord(adapter(owner), { plant: base });
+  const secondId = await savePlantRecord(adapter(owner), { plant: base });
+  assert.notEqual(firstId, secondId);
+  assert.equal((await data(owner, "privatePlants", firstId)).sourceDetails, "Frutto Formosa");
+  assert.equal((await data(owner, "privatePlants", secondId)).name, "Papaya");
+  assert.equal((await data(owner, "privatePlants", secondId)).specimenLabel, undefined);
+  for (const id of [firstId, secondId]) {
+    const projected = await data(guest, "catalog", id);
+    assert.equal(projected.name, "Papaya");
+    assert.equal(projected.specimenLabel, undefined);
+    assert.equal(projected.sourceDetails, undefined);
+  }
+});
