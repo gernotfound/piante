@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { collection, doc, getDoc, getDocs, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError } from "../../src/plant-store.js";
-import { taxonId, sharedProfileDraft, resolvePlantProfiles } from "../../src/taxonomy.js";
+import { taxonId, lotIdOf, sharedProfileDraft, resolvePlantProfiles } from "../../src/taxonomy.js";
 
 let environment;
 let owner;
@@ -261,7 +261,7 @@ test("profili botanici: transazione atomica, cultivar e dati privati separati", 
 test("lotti e diario sono privati e non contaminano i campi del catalogo", async () => {
   const name = "Papaya lotto integration";
   const speciesId = taxonId("species", name);
-  const lotId = taxonId("species", "Lotto test integration").replace(/^s_/, "l_");
+  const lotId = lotIdOf(speciesId, "Lotto test integration");
   const base = { ...plant, name, speciesId, lotId, lotName: "Lotto test integration",
     published: true, variety: "", sourceDetails: "Frutto Formosa", seedSourceCultivar: "Formosa",
     lifeStage: "Seme" };
@@ -275,6 +275,8 @@ test("lotti e diario sono privati e non contaminano i campi del catalogo", async
   });
   assert.equal((await data(owner, "seedLots", lotId)).sourceDetails, "Frutto Formosa");
   assert.equal((await data(guest, "catalog", id)).lotId, undefined);
+  await assert.rejects(saveJournalEntry(adapter(owner), { plantId: id,
+    kind: "Rinvaso", note: "Errore", eventDate: "2026-99-99" }), /data valida/i);
   await saveJournalEntry(adapter(owner), { plantId: id, kind: "Rinvaso",
     note: "Substrato drenante", eventDate: "2026-11-12" });
   const entries = await getDocs(collection(owner, "privatePlants", id, "events"));

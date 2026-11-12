@@ -111,11 +111,13 @@ export async function deletePlantRecord(firebase, { id, expectedVersion }) {
 // Le attività e le modifiche sono conservate in una sottoraccolta privata;
 // non aggiornano l'esemplare, per non invalidare moduli già aperti altrove.
 export async function saveJournalEntry(firebase, { plantId, kind, note, eventDate }) {
+  const validDate = typeof eventDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(eventDate) &&
+    Number.isFinite(Date.parse(eventDate)) &&
+    new Date(eventDate).toISOString().slice(0, 10) === eventDate;
   if (!plantId || !["Osservazione", "Irrigazione", "Concimazione", "Rinvaso",
     "Trattamento", "Potatura", "Fioritura", "Raccolta", "Problema", "Altro"].includes(kind) ||
-    !note?.trim() || note.trim().length > 1500 ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(eventDate) ||
-    new Date(eventDate).toISOString().slice(0, 10) !== eventDate) {
+    !note?.trim() || note.trim().length > 1500 || !validDate) {
     throw new Error("Compila attività, data valida e descrizione (massimo 1500 caratteri).");
   }
   const parent = firebase.doc(firebase.db, "privatePlants", plantId);

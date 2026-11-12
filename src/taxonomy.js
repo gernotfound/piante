@@ -33,6 +33,16 @@ export function taxonId(kind, name, speciesId = "") {
   return "c_" + speciesId.slice(2) + "_" + hex;
 }
 
+
+export function lotIdOf(speciesId, lotName) {
+  if (!speciesId || !/^s_[a-f0-9]+$/.test(speciesId)) return "";
+  const normalized = normalizeTaxonName(lotName);
+  if (!normalized) return "";
+  const suffix = Array.from(new TextEncoder().encode(normalized), byte =>
+    byte.toString(16).padStart(2, "0")).join("");
+  return "l_" + speciesId.slice(2) + "_" + suffix;
+}
+
 export function profileByName(profiles, kind, name, parentId = "") {
   const normalized = normalizeTaxonName(name);
   if (!normalized) return null;
@@ -97,6 +107,8 @@ export function preparePlantDuplicate(source) {
     ...plant, published: false, sourceDetails: "", sownOn: "",
     plantLocation: "", specimenSex: "", internalNotes: "", imageUrl: "",
     availability: "", price: "", lifeStage: "", lotId: "", lotName: "",
+    propagationMethod: "", materialSource: "",
+    variety: source.cultivarId ? plant.variety : "",
     seedSourceCultivar: ""
   };
 }

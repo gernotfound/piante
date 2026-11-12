@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { taxonId, profileByName, sharedProfileDraft, resolvePlantProfiles,
-  preparePlantDuplicate, changedPlantFields } from "../../src/taxonomy.js";
+  preparePlantDuplicate, changedPlantFields, lotIdOf } from "../../src/taxonomy.js";
 
 test("specie e cultivar hanno identità deterministicamente univoche", () => {
   const avocado = taxonId("species", "Avocado");
@@ -45,6 +45,9 @@ test("la duplicazione non conserva attributi personali o pubblicazione", () => {
   assert.equal(clone.internalNotes, "");
   assert.equal(clone.id, undefined);
   assert.equal(clone.lifeStage, "");
+  assert.equal(clone.propagationMethod, "");
+  assert.equal(clone.materialSource, "");
+  assert.equal(clone.variety, "");
 });
 
 test("diff storico contiene solo nomi di campi, senza valori sensibili", () => {
@@ -75,4 +78,12 @@ test("l'identità cultivar verificata è distinta dall'indicazione sul seme", ()
   const species = sharedProfileDraft("species", "Avocado", "", { scientificName: "Persea americana" });
   assert.equal(resolvePlantProfiles(seedling, [{ ...species, id: speciesId }]).variety, "");
   assert.equal(resolvePlantProfiles(seedling, [{ ...species, id: speciesId }]).seedSourceCultivar, "Hass");
+});
+
+test("lotto omonimo di specie diverse non collide", () => {
+  const papaya = taxonId("species", "Papaya");
+  const avocado = taxonId("species", "Avocado");
+  assert.notEqual(lotIdOf(papaya, "Semina 2026"), lotIdOf(avocado, "Semina 2026"));
+  assert.equal(lotIdOf(avocado, " semina 2026 "), lotIdOf(avocado, "Semina 2026"));
+  assert.equal(lotIdOf("", "Semina 2026"), "");
 });
