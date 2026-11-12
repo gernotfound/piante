@@ -244,9 +244,9 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           <h3>Questo esemplare</h3><p>Informazioni proprie della pianta, sempre private.</p></div></div>
         <div class="form-grid">
           <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
-            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice alfanumerico univoco della pianta">
-            <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
-            `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
+            <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice breve della pianta">
+            <small>È stabile, inizia con # e puoi copiarlo per riconoscere questo esemplare.</small></label>` :
+            `<p class="specimen-hint">Un codice breve di 6 caratteri (A–Z e 0–9), preceduto da #, sarà assegnato al salvataggio.</p>`}</div>
           <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
             ${["", ...lifeStages].map(value => `<option value="${h(value)}" ${(p.lifeStage || "") === value ? "selected" : ""}>${h(value || "Non specificato")}</option>`).join("")}
           </select></label>
