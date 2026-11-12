@@ -287,7 +287,7 @@ input.specimen-code[readonly]{background:var(--paper);color:var(--forest);font-s
 .inventory-name{display:flex;gap:11px;align-items:center}
 .inventory-name .plant-img{flex:0 0 55px;width:55px;height:55px;border-radius:8px}
 .inventory-name .plant-img svg{width:34px;height:34px}
-.inventory-name>div:last-child{min-width:0}
+.inventory-name>div:last-child{min-width:0;overflow-wrap:anywhere}
 .inventory-name strong{display:block;font-size:.92rem;color:var(--forest)}
 .inventory-name small{display:block;color:var(--muted);font-size:.73rem}
 .inventory td .btn{min-height:41px}
