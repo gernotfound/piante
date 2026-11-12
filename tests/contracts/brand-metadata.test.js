@@ -54,7 +54,7 @@ test("Open Graph e Twitter sono accessibili ai crawler senza eseguire JavaScript
   assert.equal(meta("og:locale"), "it_IT");
   assert.equal(meta("og:site_name"), "Piantee");
   assert.equal(meta("og:url"), "https://piantee.web.app/");
-  assert.equal(meta("og:image"), "https://piantee.web.app/social-preview-v1.png");
+  assert.equal(meta("og:image"), "https://piantee.web.app/social-preview-v1.png?v=2");
   assert.equal(meta("og:image:secure_url"), meta("og:image"));
   assert.equal(meta("og:image:type"), "image/png");
   assert.equal(meta("og:image:width"), "1200");
@@ -64,6 +64,10 @@ test("Open Graph e Twitter sono accessibili ai crawler senza eseguire JavaScript
   assert.deepEqual(pngSize("social-preview-v1.png"), [1200, 630]);
   assert.equal(meta("og:description"), meta("description", "name"));
   assert.equal(meta("og:title"), html.match(/<title>(.*?)<\/title>/)?.[1]);
+  assert.match(meta("og:image:alt"), /Avocado originale.*Piantee/);
+  assert.match(meta("twitter:image:alt", "name"), /Avocado originale.*Piantee/);
+  assert.doesNotMatch(meta("og:image:alt") + meta("twitter:image:alt", "name"), /nome Piante\b|, Piante\b/);
+
 });
 
 test("Il marchio usa la favicon SVG già approvata e il nome Piantee", () => {
