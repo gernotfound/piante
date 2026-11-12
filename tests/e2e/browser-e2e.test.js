@@ -269,6 +269,24 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       for (const width of [320, 390, 768, 1024, 1440]) {
         await page.setViewportSize({ width, height: 740 });
         await noOverflow(page, "Editor " + width + "px");
+        const actions = await page.locator("#plant-form .editor-actions").evaluate(element => {
+          const cancel = element.querySelector('a[data-nav]').getBoundingClientRect();
+          const save = element.querySelector('button[type="submit"]').getBoundingClientRect();
+          return { position: getComputedStyle(element).position,
+            cancelLeft: cancel.left, saveLeft: save.left, cancelTop: cancel.top, saveTop: save.top };
+        });
+        assert.equal(actions.position, "static", "I comandi non devono coprire il modulo a " + width + "px");
+        assert.ok(actions.cancelLeft < actions.saveLeft && Math.abs(actions.cancelTop - actions.saveTop) < 2,
+          "Annulla e Salva devono restare affiancati a " + width + "px");
+        if (width < 1000) {
+          await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+          const clearance = await page.evaluate(() => ({
+            actionsBottom: document.querySelector("#plant-form .editor-actions").getBoundingClientRect().bottom,
+            navigationTop: document.querySelector(".admin-bottom-nav").getBoundingClientRect().top
+          }));
+          assert.ok(clearance.actionsBottom <= clearance.navigationTop,
+            "La navigazione mobile non deve coprire i comandi a " + width + "px");
+        }
       }
       await page.setViewportSize({ width: 320, height: 740 });
       await page.locator('input[name="name"]').fill("Avocado da browser");
