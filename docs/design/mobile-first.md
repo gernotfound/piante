@@ -21,6 +21,7 @@ DM Sans è usato nei controlli e nel testo; Playfair Display nei titoli editoria
 - **600 px:** più spazio, forme a due colonne, categorie in quattro colonne.
 - **760 px:** menu orizzontale, filtri fissi del catalogo, prodotto in due colonne.
 - **1000 px:** sidebar del gestionale e inventario tabellare. Sotto, barra inferiore a quattro destinazioni con attenzione alla safe area.
+- Nell'editor del gestionale i comandi «Annulla» e «Salva pianta» sono affiancati e restano alla fine del modulo, nel normale flusso della pagina; non si sovrappongono ai campi né alla navigazione inferiore.
 - Layout non dipendenti da hover, immagini con fallback, stato vuoto reale, preferenza riduzione delle animazioni rispettata. Nei browser senza CSS Grid il contenuto resta impilabile, ma richiede verifica manuale.
 
 I breakpoint seguono la larghezza utile, non modelli o produttori di smartphone. Verificare schermi con zoom testo al 200%, tastiera virtuale aperta, rotazione e viewport di altezza limitata.
