@@ -2,7 +2,7 @@ import { firebaseConfig, firebaseConfigured } from "./config.js";
 import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, validatePlant } from "./domain.js";
 import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError,
   JournalValidationError, SeedLotConflictError } from "./plant-store.js";
-import { consolidateSpecimenCodes, SpecimenCodeError } from "./specimen-codes.js";
+import { SpecimenCodeError } from "./specimen-codes.js";
 import { lifeStages, journalKinds, taxonId, lotIdOf, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
@@ -20,7 +20,6 @@ const state = {
   lots: [], lotsReady: false, journalEntries: [], journalError: "", inventoryStage: "Tutte",
   inventoryReady: false,
   inventoryError: "",
-  codeRegistryStatus: "loading", codeRegistryError: "", codeSyncing: false, codeProgress: "",
   user: null,
   owner: false,
   authReady: !firebaseConfigured,
@@ -44,7 +43,6 @@ const state = {
 let firebase = null;
 let privateListener = null;
 let lotsListener = null;
-let codeRegistryListener = null;
 let profilesListener = null;
 let journalListener = null;
 let activeJournalId = "";
@@ -285,7 +283,6 @@ async function startFirebase() {
       if (privateListener) { privateListener(); privateListener = null; }
       if (profilesListener) { profilesListener(); profilesListener = null; }
       if (lotsListener) { lotsListener(); lotsListener = null; }
-      if (codeRegistryListener) { codeRegistryListener(); codeRegistryListener = null; }
       if (journalListener) { journalListener(); journalListener = null; }
       activeJournalId = "";
       state.user = user; state.owner = false;
@@ -294,7 +291,6 @@ async function startFirebase() {
       state.lotsReady = false;
       refreshSharedPlants();
       state.inventoryReady = false; state.inventoryError = ""; editBaseline = null;
-      state.codeRegistryStatus = "loading"; state.codeRegistryError = "";
       state.authReady = false; renderAfterAuthChange();
       if (user) {
         try {
@@ -317,19 +313,6 @@ async function startFirebase() {
                 state.ownerProfilesReady = false;
                 state.profilesError = "Impossibile leggere le schede botaniche private.";
                 refreshSharedPlants(); renderUnlessEditing();
-              });
-            codeRegistryListener = firebase.onSnapshot(
-              firebase.doc(firebase.db, "specimenRegistry", "activation"), snapshot => {
-                if (serial !== authCheckSerial || !state.owner) return;
-                state.codeRegistryStatus = snapshot.exists()
-                  ? snapshot.data().status : "uninitialized";
-                state.codeRegistryError = "";
-                renderUnlessEditing();
-              }, () => {
-                if (serial !== authCheckSerial || !state.owner) return;
-                state.codeRegistryStatus = "error";
-                state.codeRegistryError = "Impossibile controllare il registro dei codici.";
-                renderUnlessEditing();
               });
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
               state.rawInventory = snap.docs.map((d) => {
@@ -382,10 +365,6 @@ async function login(form) {
   }
 }
 async function savePlant(form, id) {
-  if (!id && state.codeRegistryStatus !== "ready") {
-    showFormError("Prima di creare altre piante, attiva i codici univoci dalla schermata Inventario.");
-    return;
-  }
   if (journalSaveInProgress) {
     showFormError("È già in corso un salvataggio del diario. La scheda non è stata modificata.");
     return;
@@ -680,37 +659,6 @@ async function handleClick(event) {
     if (!confirmDiscard()) return;
     formDirty = false; journalDirty = false; state.error = ""; state.flash = "";
     render();
-    return;
-  }
-  if (action?.dataset.action === "activate-codes" && state.owner && firebase) {
-    if (state.codeSyncing || plantSaveInProgress || journalSaveInProgress) return;
-    if (!state.inventoryReady || state.inventoryError || state.codeRegistryStatus === "error" ||
-        state.codeRegistryStatus === "loading") {
-      showFormError("Inventario o registro non disponibile: nessuna assegnazione eseguita.");
-      return;
-    }
-    if (formDirty || journalDirty) {
-      showFormError("Salva o annulla prima le modifiche in corso: i dati del modulo sono stati conservati.");
-      return;
-    }
-    state.codeSyncing = true;
-    state.codeProgress = "Verifica del registro…";
-    state.error = ""; renderUnlessEditing();
-    try {
-      const result = await consolidateSpecimenCodes(firebase, {
-        onProgress: (done, total) => {
-          state.codeProgress = "Codici verificati: " + done + " di " + total;
-          renderUnlessEditing();
-        }
-      });
-      state.codeRegistryStatus = "ready";
-      state.flash = "Registro dei codici attivo: " + result.count + " piante verificate.";
-    } catch (error) {
-      state.error = error instanceof SpecimenCodeError ? error.message :
-        "Impossibile completare l'assegnazione. Nessuna scheda è stata cancellata; puoi riprendere la procedura.";
-    } finally {
-      state.codeSyncing = false; state.codeProgress = ""; renderUnlessEditing();
-    }
     return;
   }
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
