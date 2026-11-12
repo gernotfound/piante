@@ -256,8 +256,8 @@ test("vetrina: piante omonime mostrano codici brevi distinti in scheda e dettagl
         assert.deepEqual(new Set(shown), new Set(codes));
         for (const id of ids) {
           const card = page.locator('a.plant-card[href="/piante/' + id + '"]');
-          assert.equal(await card.locator(".plant-name").innerText(),
-            "Avocado\n" + specimenCodeOf({ id }));
+          assert.equal(await card.locator(".plant-name > span").first().innerText(), "Avocado");
+          assert.equal(await card.locator(".public-specimen-code").innerText(), specimenCodeOf({ id }));
         }
       }
       await page.goto(baseUrl + "/piante/" + ids[1], { waitUntil: "domcontentloaded" });
