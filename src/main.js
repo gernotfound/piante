@@ -637,7 +637,7 @@ function editPage(id) {
     <option value="" ${!p.category ? "selected" : ""}>Seleziona la categoria</option>
     ${categories.map((category) => `<option value="${h(category)}" ${p.category === category ? "selected" : ""}>${h(category)}</option>`).join("")}
   </select><small>Il gruppo principale viene ricavato automaticamente dalla categoria.</small></label>`;
-  const presetSelect = id ? "" : `<label class="form-field full-width"><span>Specie già presenti nella tua collezione (facoltativo)</span>
+  const presetSelect = id ? "" : `<label class="form-field full-width"><span>Seleziona una specie suggerita (facoltativo)</span>
     <select class="select" name="plantPreset"><option value="">Compila manualmente</option>
       ${plantPresets.map((preset) => `<option value="${h(preset.key)}">${h(preset.label)}</option>`).join("")}
     </select><small>Compila solo i campi botanici vuoti, senza attribuire una cultivar o caratteristiche non verificate.</small></label>`;
