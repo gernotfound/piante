@@ -57,3 +57,14 @@ test("diff storico contiene solo nomi di campi, senza valori sensibili", () => {
   assert.deepEqual(p.harvestMonths, [8]);
   assert.equal(p.internalNotes, undefined);
 });
+
+
+test("il gruppo esplicito legacy non cambia solo perché la specie viene collegata", () => {
+  const species = { id: taxonId("species", "Fico d'India"), kind: "species",
+    name: "Fico d'India", category: "Succulente" };
+  const legacy = { id: "x", name: "Fico d'India",
+    category: "Succulente", plantGroup: "Piante da frutto" };
+  assert.equal(resolvePlantProfiles(legacy, [species]).plantGroup, "Piante da frutto");
+  assert.equal(resolvePlantProfiles({ ...legacy, category: "Ornamentali" }, [species]).plantGroup,
+    "Altre piante");
+});

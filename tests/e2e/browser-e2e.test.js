@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PROJECT = "demo-piante-browser";
@@ -247,13 +247,16 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
         await noOverflow(page, "Editor " + width + "px");
       }
       await page.setViewportSize({ width: 320, height: 740 });
-      await page.locator('select[name="plantPreset"]').selectOption("avocado");
-      assert.equal(await page.locator('input[name="scientificName"]').inputValue(), "Persea americana");
-      assert.equal(await page.locator('input[name="variety"]').inputValue(), "");
       await page.locator('input[name="name"]').fill("Avocado da browser");
+      await page.locator('input[name="scientificName"]').fill("Persea americana");
+      assert.equal(await page.locator('input[name="scientificName"]').inputValue(), "Persea americana");
+      assert.equal(await page.locator('input[name="cultivarName"]').inputValue(), "");
       await page.locator('select[name="propagationMethod"]').selectOption("Da seme");
       await page.locator('select[name="materialSource"]').selectOption("Frutto acquistato");
       await page.locator('input[name="sourceDetails"]').fill("Seme di avocado etichettato Hass");
+      await page.locator('input[name="seedSourceCultivar"]').fill("Hass");
+      await page.locator('select[name="lifeStage"]').selectOption("Piantina");
+      await page.locator('input[name="lotName"]').fill("Lotto browser A");
       await page.locator('input[name="sownOn"]').fill("2026-05-01");
       await page.locator('input[name="plantLocation"]').fill("Balcone");
       await page.locator('select[name="category"]').selectOption("Tropicali da frutto");
@@ -290,6 +293,11 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(savedPrivate.specimenLabel, undefined);
       assert.equal(savedPrivate.sourceDetails, "Seme di avocado etichettato Hass");
       assert.equal(savedPrivate.propagationMethod, "Da seme");
+      assert.equal(savedPrivate.lifeStage, "Piantina");
+      assert.equal(savedPrivate.seedSourceCultivar, "Hass");
+      assert.equal(savedPrivate.lotName, "Lotto browser A");
+      assert.ok(savedPrivate.speciesId);
+      assert.equal(savedPrivate.cultivarId, "");
       assert.equal(savedPrivate.materialSource, "Frutto acquistato");
       assert.equal(savedPrivate.plantGroup, "Piante da frutto");
       const publicDoc = await getDoc(doc(guest, "catalog", id));
@@ -299,6 +307,9 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(publicDoc.data().pollination, "Variabile");
       assert.equal(publicDoc.data().internalNotes, undefined);
       assert.equal(publicDoc.data().sourceDetails, undefined);
+      assert.equal(publicDoc.data().lifeStage, undefined);
+      assert.equal(publicDoc.data().seedSourceCultivar, undefined);
+      assert.equal(publicDoc.data().speciesId, savedPrivate.speciesId);
       assert.equal(publicDoc.data().specimenLabel, undefined);
       await page.goto(baseUrl + "/piante", { waitUntil: "domcontentloaded" });
       await page.locator(".plant-card").filter({ hasText: "Avocado da browser" })
@@ -402,3 +413,62 @@ test("scheda legacy: ID documentale autorevole e gruppo/fruttifera preservati", 
     await deleteDoc(doc(owner, "privatePlants", id));
   }
 });
+
+
+test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione e diario",
+  { timeout: 130000 }, async () => {
+    const legacyId = "legacy-avocado-shared";
+    await setDoc(doc(owner, "privatePlants", legacyId), {
+      name: "Avocado", category: "Tropicali da frutto", published: false
+    });
+    const context = await browser.newContext({ viewport: { width: 320, height: 740 } });
+    try {
+      const page = await openPage(context, "/login");
+      await login(page);
+      await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      assert.equal(await page.locator('select[name="plantPreset"]').count(), 0);
+      await page.locator('input[name="name"]').fill("Avocado");
+      await page.locator('input[name="scientificName"]').fill("Persea americana");
+      await page.locator('select[name="category"]').selectOption("Tropicali da frutto");
+      await page.locator('input[name="seedSourceCultivar"]').fill("Hass");
+      await page.locator('select[name="lifeStage"]').selectOption("Piantina");
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.waitForURL("**/admin/piante", { timeout: 45000 });
+      const entries = await getDocs(collection(owner, "privatePlants"));
+      const fresh = entries.docs.find(d => d.id !== legacyId && d.data().name === "Avocado");
+      assert.ok(fresh, "Nuovo esemplare non creato");
+      const id = fresh.id;
+      assert.equal(fresh.data().seedSourceCultivar, "Hass");
+      assert.equal(fresh.data().cultivarId, "");
+      assert.equal((await getDoc(doc(owner, "privatePlants", legacyId))).data().scientificName, undefined);
+      await page.goto(baseUrl + "/admin/modifica/" + legacyId, { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      assert.equal(await page.locator('input[name="scientificName"]').inputValue(), "Persea americana");
+      await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      await page.locator('input[name="light"]').fill("Luce filtrata di prova");
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.waitForURL("**/admin/piante", { timeout: 45000 });
+      await page.goto(baseUrl + "/admin/modifica/" + legacyId, { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      assert.equal(await page.locator('input[name="light"]').inputValue(), "Luce filtrata di prova");
+      await page.goto(baseUrl + "/admin/nuova?copy=" + encodeURIComponent(id),
+        { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      assert.equal(await page.locator('input[name="name"]').inputValue(), "Avocado");
+      assert.equal(await page.locator('input[name="seedSourceCultivar"]').inputValue(), "");
+      assert.equal(await page.locator('input[name="sourceDetails"]').inputValue(), "");
+      assert.equal(await page.locator('input[name="published"]').isChecked(), false);
+      await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
+      await page.locator("#journal-form").waitFor({ timeout: 45000 });
+      await page.locator('textarea[name="eventNotes"]').fill("Rinvaso di prova");
+      await page.locator('#journal-form button[type="submit"]').click();
+      await page.locator(".diary-item").filter({ hasText: "Rinvaso di prova" })
+        .waitFor({ timeout: 30000 });
+      assert.deepEqual(page.sandboxRequests, []);
+    } finally {
+      await context.close();
+      await deleteDoc(doc(owner, "privatePlants", legacyId));
+    }
+  });
