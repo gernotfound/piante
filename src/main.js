@@ -542,7 +542,7 @@ function overviewPage() {
       ${recent.length ? `<div class="recent-list">${recent.map((plant) => `
         <a href="/admin/modifica/${encodeURIComponent(plant.id)}" data-nav class="recent-row">
           ${imageMarkup(plant)}
-          <span class="recent-name"><strong>${h(plant.specimenLabel || plant.name)}</strong><small>${h(plant.category || "")}</small></span>
+          <span class="recent-name"><span class="plant-title-line"><strong>${h(plant.name)}</strong><span class="specimen-code">${h(specimenCodeOf(plant))}</span></span><small>${h(plant.category || "")}</small></span>
           <span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span>
           <span class="recent-arrow" aria-hidden="true">↗</span>
         </a>`).join("")}</div>` : empty("Non hai ancora aggiunto piante. Inizia creando la tua prima scheda.") }
@@ -555,9 +555,8 @@ function inventoryPage() {
   });
   const rows = plants.map((plant) => `<tr>
     <td data-label="Pianta"><div class="inventory-name">
-      ${imageMarkup(plant)}<div><strong>${h(plant.specimenLabel || plant.name)}</strong>
-      <small>${h(plant.specimenLabel ? plant.name + " · " : "")}${h(plant.scientificName || plant.variety || "")}</small>
-      <small class="specimen-code">${h(specimenCodeOf(plant))}</small>
+      ${imageMarkup(plant)}<div><div class="plant-title-line"><strong>${h(plant.name)}</strong><span class="specimen-code">${h(specimenCodeOf(plant))}</span></div>
+      <small>${h(plant.scientificName || plant.variety || "")}</small>
       ${plant.sourceDetails ? `<small>${h(plant.sourceDetails)}</small>` : ""}</div>
     </div></td>
     <td data-label="Categoria">${h(plant.category || "—")}</td>
@@ -678,12 +677,10 @@ function editPage(id) {
       <div class="editor-section-heading"><span class="editor-step">02</span><div>
         <h3>Identità e provenienza dell'esemplare</h3><p>Dati privati: distingui più piante della stessa specie.</p></div></div>
       <div class="form-grid">
-        ${inputField("Etichetta leggibile (facoltativa)", "specimenLabel", p.specimenLabel,
-          "maxlength='80' placeholder='Es. Papaya 01'")}
-        ${id ? `<label class="form-field"><span>Codice permanente dell'esemplare</span>
-          <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice univoco della pianta">
-          <small>Non cambia se modifichi nome o posizione; puoi copiarlo sull'etichetta.</small></label>` :
-          `<div class="form-field"><span>Codice permanente</span><p class="specimen-hint">Verrà generato automaticamente al primo salvataggio.</p></div>`}
+        <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
+          <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice alfanumerico univoco della pianta">
+          <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
+          `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
         ${propagationSelect}
         ${sourceSelect}
         <div class="full-width">${inputField("Dettagli della provenienza (privati)", "sourceDetails", p.sourceDetails,
@@ -869,7 +866,7 @@ async function savePlant(form, id) {
     showFormError("Inventario non disponibile. I dati non sono stati salvati: verifica la connessione e riprova.");
     return;
   }
-  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability", "specimenLabel", "propagationMethod", "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex"];
+  const keys = ["name", "scientificName", "category", "variety", "origin", "availability", "light", "water", "price", "imageUrl", "description", "internalNotes", "fruitType", "growthHabit", "searchAliases", "coldSource", "coldNotes", "pollination", "potSuitability", "propagationMethod", "materialSource", "sourceDetails", "sownOn", "plantLocation", "specimenSex"];
   const plant = Object.fromEntries(keys.map((key) => [key, String(form.get(key) || "").trim()]));
   plant.plantGroup = groupForCategory(plant.category);
   if (plant.plantGroup !== "Piante da frutto") plant.fruitType = "";

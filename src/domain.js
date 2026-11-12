@@ -114,10 +114,15 @@ export function displayText(value, fallback = "—") {
   return text || fallback;
 }
 
-// L'ID del documento Firestore è già univoco; l'etichetta umana può cambiare.
+// Gli ID auto-generati da Firestore sono 20 caratteri alfanumerici. Quelli legacy
+// con formato diverso vengono codificati senza collisioni, senza cambiare i documenti.
 export function specimenCodeOf(plant) {
-  const id = String(plant?.id ?? "").trim();
-  return id ? "PI-" + id : "";
+  const id = String(plant?.id ?? "");
+  if (!id) return "";
+  if (/^[a-zA-Z0-9]{20}$/.test(id)) return "#" + id;
+  const hex = Array.from(new TextEncoder().encode(id), (byte) =>
+    byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+  return "#Z" + hex;
 }
 
 export function catalogProjection(plant) {
@@ -162,7 +167,6 @@ export function validatePlant(plant) {
   if (String(plant.coldNotes || "").length > 250) return "Le note sul freddo superano 250 caratteri.";
   if (plant.pollination && !pollinationTypes.includes(plant.pollination)) return "Tipo di impollinazione non riconosciuto.";
   if (plant.potSuitability && !potSuitabilityTypes.includes(plant.potSuitability)) return "Valutazione della coltivazione in vaso non riconosciuta.";
-  if (String(plant.specimenLabel || "").length > 80) return "L'etichetta dell'esemplare supera 80 caratteri.";
   if (String(plant.sourceDetails || "").length > 300) return "La provenienza supera 300 caratteri.";
   if (String(plant.plantLocation || "").length > 120) return "La posizione supera 120 caratteri.";
   if (plant.propagationMethod && !propagationMethods.includes(plant.propagationMethod)) return "Metodo di propagazione non riconosciuto.";

@@ -224,7 +224,9 @@ button:focus,a:focus,input:focus,select:focus,textarea:focus{outline:2px solid v
 .form-field small{display:block;color:var(--muted);font-size:.75rem;margin-top:6px;line-height:1.5}
 .form-field[hidden]{display:none}
 .specimen-hint{font-size:.79rem;line-height:1.55;color:var(--muted);margin:0 0 14px}
-.specimen-code{overflow-wrap:anywhere;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.75rem;line-height:1.5}
+.plant-title-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 8px;min-width:0}
+.plant-title-line strong{display:inline}
+.specimen-code{overflow-wrap:anywhere;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.75rem;line-height:1.5;color:var(--muted)}
 input.specimen-code[readonly]{background:var(--paper);color:var(--forest);font-size:14px}
 .form-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0 18px}
 .full-width{grid-column:1/-1}

@@ -39,18 +39,18 @@ function isSingleEditAway(a, b) {
   return differences + (a.length - i) + (b.length - j) <= 1;
 }
 
-function plantSearchFields(plant) {
+function plantSearchFields(plant, includePrivate = false) {
   const aliases = String(plant.searchAliases || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
   return [plant.name, plant.scientificName, plant.variety, plant.category,
-    plant.plantGroup, plant.fruitType, plant.growthHabit, plant.specimenLabel,
-    specimenCodeOf(plant), plant.sourceDetails, ...aliases]
+    plant.plantGroup, plant.fruitType, plant.growthHabit, ...aliases,
+    ...(includePrivate ? [specimenCodeOf(plant), plant.sourceDetails] : [])]
     .map(normalizePlantQuery).filter(Boolean);
 }
 
-export function plantSearchScore(plant, query) {
+export function plantSearchScore(plant, query, includePrivate = false) {
   const variants = queryVariants(query);
   if (!variants.length) return 1;
-  const fields = plantSearchFields(plant);
+  const fields = plantSearchFields(plant, includePrivate);
   let best = 0;
   for (const variant of variants) {
     const terms = variant.split(" ");
@@ -77,11 +77,11 @@ export function plantSearchScore(plant, query) {
   return best;
 }
 
-function sortMatches(items, query, fruitFirst) {
+function sortMatches(items, query, fruitFirst, includePrivate = false) {
   const q = String(query || "").trim();
   return items.sort((a, b) => {
     if (q) {
-      const diff = plantSearchScore(b, q) - plantSearchScore(a, q);
+      const diff = plantSearchScore(b, q, includePrivate) - plantSearchScore(a, q, includePrivate);
       if (diff) return diff;
     } else if (fruitFirst) {
       const fruitA = plantGroupOf(a) === "Piante da frutto" ? 1 : 0;
@@ -130,6 +130,6 @@ export function filterInventory(items, { query = "", visibility = "Tutte", group
     (visibility === "Tutte" || (visibility === "Pubblicate" && item.published === true) ||
       (visibility === "Private" && item.published !== true)) &&
     (group === "Tutte" || plantGroupOf(item) === group) &&
-    plantSearchScore(item, query) > 0
-  ), query, false);
+    plantSearchScore(item, query, true) > 0
+  ), query, false, true);
 }

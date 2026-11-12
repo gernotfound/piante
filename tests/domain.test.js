@@ -47,13 +47,17 @@ test("categoria univoca in editor e specie precompilate senza varietà dedotta d
 });
 
 test("esemplari omonimi mantengono codici diversi e informazioni private escluse dal catalogo", () => {
-  const plant = { id: "documento-001", name: "Papaya", category: "Tropicali da frutto",
-    specimenLabel: "Papaya 01", propagationMethod: "Da seme",
+  const plant = { id: "1234567890abcdefghij", name: "Papaya", category: "Tropicali da frutto",
+    propagationMethod: "Da seme",
     materialSource: "Frutto acquistato", sourceDetails: "Frutto etichettato Formosa",
     sownOn: "2026-06-01", plantLocation: "Balcone", specimenSex: "" };
   assert.equal(validatePlant(plant), "");
-  assert.equal(specimenCodeOf(plant), "PI-documento-001");
-  assert.notEqual(specimenCodeOf(plant), specimenCodeOf({ ...plant, id: "documento-002" }));
+  assert.equal(specimenCodeOf(plant), "#1234567890abcdefghij");
+  assert.notEqual(specimenCodeOf(plant), specimenCodeOf({ ...plant, id: "1234567890abcdefghik" }));
+  assert.equal(specimenCodeOf({ ...plant, name: "Papaya rinominata" }), specimenCodeOf(plant));
+  assert.match(specimenCodeOf({ id: "legacy-1" }), /^#[a-zA-Z0-9]+$/);
+  assert.notEqual(specimenCodeOf({ id: "legacy-1" }), specimenCodeOf({ id: "legacy-2" }));
+  assert.equal(specimenCodeOf({}), "");
   const publicPlant = catalogProjection(plant);
   for (const field of ["specimenLabel", "propagationMethod", "materialSource",
     "sourceDetails", "sownOn", "plantLocation", "specimenSex"]) {

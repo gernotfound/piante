@@ -240,7 +240,6 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(await page.locator('input[name="scientificName"]').inputValue(), "Persea americana");
       assert.equal(await page.locator('input[name="variety"]').inputValue(), "");
       await page.locator('input[name="name"]').fill("Avocado da browser");
-      await page.locator('input[name="specimenLabel"]').fill("Avocado prova 01");
       await page.locator('select[name="propagationMethod"]').selectOption("Da seme");
       await page.locator('select[name="materialSource"]').selectOption("Frutto acquistato");
       await page.locator('input[name="sourceDetails"]').fill("Seme di avocado etichettato Hass");
@@ -274,9 +273,10 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       assert.equal(await page.locator("#inventory-group").inputValue(), "Piante da frutto");
       const link = await page.locator('a[href^="/admin/modifica/"]').first().getAttribute("href");
       const id = decodeURIComponent(link.split("/").pop());
+      assert.equal(await page.locator(".inventory-name .specimen-code").first().innerText(), "#" + id);
       const savedPrivate = (await getDoc(doc(owner, "privatePlants", id))).data();
       assert.equal(savedPrivate.internalNotes, "Nota privata di test");
-      assert.equal(savedPrivate.specimenLabel, "Avocado prova 01");
+      assert.equal(savedPrivate.specimenLabel, undefined);
       assert.equal(savedPrivate.sourceDetails, "Seme di avocado etichettato Hass");
       assert.equal(savedPrivate.propagationMethod, "Da seme");
       assert.equal(savedPrivate.materialSource, "Frutto acquistato");
@@ -311,7 +311,8 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
       await page.goto(baseUrl + "/admin/modifica/" + encodeURIComponent(id),
         { waitUntil: "domcontentloaded" });
       await page.locator("#plant-form").waitFor({ timeout: 45000 });
-      assert.equal(await page.locator('input.specimen-code[readonly]').inputValue(), "PI-" + id);
+      assert.equal(await page.locator('input.specimen-code[readonly]').inputValue(), "#" + id);
+      assert.equal(await page.locator('input[name="specimenLabel"]').count(), 0);
       await page.locator('textarea[name="description"]').fill("Bozza locale da conservare");
 
       // Un errore del listener non deve rigenerare né svuotare un editor già modificato.
