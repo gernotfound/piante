@@ -133,15 +133,17 @@ export function displayText(value, fallback = "—") {
   return text || fallback;
 }
 
-// Gli ID auto-generati da Firestore sono 20 caratteri alfanumerici. Quelli legacy
-// con formato diverso vengono codificati senza collisioni, senza cambiare i documenti.
+// Il documento Firestore rimane l'identità canonica. Il codice breve, derivato
+// dall'ID anche per i record legacy, è stabile ma non può garantire l'assenza
+// matematica di collisioni nello spazio di 36^6 combinazioni.
 export function specimenCodeOf(plant) {
   const id = String(plant?.id ?? "");
   if (!id) return "";
-  if (/^[a-zA-Z0-9]{20}$/.test(id)) return "#" + id;
-  const hex = Array.from(new TextEncoder().encode(id), (byte) =>
-    byte.toString(16).padStart(2, "0")).join("").toUpperCase();
-  return "#Z" + hex;
+  let hash = 2166136261;
+  for (const byte of new TextEncoder().encode(id)) {
+    hash = Math.imul(hash ^ byte, 16777619) >>> 0;
+  }
+  return "#" + (hash % (36 ** 6)).toString(36).toUpperCase().padStart(6, "0");
 }
 
 export function catalogProjection(plant) {
