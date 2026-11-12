@@ -1,6 +1,7 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
 import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, groupForEditedPlant, decodeRouteId, escapeHtml, normalizeUsername, validUsername, validatePlant } from "./domain.js";
-import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError } from "./plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError, PlantJournalRetentionError,
+  JournalValidationError, SeedLotConflictError } from "./plant-store.js";
 import { lifeStages, journalKinds, taxonId, lotIdOf, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
@@ -25,6 +26,7 @@ const state = {
   error: "",
   flash: "",
   filter: new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "",
+  catalogError: "", publicProfilesError: "",
   category: getCategoryFromUrl(),
   group: getGroupFromUrl(),
   fruitType: getFruitTypeFromUrl(),
@@ -45,6 +47,7 @@ let profilesListener = null;
 let journalListener = null;
 let activeJournalId = "";
 let journalDirty = false;
+let journalSaveInProgress = false;
 let authCheckSerial = 0;
 let formDirty = false;
 let plantSaveInProgress = false;
@@ -105,6 +108,9 @@ function syncCatalogUrl() {
 }
 function confirmDiscard() {
   return (!formDirty && !journalDirty) || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+}
+function updatePublicErrors() {
+  state.dbError = [state.catalogError, state.publicProfilesError].filter(Boolean).join(" ");
 }
 function refreshSharedPlants() {
   state.profiles = state.owner ? state.ownerProfiles : state.publicProfiles;
@@ -192,7 +198,7 @@ function showFormError(message, conflict = false) {
   notice.scrollIntoView({ block: "nearest" });
 }
 function go(path) {
-  if (plantSaveInProgress) return false;
+  if (plantSaveInProgress || journalSaveInProgress) return false;
   const target = new URL(path, window.location.href);
   if (target.origin !== window.location.origin || !confirmDiscard()) return false;
   formDirty = false; journalDirty = false;
@@ -248,17 +254,24 @@ async function startFirebase() {
           return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
         });
         state.publicProfilesReady = true;
+        state.publicProfilesError = "";
+        updatePublicErrors();
         refreshSharedPlants(); renderUnlessEditing();
       }, () => {
         state.publicProfilesReady = false;
-        state.dbError = "Impossibile leggere le schede botaniche pubbliche.";
+        state.publicProfilesError = "Impossibile leggere le schede botaniche pubbliche.";
+        updatePublicErrors();
         refreshSharedPlants(); renderUnlessEditing();
       });
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
       state.rawCatalog = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
-      refreshSharedPlants(); state.dbError = ""; renderUnlessEditing();
-    }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; renderUnlessEditing(); });
+      state.catalogError = "";
+      updatePublicErrors(); refreshSharedPlants(); renderUnlessEditing();
+    }, () => {
+      state.catalogError = "Impossibile leggere il catalogo. Controlla le regole Firestore.";
+      updatePublicErrors(); renderUnlessEditing();
+    });
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
@@ -328,7 +341,8 @@ async function startFirebase() {
     });
     renderUnlessEditing();
   } catch {
-    state.dbError = "Connessione Firebase non disponibile.";
+    state.catalogError = "Connessione Firebase non disponibile.";
+    updatePublicErrors();
     state.error = "Non è stato possibile inizializzare Firebase.";
     state.authReady = true;
     render();
@@ -356,6 +370,10 @@ async function login(form) {
   }
 }
 async function savePlant(form, id) {
+  if (journalSaveInProgress) {
+    showFormError("È già in corso un salvataggio del diario. La scheda non è stata modificata.");
+    return;
+  }
   if (plantSaveInProgress || !firebase) return;
   if (!state.inventoryReady || !state.lotsReady || !state.profilesReady ||
       state.inventoryError || state.profilesError) {
@@ -378,6 +396,8 @@ async function savePlant(form, id) {
   plant.minColdC = rawCold ? Number(rawCold.replace(",", ".")) : null;
   const cultivarName = String(form.get("cultivarName") || "").trim();
   const species = profileByName(state.profiles, "species", plant.name);
+  // Una diversa maiuscola non deve rinominare il profilo botanico condiviso.
+  if (species) plant.name = species.name;
   plant.speciesId = species?.id || taxonId("species", plant.name);
   const cultivar = cultivarName
     ? profileByName(state.profiles, "cultivar", cultivarName, plant.speciesId) : null;
@@ -424,6 +444,19 @@ async function savePlant(form, id) {
   if (cultivarError || cultivarData.fruitNotes.length > 750) {
     showFormError(cultivarError || "La descrizione del frutto supera 750 caratteri."); return;
   }
+  let pendingJournal = null;
+  if (journalDirty) {
+    const diaryForm = document.querySelector("#journal-form");
+    if (diaryForm?.dataset.id === id) {
+      const draft = new FormData(diaryForm);
+      pendingJournal = {
+        kind: String(draft.get("eventKind") || ""),
+        note: String(draft.get("eventNotes") || ""),
+        eventDate: String(draft.get("eventDate") || "")
+      };
+      if (!window.confirm("Il diario contiene una bozza. Vuoi salvare insieme, in un'unica operazione, le modifiche alla pianta e questa attività?")) return;
+    }
+  }
   const editor = document.querySelector("#plant-form");
   const expectedVersion = id && editBaseline?.id === id ? editBaseline.version : null;
   const shared = {
@@ -452,11 +485,11 @@ async function savePlant(form, id) {
   if (button) button.textContent = "Salvataggio…";
   let completed = false;
   try {
-    await savePlantRecord(firebase, { id, plant, expectedVersion, shared });
+    await savePlantRecord(firebase, { id, plant, expectedVersion, shared, pendingJournal });
     completed = true;
   } catch (err) {
-    showFormError(err instanceof PlantConflictError ? err.message :
-      err?.message?.includes("lotto") ? err.message :
+    showFormError(err instanceof PlantConflictError || err instanceof JournalValidationError ||
+      err instanceof SeedLotConflictError ? err.message :
       "Salvataggio non riuscito. I dati inseriti sono ancora nel modulo. Controlla la connessione e riprova.",
       err instanceof PlantConflictError);
   } finally {
@@ -465,7 +498,9 @@ async function savePlant(form, id) {
     if (button?.isConnected) button.textContent = "Salva pianta";
     if (completed) {
       state.error = "";
-      state.flash = "Pianta e schede botaniche salvate correttamente.";
+      state.flash = pendingJournal
+        ? "Pianta, schede botaniche e attività del diario salvate correttamente."
+        : "Pianta e schede botaniche salvate correttamente.";
       formDirty = false; journalDirty = false;
       go("/admin/piante");
     }
@@ -473,7 +508,8 @@ async function savePlant(form, id) {
 }
 
 async function saveJournal(form, plantId) {
-  if (!state.owner || !firebase || !state.inventoryReady || !plantId || plantSaveInProgress) return;
+  if (journalSaveInProgress || !state.owner || !firebase ||
+      !state.inventoryReady || !plantId || plantSaveInProgress) return;
   if (formDirty) {
     showFormError("Salva prima le modifiche alla scheda della pianta: il diario non è stato registrato e i dati nel modulo sono rimasti invariati.");
     return;
@@ -483,8 +519,11 @@ async function saveJournal(form, plantId) {
   const date = String(form.get("eventDate") || "");
   if (!journalKinds.includes(kind)) { showFormError("Tipo di attività non valido."); return; }
   const element = document.querySelector("#journal-form");
-  const button = element?.querySelector('[type="submit"]');
-  if (button) button.disabled = true;
+  const controls = Array.from(document.querySelectorAll(
+    '#journal-form button[type="submit"], #plant-form button[type="submit"], [data-action="delete-plant"]'
+  )).map(control => ({ control, disabled: control.disabled }));
+  journalSaveInProgress = true;
+  for (const { control } of controls) control.disabled = true;
   try {
     await saveJournalEntry(firebase, { plantId, kind, note, eventDate: date });
     journalDirty = false;
@@ -498,10 +537,17 @@ async function saveJournal(form, plantId) {
     showFormError(err instanceof PlantConflictError ? err.message :
       "Attività non salvata. Controlla descrizione, data e connessione; i dati sono rimasti nel modulo.");
   } finally {
-    if (button?.isConnected) button.disabled = false;
+    journalSaveInProgress = false;
+    for (const { control, disabled } of controls) {
+      if (control.isConnected) control.disabled = disabled;
+    }
   }
 }
 async function deletePlant(id) {
+  if (journalSaveInProgress) {
+    showFormError("È in corso il salvataggio del diario. Nessuna eliminazione eseguita.");
+    return;
+  }
   if (plantSaveInProgress || !firebase) return;
   if (!state.inventoryReady || state.inventoryError) {
     showFormError("Inventario non disponibile. Nessuna eliminazione eseguita: verifica la connessione e riprova.");
@@ -642,7 +688,8 @@ async function handleClick(event) {
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
     await deletePlant(action.dataset.id);
   }
-  if (action?.dataset.action === "logout" && firebase && !plantSaveInProgress && confirmDiscard()) {
+  if (action?.dataset.action === "logout" && firebase &&
+      !plantSaveInProgress && !journalSaveInProgress && confirmDiscard()) {
     formDirty = false; journalDirty = false;
     await firebase.signOut(firebase.auth);
     state.flash = "Hai effettuato la disconnessione.";
@@ -721,7 +768,10 @@ function handlePlantSelection(event) {
   if (event.target.name === "name") {
     const species = profileByName(state.profiles, "species", event.target.value);
     const oldId = form.dataset.speciesId;
-    if (species) fillProfileFields(form, species);
+    if (species) {
+      event.target.value = species.name;
+      fillProfileFields(form, species);
+    }
     // Un nome ancora sconosciuto può essere una correzione lessicale: non
     // cancellare categoria e dati già compilati, né bloccare il salvataggio.
     form.dataset.speciesId = species?.id || "";
@@ -771,7 +821,7 @@ function markPlantDirty(event) {
   if (event.target.closest?.("#journal-form")) journalDirty = true;
 }
 function handlePopState() {
-  if (plantSaveInProgress || !confirmDiscard()) {
+  if (plantSaveInProgress || journalSaveInProgress || !confirmDiscard()) {
     window.history.pushState({}, "", currentPath);
     return;
   }
@@ -796,7 +846,7 @@ document.addEventListener("error", (event) => {
 }, true);
 window.addEventListener("popstate", handlePopState);
 window.addEventListener("beforeunload", (event) => {
-  if (!formDirty && !journalDirty && !plantSaveInProgress) return;
+  if (!formDirty && !journalDirty && !plantSaveInProgress && !journalSaveInProgress) return;
   event.preventDefault();
   event.returnValue = "";
 });

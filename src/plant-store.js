@@ -1,5 +1,5 @@
 import { catalogProjection } from "./domain.js";
-import { changedPlantFields, resolvePlantProfiles } from "./taxonomy.js";
+import { changedPlantFields, resolvePlantProfiles, normalizeTaxonName, journalKinds } from "./taxonomy.js";
 
 // La versione è calcolata su tutti i campi letti, inclusi quelli non gestiti dall'editor.
 // Così anche schede legacy e modifiche esterne prive di updatedAt rilevano conflitti.
@@ -31,6 +31,32 @@ export class PlantJournalRetentionError extends Error {
   }
 }
 
+export class SeedLotConflictError extends Error {
+  constructor() {
+    super("Il lotto selezionato presenta dati di semina o provenienza incompatibili. Usa un altro lotto oppure correggi i dati prima di salvare.");
+    this.name = "SeedLotConflictError";
+  }
+}
+
+export class JournalValidationError extends Error {
+  constructor() {
+    super("Compila attività, data valida e descrizione (massimo 1500 caratteri).");
+    this.name = "JournalValidationError";
+  }
+}
+
+function journalData(kind, note, eventDate) {
+  const validDate = typeof eventDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(eventDate) &&
+    Number.isFinite(Date.parse(eventDate)) &&
+    new Date(eventDate).toISOString().slice(0, 10) === eventDate;
+  if (!journalKinds.includes(kind) || typeof note !== "string" ||
+      !note.trim() || note.trim().length > 1500 || !validDate) {
+    throw new JournalValidationError();
+  }
+  return { type: kind, note: note.trim(), eventDate, changedFields: [] };
+}
+
 function assertCurrent(snapshot, expectedVersion) {
   if (!snapshot.exists() || plantVersion(snapshot.data()) !== expectedVersion) {
     throw new PlantConflictError();
@@ -39,8 +65,13 @@ function assertCurrent(snapshot, expectedVersion) {
 
 // Tutte le letture precedono le scritture; le transazioni Firestore ritentano su
 // aggiornamenti concorrenti, quindi una versione obsoleta non può fare overwrite.
-export async function savePlantRecord(firebase, { id = "", plant, expectedVersion = null, shared = null }) {
+export async function savePlantRecord(firebase, {
+  id = "", plant, expectedVersion = null, shared = null, pendingJournal = null
+}) {
   if (id && typeof expectedVersion !== "string") throw new PlantConflictError();
+  const journal = pendingJournal
+    ? journalData(pendingJournal.kind, pendingJournal.note, pendingJournal.eventDate) : null;
+  if (journal && !id) throw new PlantConflictError();
   const documentId = id || firebase.doc(firebase.collection(firebase.db, "privatePlants")).id;
   const privateRef = firebase.doc(firebase.db, "privatePlants", documentId);
   const publicRef = firebase.doc(firebase.db, "catalog", documentId);
@@ -60,13 +91,22 @@ export async function savePlantRecord(firebase, { id = "", plant, expectedVersio
       profiles.push({ profile, snapshot });
     }
     const lotSnapshot = lotRef ? await tx.get(lotRef) : null;
-    if (lotSnapshot?.exists() && lotSnapshot.data().speciesId !== plant.speciesId) {
-      throw new Error("Il lotto selezionato appartiene a un'altra specie.");
+    if (lotSnapshot?.exists()) {
+      const stored = lotSnapshot.data();
+      const requested = shared.lot.data;
+      if (stored.speciesId !== plant.speciesId ||
+          normalizeTaxonName(stored.name) !== normalizeTaxonName(requested.name) ||
+          ["sownOn", "sourceDetails", "seedSourceCultivar"].some(key => {
+            const oldValue = String(stored[key] || "").trim();
+            const newValue = String(requested[key] || "").trim();
+            return oldValue && newValue && oldValue !== newValue;
+          })) throw new SeedLotConflictError();
     }
     if (id) {
       assertCurrent(previous, expectedVersion);
       // update preserva i metadati non modificati dall'editor, anche dopo future evoluzioni dello schema.
-      tx.update(privateRef, { ...plant, updatedAt: firebase.serverTimestamp() });
+      tx.update(privateRef, { ...plant, updatedAt: firebase.serverTimestamp(),
+        ...(journal ? { lastJournalActivityAt: firebase.serverTimestamp() } : {}) });
     } else {
       if (previous.exists()) throw new PlantConflictError();
       tx.set(privateRef, {
@@ -102,6 +142,10 @@ export async function savePlantRecord(firebase, { id = "", plant, expectedVersio
       note: "", eventDate: new Date().toISOString().slice(0, 10),
       createdAt: firebase.serverTimestamp()
     });
+    if (journal) {
+      const journalRef = firebase.doc(firebase.collection(privateRef, "events"));
+      tx.set(journalRef, { ...journal, createdAt: firebase.serverTimestamp() });
+    }
     return documentId;
   });
 }
@@ -132,24 +176,14 @@ export async function deletePlantRecord(firebase, { id, expectedVersion }) {
 // Il diario è privato e append-only. L'aggiornamento del padre rende rilevabili
 // attività concorrenti mentre un'altra sessione prova a eliminare la pianta.
 export async function saveJournalEntry(firebase, { plantId, kind, note, eventDate }) {
-  const validDate = typeof eventDate === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(eventDate) &&
-    Number.isFinite(Date.parse(eventDate)) &&
-    new Date(eventDate).toISOString().slice(0, 10) === eventDate;
-  if (!plantId || !["Osservazione", "Irrigazione", "Concimazione", "Rinvaso",
-    "Trattamento", "Potatura", "Fioritura", "Raccolta", "Problema", "Altro"].includes(kind) ||
-    !note?.trim() || note.trim().length > 1500 || !validDate) {
-    throw new Error("Compila attività, data valida e descrizione (massimo 1500 caratteri).");
-  }
+  if (!plantId) throw new JournalValidationError();
+  const journal = journalData(kind, note, eventDate);
   const parent = firebase.doc(firebase.db, "privatePlants", plantId);
   const eventRef = firebase.doc(firebase.collection(parent, "events"));
   await firebase.runTransaction(firebase.db, async (tx) => {
     const snapshot = await tx.get(parent);
     if (!snapshot.exists()) throw new PlantConflictError();
-    tx.set(eventRef, {
-      type: kind, note: note.trim(), eventDate, changedFields: [],
-      createdAt: firebase.serverTimestamp()
-    });
+    tx.set(eventRef, { ...journal, createdAt: firebase.serverTimestamp() });
     tx.update(parent, { lastJournalActivityAt: firebase.serverTimestamp() });
   });
 }

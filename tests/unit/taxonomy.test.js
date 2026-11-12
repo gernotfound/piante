@@ -89,3 +89,19 @@ test("lotto omonimo di specie diverse non collide", () => {
   assert.equal(lotIdOf(avocado, " semina 2026 "), lotIdOf(avocado, "Semina 2026"));
   assert.equal(lotIdOf("", "Semina 2026"), "");
 });
+
+test("i sinonimi riconoscono nomi botanici, ma quelli ambigui non associano una specie", () => {
+  const avocado = { id: taxonId("species", "Avocado"), kind: "species",
+    name: "Avocado", searchAliases: "aguacate, Persea americana" };
+  assert.equal(profileByName([avocado], "species", " aguacate ")?.id, avocado.id);
+  assert.equal(profileByName([avocado], "species", "PERSEA AMERICANA")?.id, avocado.id);
+  const other = { id: taxonId("species", "Diversa"), kind: "species",
+    name: "Diversa", searchAliases: "aguacate" };
+  assert.equal(profileByName([other, avocado], "species", "AGUACATE"), null);
+  const direct = { id: taxonId("species", "Aguacate"), kind: "species", name: "Aguacate" };
+  assert.equal(profileByName([avocado, direct], "species", "aguacate")?.id, direct.id);
+  const hass = { id: taxonId("cultivar", "Hass", avocado.id), kind: "cultivar",
+    name: "Hass", parentId: avocado.id };
+  assert.equal(profileByName([avocado, hass], "cultivar", "Hass", avocado.id)?.id, hass.id);
+  assert.equal(profileByName([avocado, hass], "species", "Hass"), null);
+});

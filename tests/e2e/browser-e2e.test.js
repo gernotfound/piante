@@ -26,6 +26,10 @@ const sandboxMain = originalMain.replace(hook, hook + '\n' +
   ' error: state.error, flash: state.flash});' +
   '\nwindow.__pianteTestSetInventoryError = (value) => {' +
   ' state.inventoryError = value; renderUnlessEditing(); };' +
+  '\nwindow.__pianteTestSetJournalSaving = (value) => { journalSaveInProgress = value; };' +
+  '\nwindow.__pianteTestSetPublicErrors = (profile, catalog) => {' +
+  ' state.publicProfilesError = profile; state.catalogError = catalog;' +
+  ' updatePublicErrors(); render(); };' +
   '\nwindow.__pianteTestSnapshotRerender = () => renderUnlessEditing();' +
   '\nwindow.__pianteTestAuthRerender = () => renderAfterAuthChange();';
 const sandboxConfig = [
@@ -193,6 +197,11 @@ test("vetrina Mobile First: tutti i viewport previsti senza overflow", { timeout
       await page.locator("#search-form").waitFor();
       await noOverflow(page, "Catalogo " + width + "px");
     }
+    await page.evaluate(() => window.__pianteTestSetPublicErrors("Profilo non disponibile", "Catalogo non disponibile"));
+    await page.locator(".notice.error").filter({ hasText: "Profilo non disponibile" }).waitFor();
+    await page.evaluate(() => window.__pianteTestSetPublicErrors("Profilo non disponibile", ""));
+    assert.match(await page.locator(".notice.error").first().innerText(), /Profilo non disponibile/);
+    await page.evaluate(() => window.__pianteTestSetPublicErrors("", ""));
     await page.locator("#catalog-search-input").fill("ricerca in corso");
     await page.locator("#catalog-search-input").evaluate((input) => input.blur());
     await page.evaluate(() => window.__pianteTestSnapshotRerender());
@@ -433,6 +442,7 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       await page.locator('input[name="name"]').fill("Avocado");
       await page.locator('input[name="scientificName"]').fill("Persea americana");
       await page.locator('select[name="category"]').selectOption("Tropicali da frutto");
+      await page.locator('input[name="searchAliases"]').fill("sinonimo avocado test");
       await page.locator('input[name="seedSourceCultivar"]').fill("Hass");
       await page.locator('select[name="lifeStage"]').selectOption("Piantina");
       await page.locator('#plant-form button[type="submit"]').click();
@@ -443,6 +453,19 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       const id = fresh.id;
       assert.equal(fresh.data().seedSourceCultivar, "Hass");
       assert.equal(fresh.data().cultivarId, "");
+      await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      await page.locator('input[name="name"]').fill("SINONIMO AVOCADO TEST");
+      await page.locator('input[name="name"]').blur();
+      assert.equal(await page.locator('input[name="name"]').inputValue(), "Avocado");
+      assert.equal(await page.locator('input[name="scientificName"]').inputValue(), "Persea americana");
+      assert.equal(await page.locator('select[name="category"]').inputValue(), "Tropicali da frutto");
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.waitForURL("**/admin/piante", { timeout: 45000 });
+      const matching = (await getDocs(collection(owner, "privatePlants"))).docs
+        .filter(entry => entry.data().speciesId === fresh.data().speciesId);
+      assert.ok(matching.length >= 2);
+      assert.ok(matching.every(entry => entry.data().name === "Avocado"));
       await assert.rejects(getDoc(doc(guest, "plantProfiles", fresh.data().speciesId)),
         { code: "permission-denied" });
       assert.equal((await getDoc(doc(owner, "privatePlants", legacyId))).data().scientificName, undefined);
@@ -466,6 +489,10 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       assert.equal(await page.locator('input[name="published"]').isChecked(), false);
       await page.goto(baseUrl + "/admin/modifica/" + id, { waitUntil: "domcontentloaded" });
       await page.locator("#journal-form").waitFor({ timeout: 45000 });
+      await page.evaluate(() => window.__pianteTestSetJournalSaving(true));
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.locator(".notice.error").filter({ hasText: "salvataggio del diario" }).waitFor();
+      await page.evaluate(() => window.__pianteTestSetJournalSaving(false));
       await page.locator('textarea[name="eventNotes"]').fill("Rinvaso di prova");
       await page.locator('#journal-form button[type="submit"]').click();
       await page.locator(".diary-item").filter({ hasText: "Rinvaso di prova" })
@@ -478,6 +505,14 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
         "Bozza della scheda da non perdere");
       assert.equal(await page.locator('textarea[name="eventNotes"]').inputValue(),
         "Attività non ancora registrata");
+      page.once("dialog", dialog => dialog.accept());
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.waitForURL("**/admin/piante", { timeout: 45000 });
+      assert.equal((await getDoc(doc(owner, "privatePlants", id))).data().description,
+        "Bozza della scheda da non perdere");
+      const events = (await getDocs(collection(owner, "privatePlants", id, "events")))
+        .docs.map(d => d.data());
+      assert.equal(events.filter(entry => entry.note === "Attività non ancora registrata").length, 1);
       assert.deepEqual(page.sandboxRequests, []);
     } finally {
       await context.close();
