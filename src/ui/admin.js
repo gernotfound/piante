@@ -1,6 +1,7 @@
-import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, plantPresets, propagationMethods, materialSources, specimenSexes, groupForEditedPlant, decodeRouteId, specimenCodeOf, safeImageUrl, escapeHtml } from "../domain.js";
+import { categories, plantGroups, fruitTypes, growthHabits, pollinationTypes, potSuitabilityTypes, monthNames, propagationMethods, materialSources, specimenSexes, groupForEditedPlant, decodeRouteId, specimenCodeOf, safeImageUrl, escapeHtml } from "../domain.js";
 import { filterInventory } from "../catalog.js";
 import { plantVersion } from "../plant-store.js";
+import { lifeStages, journalKinds, profileForPlant, preparePlantDuplicate } from "../taxonomy.js";
 
 export function createAdminViews({ state, publicViews, setEditBaseline }) {
   const h = escapeHtml;
@@ -74,16 +75,22 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
   function inventoryPage() {
     const plants = filterInventory(state.inventory, {
       query: state.inventoryQuery, visibility: state.inventoryVisibility, group: state.inventoryGroup
-    });
+    }).filter(plant => state.inventoryStage === "Tutte" ||
+      (plant.lifeStage || "") === state.inventoryStage);
     const rows = plants.map((plant) => `<tr>
       <td data-label="Pianta"><div class="inventory-name">
         ${imageMarkup(plant)}<div><div class="plant-title-line"><strong>${h(plant.name)}</strong><span class="specimen-code">${h(specimenCodeOf(plant))}</span></div>
         <small>${h(plant.scientificName || plant.variety || "")}</small>
+        ${plant.lifeStage ? `<small>Stato: ${h(plant.lifeStage)}</small>` : ""}
+        ${plant.lotName ? `<small>Lotto: ${h(plant.lotName)}</small>` : ""}
         ${plant.sourceDetails ? `<small>${h(plant.sourceDetails)}</small>` : ""}</div>
       </div></td>
       <td data-label="Categoria">${h(plant.category || "—")}</td>
       <td data-label="Visibilità"><span class="pill ${plant.published ? "" : "draft"}">${plant.published ? "Pubblica" : "Privata"}</span></td>
-      <td data-label="Azioni"><a class="btn btn-outline btn-small" data-nav href="/admin/modifica/${encodeURIComponent(plant.id)}">Modifica</a></td>
+      <td data-label="Azioni"><div class="inventory-actions">
+          <a class="btn btn-outline btn-small" data-nav href="/admin/modifica/${encodeURIComponent(plant.id)}">Modifica</a>
+          <a class="btn btn-outline btn-small" data-nav href="/admin/nuova?copy=${encodeURIComponent(plant.id)}">Duplica</a>
+        </div></td>
     </tr>`).join("");
     return adminFrame(`<section class="panel inventory-panel">
       <div class="panel-heading"><h2>Le tue piante</h2><a href="/admin/nuova" data-nav class="btn btn-primary btn-small">+ Nuova pianta</a></div>
@@ -98,6 +105,11 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
         <select id="inventory-visibility" class="select" name="visibility">
           ${["Tutte", "Pubblicate", "Private"].map((value) =>
             `<option value="${value}" ${state.inventoryVisibility === value ? "selected" : ""}>${value === "Tutte" ? "Tutte le piante" : value}</option>`).join("")}
+        </select>
+        <label class="sr-only" for="inventory-stage">Filtra per stato</label>
+        <select id="inventory-stage" class="select" name="stage">
+          ${["Tutte", ...lifeStages].map(stage =>
+            `<option value="${h(stage)}" ${state.inventoryStage === stage ? "selected" : ""}>${h(stage === "Tutte" ? "Tutti gli stati" : stage)}</option>`).join("")}
         </select>
         <button type="submit" class="btn btn-primary">Filtra</button>
       </form>
@@ -124,7 +136,12 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
   function editPage(id) {
     const item = id ? state.inventory.find((plant) => plant.id === id) : null;
     if (id && !item) return missingPlantPage();
-    const p = item || {};
+    const source = !id ? state.inventory.find(plant =>
+      plant.id === new URLSearchParams(window.location.search).get("copy")) : null;
+    const p = item || preparePlantDuplicate(source);
+    const { species, cultivar } = profileForPlant(p, state.profiles);
+    const shared = species || p;
+    const cultivarData = cultivar || {};
     // La versione rimane quella mostrata quando l'editor è stato aperto.
     // Le notifiche Firestore non devono sostituirla mentre il modulo è modificato.
     if (item) {
@@ -134,12 +151,13 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
     } else {
       setEditBaseline(null);
     }
-    const selectedHarvestMonths = new Set(Array.isArray(p.harvestMonths) ? p.harvestMonths : []);
+    const selectedHarvestMonths = new Set(Array.isArray(shared.harvestMonths) ? shared.harvestMonths : []);
+    const cultivarHarvestMonths = new Set(Array.isArray(cultivarData.harvestMonths) ? cultivarData.harvestMonths : []);
     const pollinationSelect = `<label class="form-field"><span>Autofertilità</span><select class="select" name="pollination">
-      ${["", ...pollinationTypes].map((value) => `<option value="${h(value)}" ${(p.pollination || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
+      ${["", ...pollinationTypes].map((value) => `<option value="${h(value)}" ${(shared.pollination || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
     </select></label>`;
     const potSelect = `<label class="form-field"><span>Coltivazione in vaso</span><select class="select" name="potSuitability">
-      ${["", ...potSuitabilityTypes].map((value) => `<option value="${h(value)}" ${(p.potSuitability || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
+      ${["", ...potSuitabilityTypes].map((value) => `<option value="${h(value)}" ${(shared.potSuitability || "") === value ? "selected" : ""}>${h(value || "Sconosciuta / da verificare")}</option>`).join("")}
     </select></label>`;
     const harvestSelector = `<fieldset class="harvest-fieldset full-width">
       <legend>Mesi indicativi della raccolta (facoltativi)</legend>
@@ -150,17 +168,17 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       </div>
       <p>Il calendario è indicativo per il clima locale e non determina la data effettiva di maturazione.</p>
     </fieldset>`;
-    const selectedFruitType = p.fruitType || "";
-    const fruitSelect = `<label class="form-field" data-fruit-type-field ${groupForEditedPlant(p.category, item) === "Piante da frutto" ? "" : "hidden"}>
+    const selectedFruitType = shared.fruitType || "";
+    const fruitSelect = `<label class="form-field" data-fruit-type-field ${groupForEditedPlant(shared.category, item) === "Piante da frutto" ? "" : "hidden"}>
       <span>Tipo di fruttifera (facoltativo)</span><select class="select" name="fruitType">
       ${["", ...fruitTypes].map((type) => `<option value="${h(type)}" ${selectedFruitType === type ? "selected" : ""}>${h(type || "Non specificato")}</option>`).join("")}
     </select></label>`;
     const habitSelect = `<label class="form-field"><span>Forma della pianta</span><select class="select" name="growthHabit">
-      ${["", ...growthHabits].map((type) => `<option value="${h(type)}" ${p.growthHabit === type ? "selected" : ""}>${h(type || "Da indicare")}</option>`).join("")}
+      ${["", ...growthHabits].map((type) => `<option value="${h(type)}" ${shared.growthHabit === type ? "selected" : ""}>${h(type || "Da indicare")}</option>`).join("")}
     </select></label>`;
     const select = `<label class="form-field"><span>Categoria *</span><select class="select" name="category" required>
-      <option value="" ${!p.category ? "selected" : ""}>Seleziona la categoria</option>
-      ${categories.map((category) => `<option value="${h(category)}" ${p.category === category ? "selected" : ""}>${h(category)}</option>`).join("")}
+      <option value="" ${!shared.category ? "selected" : ""}>Seleziona la categoria</option>
+      ${categories.map((category) => `<option value="${h(category)}" ${shared.category === category ? "selected" : ""}>${h(category)}</option>`).join("")}
     </select><small>Il gruppo principale viene ricavato automaticamente dalla categoria.</small></label>`;
     const presetSelect = id ? "" : `<label class="form-field full-width"><span>Seleziona una specie suggerita (facoltativo)</span>
       <select class="select" name="plantPreset"><option value="">Compila manualmente</option>
@@ -175,7 +193,9 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
     const sexSelect = `<label class="form-field"><span>Sesso botanico (solo se accertato)</span><select class="select" name="specimenSex">
       ${["", ...specimenSexes].map((value) => `<option value="${h(value)}" ${(p.specimenSex || "") === value ? "selected" : ""}>${h(value || "Non determinato / non pertinente")}</option>`).join("")}
     </select></label>`;
-    return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}">
+    return adminFrame(`<form id="plant-form" class="panel editor-panel" data-id="${h(id || "")}"
+      data-species-id="${h(species?.id || "")}" data-species-version="${h(species?.__snapshotVersion || "")}"
+      data-cultivar-id="${h(cultivar?.id || "")}" data-cultivar-version="${h(cultivar?.__snapshotVersion || "")}">
       <div class="editor-heading"><div><h2>${id ? "Dettagli della pianta" : "Nuova scheda"}</h2>
         <p>Compila le informazioni e scegli se renderle visibili nel catalogo pubblico.</p></div>
         ${id && p.published ? `<a class="text-link" data-nav href="/piante/${encodeURIComponent(id)}">Vedi scheda pubblica ↗</a>` : ""}
