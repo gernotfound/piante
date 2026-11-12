@@ -1,6 +1,7 @@
 import { firebaseConfig, firebaseConfigured } from "./config.js";
 import { categories, plantGroups, fruitTypes, pollinationTypes, potSuitabilityTypes, plantPresets, groupForEditedPlant, decodeRouteId, normalizeUsername, validUsername, validatePlant } from "./domain.js";
-import { plantVersion, savePlantRecord, deletePlantRecord, PlantConflictError } from "./plant-store.js";
+import { plantVersion, savePlantRecord, deletePlantRecord, saveJournalEntry, PlantConflictError } from "./plant-store.js";
+import { lifeStages, journalKinds, taxonId, profileByName, sharedProfileDraft, resolvePlantProfiles } from "./taxonomy.js";
 import { leafArt } from "./ui/artwork.js";
 import { createPublicViews } from "./ui/public.js";
 import { createAdminViews } from "./ui/admin.js";
@@ -12,6 +13,8 @@ const state = {
   menuOpen: false,
   catalog: [],
   inventory: [],
+  rawInventory: [], rawCatalog: [], profiles: [], profilesReady: false, profilesError: "",
+  lots: [], lotsReady: false, journalEntries: [], journalError: "", inventoryStage: "Tutte",
   inventoryReady: false,
   inventoryError: "",
   user: null,
@@ -36,6 +39,11 @@ const state = {
 };
 let firebase = null;
 let privateListener = null;
+let lotsListener = null;
+let profilesListener = null;
+let journalListener = null;
+let activeJournalId = "";
+let journalDirty = false;
 let authCheckSerial = 0;
 let formDirty = false;
 let plantSaveInProgress = false;
@@ -95,10 +103,39 @@ function syncCatalogUrl() {
   currentPath = path;
 }
 function confirmDiscard() {
-  return !formDirty || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+  return (!formDirty && !journalDirty) || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+}
+function refreshSharedPlants() {
+  state.catalog = state.rawCatalog.map(item => resolvePlantProfiles(item, state.profiles));
+  state.inventory = state.rawInventory.map(item => resolvePlantProfiles(item, state.profiles));
+}
+function syncJournalListener() {
+  const part = state.route.startsWith("/admin/modifica/")
+    ? decodeRouteId(state.route.slice("/admin/modifica/".length)) : "";
+  const id = state.owner && state.inventoryReady && firebase ? part || "" : "";
+  if (id === activeJournalId) return;
+  if (journalListener) { journalListener(); journalListener = null; }
+  activeJournalId = id;
+  state.journalEntries = []; state.journalError = "";
+  if (!id) return;
+  const entries = firebase.collection(firebase.db, "privatePlants", id, "events");
+  journalListener = firebase.onSnapshot(
+    firebase.query(entries, firebase.orderBy("createdAt", "desc"), firebase.limit(50)),
+    snap => {
+      if (activeJournalId !== id) return;
+      state.journalEntries = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      state.journalError = ""; renderUnlessEditing();
+    },
+    () => {
+      if (activeJournalId !== id) return;
+      state.journalError = "Storico temporaneamente non disponibile.";
+      renderUnlessEditing();
+    }
+  );
 }
 function renderUnlessEditing() {
-  if ((formDirty || plantSaveInProgress) && document.querySelector("#plant-form")) return;
+  if ((formDirty || journalDirty || plantSaveInProgress) &&
+      document.querySelector("#plant-form, #journal-form")) return;
   // Gli snapshot asincroni non devono sostituire i moduli durante la compilazione.
   if (document.querySelector("#login-form, #username-form")) return;
   const focusedForm = document.activeElement?.closest?.("form");
@@ -171,6 +208,7 @@ const { shell, homepage, catalogPage, detailPage, aboutPage, contactPage, loginP
 const { adminPage } = createAdminViews({ state, publicViews, setEditBaseline(value) { editBaseline = value; } });
 
 function render() {
+  syncJournalListener();
   const path = state.route;
   let page;
   if (path === "/") page = homepage();
@@ -195,15 +233,32 @@ async function startFirebase() {
     ]);
     const app = appMod.initializeApp(firebaseConfig);
     firebase = { ...authMod, ...dbMod, auth: authMod.getAuth(app), db: dbMod.getFirestore(app) };
+    profilesListener = firebase.onSnapshot(firebase.collection(firebase.db, "plantProfiles"), snap => {
+      state.profiles = snap.docs.map(d => {
+        const data = d.data();
+        return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
+      });
+      state.profilesReady = true; state.profilesError = "";
+      refreshSharedPlants(); renderUnlessEditing();
+    }, () => {
+      state.profilesReady = false;
+      state.profilesError = "Impossibile leggere le schede botaniche condivise.";
+      renderUnlessEditing();
+    });
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
-      state.catalog = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+      state.rawCatalog = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
-      state.dbError = ""; renderUnlessEditing();
+      refreshSharedPlants(); state.dbError = ""; renderUnlessEditing();
     }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; renderUnlessEditing(); });
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
-      state.user = user; state.owner = false; state.username = ""; state.inventory = [];
+      if (lotsListener) { lotsListener(); lotsListener = null; }
+      if (journalListener) { journalListener(); journalListener = null; }
+      activeJournalId = "";
+      state.user = user; state.owner = false; state.username = "";
+      state.inventory = []; state.rawInventory = []; state.lots = []; state.journalEntries = [];
+      state.lotsReady = false;
       state.inventoryReady = false; state.inventoryError = ""; editBaseline = null;
       state.authReady = false; renderAfterAuthChange();
       if (user) {
@@ -216,13 +271,21 @@ async function startFirebase() {
             if (serial !== authCheckSerial) return;
             state.username = profile.exists() ? profile.data().username || "" : "";
             privateListener = firebase.onSnapshot(firebase.collection(firebase.db, "privatePlants"), (snap) => {
-              state.inventory = snap.docs.map((d) => {
+              state.rawInventory = snap.docs.map((d) => {
                 const data = d.data();
                 return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
               })
                 .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
+              refreshSharedPlants();
               state.inventoryReady = true; state.inventoryError = ""; renderUnlessEditing();
             }, () => { state.inventoryError = "Impossibile leggere l'inventario privato."; renderUnlessEditing(); });
+            lotsListener = firebase.onSnapshot(firebase.collection(firebase.db, "seedLots"), snap => {
+              state.lots = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+              state.lotsReady = true; renderUnlessEditing();
+            }, () => {
+              state.lotsReady = false;
+              state.inventoryError = "Impossibile leggere i lotti di semina."; renderUnlessEditing();
+            });
           } else {
             state.error = "Questo account non è autorizzato a gestire il sito.";
             await firebase.signOut(firebase.auth);
@@ -555,7 +618,7 @@ document.addEventListener("error", (event) => {
 }, true);
 window.addEventListener("popstate", handlePopState);
 window.addEventListener("beforeunload", (event) => {
-  if (!formDirty && !plantSaveInProgress) return;
+  if (!formDirty && !journalDirty && !plantSaveInProgress) return;
   event.preventDefault();
   event.returnValue = "";
 });
