@@ -30,7 +30,9 @@ test.after(async () => environment?.cleanup());
 
 test("ogni creazione assegna automaticamente un codice riservato senza marker di attivazione", async () => {
   assert.match(randomSpecimenCode(), /^[A-Z0-9]{6}$/);
-  assert.equal((await read(owner, "specimenRegistry", "activation")).exists(), false);
+  await environment.withSecurityRulesDisabled(async context => {
+    assert.equal((await read(context.firestore(), "specimenRegistry", "activation")).exists(), false);
+  });
   const id = await savePlantRecord(adapter(owner), {
     plant, generateCode: () => "ABC123"
   });
