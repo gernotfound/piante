@@ -61,12 +61,17 @@ test("esemplari omonimi mantengono codici diversi e informazioni private escluse
     materialSource: "Frutto acquistato", sourceDetails: "Frutto etichettato Formosa",
     sownOn: "2026-06-01", plantLocation: "Balcone", specimenSex: "" };
   assert.equal(validatePlant(plant), "");
-  assert.equal(specimenCodeOf(plant), "#1234567890abcdefghij");
+  assert.match(specimenCodeOf(plant), /^#[A-Z0-9]{6}$/);
   assert.notEqual(specimenCodeOf(plant), specimenCodeOf({ ...plant, id: "1234567890abcdefghik" }));
   assert.equal(specimenCodeOf({ ...plant, name: "Papaya rinominata" }), specimenCodeOf(plant));
-  assert.match(specimenCodeOf({ id: "legacy-1" }), /^#[a-zA-Z0-9]+$/);
+  assert.match(specimenCodeOf({ id: "legacy-1" }), /^#[A-Z0-9]{6}$/);
   assert.notEqual(specimenCodeOf({ id: "legacy-1" }), specimenCodeOf({ id: "legacy-2" }));
   assert.equal(specimenCodeOf({}), "");
+  assert.equal(specimenCodeOf({ id: "àvocado-legacy" }), specimenCodeOf({ id: "àvocado-legacy" }),
+    "Anche gli ID legacy non ASCII devono conservare il codice");
+  assert.match(specimenCodeOf({ id: "àvocado-legacy" }), /^#[A-Z0-9]{6}$/);
+  assert.equal(specimenCodeOf({ id: "1234567890abcdefghij", name: "Papaya" }), specimenCodeOf(plant),
+    "Il nome, il profilo e la visibilità non devono modificare il codice");
   const publicPlant = catalogProjection(plant);
   for (const field of ["specimenLabel", "propagationMethod", "materialSource",
     "sourceDetails", "sownOn", "plantLocation", "specimenSex"]) {
