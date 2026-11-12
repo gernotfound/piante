@@ -264,6 +264,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
             <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
             `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
           ${inputField("Lotto di semina (facoltativo)", "lotName", p.lotName, "list='known-lots' maxlength='100' placeholder='Es. Papaya Formosa 2026-01'")}
+          <p class="specimen-hint full-width">Usa lo stesso lotto soltanto per piante con data di semina e provenienza compatibili. In caso contrario crea un lotto distinto.</p>
           <datalist id="known-lots">${state.lots.filter(lot => lot.speciesId === (p.speciesId || species?.id))
              .map(lot => `<option value="${h(lot.name)}"></option>`).join("")}</datalist>
           ${inputField("Cultivar del frutto genitore (privata)", "seedSourceCultivar", p.seedSourceCultivar, "maxlength='100' placeholder='Es. Hass, senza attribuirla alla pianta'")}
@@ -328,7 +329,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
     </form>
     ${id ? `<section class="panel diary-panel">
       <h2>Diario e storico delle modifiche</h2>
-      <p>Annota attività, eventi e osservazioni. Le modifiche della scheda vengono registrate automaticamente.</p>
+      <p>Annota attività, eventi e osservazioni. Le modifiche della scheda vengono registrate automaticamente. Se hai una bozza del diario e salvi la scheda, ti verrà chiesto di registrarle insieme.</p>
       <form id="journal-form" data-id="${h(id)}">
         <div class="form-grid">
           <label class="form-field"><span>Attività</span><select name="eventKind" class="select" required>

@@ -47,6 +47,7 @@ let profilesListener = null;
 let journalListener = null;
 let activeJournalId = "";
 let journalDirty = false;
+let journalSaveInProgress = false;
 let authCheckSerial = 0;
 let formDirty = false;
 let plantSaveInProgress = false;
@@ -197,7 +198,7 @@ function showFormError(message, conflict = false) {
   notice.scrollIntoView({ block: "nearest" });
 }
 function go(path) {
-  if (plantSaveInProgress) return false;
+  if (plantSaveInProgress || journalSaveInProgress) return false;
   const target = new URL(path, window.location.href);
   if (target.origin !== window.location.origin || !confirmDiscard()) return false;
   formDirty = false; journalDirty = false;
@@ -369,6 +370,10 @@ async function login(form) {
   }
 }
 async function savePlant(form, id) {
+  if (journalSaveInProgress) {
+    showFormError("È già in corso un salvataggio del diario. La scheda non è stata modificata.");
+    return;
+  }
   if (plantSaveInProgress || !firebase) return;
   if (!state.inventoryReady || !state.lotsReady || !state.profilesReady ||
       state.inventoryError || state.profilesError) {
@@ -503,7 +508,8 @@ async function savePlant(form, id) {
 }
 
 async function saveJournal(form, plantId) {
-  if (!state.owner || !firebase || !state.inventoryReady || !plantId || plantSaveInProgress) return;
+  if (journalSaveInProgress || !state.owner || !firebase ||
+      !state.inventoryReady || !plantId || plantSaveInProgress) return;
   if (formDirty) {
     showFormError("Salva prima le modifiche alla scheda della pianta: il diario non è stato registrato e i dati nel modulo sono rimasti invariati.");
     return;
@@ -513,8 +519,11 @@ async function saveJournal(form, plantId) {
   const date = String(form.get("eventDate") || "");
   if (!journalKinds.includes(kind)) { showFormError("Tipo di attività non valido."); return; }
   const element = document.querySelector("#journal-form");
-  const button = element?.querySelector('[type="submit"]');
-  if (button) button.disabled = true;
+  const controls = Array.from(document.querySelectorAll(
+    '#journal-form button[type="submit"], #plant-form button[type="submit"], [data-action="delete-plant"]'
+  )).map(control => ({ control, disabled: control.disabled }));
+  journalSaveInProgress = true;
+  for (const { control } of controls) control.disabled = true;
   try {
     await saveJournalEntry(firebase, { plantId, kind, note, eventDate: date });
     journalDirty = false;
@@ -528,10 +537,17 @@ async function saveJournal(form, plantId) {
     showFormError(err instanceof PlantConflictError ? err.message :
       "Attività non salvata. Controlla descrizione, data e connessione; i dati sono rimasti nel modulo.");
   } finally {
-    if (button?.isConnected) button.disabled = false;
+    journalSaveInProgress = false;
+    for (const { control, disabled } of controls) {
+      if (control.isConnected) control.disabled = disabled;
+    }
   }
 }
 async function deletePlant(id) {
+  if (journalSaveInProgress) {
+    showFormError("È in corso il salvataggio del diario. Nessuna eliminazione eseguita.");
+    return;
+  }
   if (plantSaveInProgress || !firebase) return;
   if (!state.inventoryReady || state.inventoryError) {
     showFormError("Inventario non disponibile. Nessuna eliminazione eseguita: verifica la connessione e riprova.");
@@ -672,7 +688,8 @@ async function handleClick(event) {
   if (action?.dataset.action === "delete-plant" && state.owner && firebase) {
     await deletePlant(action.dataset.id);
   }
-  if (action?.dataset.action === "logout" && firebase && !plantSaveInProgress && confirmDiscard()) {
+  if (action?.dataset.action === "logout" && firebase &&
+      !plantSaveInProgress && !journalSaveInProgress && confirmDiscard()) {
     formDirty = false; journalDirty = false;
     await firebase.signOut(firebase.auth);
     state.flash = "Hai effettuato la disconnessione.";
@@ -804,7 +821,7 @@ function markPlantDirty(event) {
   if (event.target.closest?.("#journal-form")) journalDirty = true;
 }
 function handlePopState() {
-  if (plantSaveInProgress || !confirmDiscard()) {
+  if (plantSaveInProgress || journalSaveInProgress || !confirmDiscard()) {
     window.history.pushState({}, "", currentPath);
     return;
   }
@@ -829,7 +846,7 @@ document.addEventListener("error", (event) => {
 }, true);
 window.addEventListener("popstate", handlePopState);
 window.addEventListener("beforeunload", (event) => {
-  if (!formDirty && !journalDirty && !plantSaveInProgress) return;
+  if (!formDirty && !journalDirty && !plantSaveInProgress && !journalSaveInProgress) return;
   event.preventDefault();
   event.returnValue = "";
 });

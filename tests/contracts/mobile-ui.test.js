@@ -45,6 +45,7 @@ test("Scheda privata: campi e controllo delle modifiche non salvate preservati",
   assert.match(ui, /function confirmDiscard\(/);
   assert.match(ui, /function renderUnlessEditing\(/);
   assert.match(ui, /beforeunload/);
+  assert.match(ui, /journalSaveInProgress/, "Le navigazioni devono attendere il salvataggio del diario");
   assert.match(ui, /id="plant-form"/);
   assert.doesNotMatch(ui, /name="specimenLabel"/);
   assert.match(ui, /class="plant-title-line"/);
