@@ -256,12 +256,15 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       </section>
       <section class="editor-section">
         <div class="editor-section-heading"><span class="editor-step">03</span><div>
-          <h3>Identità e provenienza dell'esemplare</h3><p>Dati privati: distingui più piante della stessa specie.</p></div></div>
+          <h3>Esemplare, lotto e provenienza</h3><p>Dati privati: distingui più piante della stessa specie.</p></div></div>
         <div class="form-grid">
           <div class="full-width">${id ? `<label class="form-field"><span>Codice identificativo</span>
             <input class="input specimen-code" type="text" readonly value="${h(specimenCodeOf({ id }))}" aria-label="Codice alfanumerico univoco della pianta">
             <small>È permanente, inizia con # e puoi copiarlo per identificare questo esemplare.</small></label>` :
             `<p class="specimen-hint">Un codice alfanumerico univoco che inizia con # sarà assegnato automaticamente al salvataggio.</p>`}</div>
+          ${inputField("Lotto di semina (facoltativo)", "lotName", p.lotName, "list='known-lots' maxlength='100' placeholder='Es. Papaya Formosa 2026-01'")}
+          <datalist id="known-lots">${state.lots.map(lot => `<option value="${h(lot.name)}"></option>`).join("")}</datalist>
+          ${inputField("Cultivar del frutto genitore (privata)", "seedSourceCultivar", p.seedSourceCultivar, "maxlength='100' placeholder='Es. Hass, senza attribuirla alla pianta'")}
           ${propagationSelect}
           ${sourceSelect}
           <div class="full-width">${inputField("Dettagli della provenienza (privati)", "sourceDetails", p.sourceDetails,
@@ -270,6 +273,9 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           ${inputField("Posizione attuale (privata)", "plantLocation", p.plantLocation,
             "maxlength='120' placeholder='Es. balcone, vaso grande'")}
           ${sexSelect}
+          <label class="form-field"><span>Stato attuale</span><select class="select" name="lifeStage">
+            ${["", ...lifeStages].map(value => `<option value="${h(value)}" ${(p.lifeStage || "") === value ? "selected" : ""}>${h(value || "Non specificato")}</option>`).join("")}
+          </select></label>
         </div>
       </section>
       <section class="editor-section">
@@ -280,7 +286,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           ${inputField("Irrigazione", "water", shared.water, "placeholder='Es. moderata' maxlength='120'")}
           ${inputField("Disponibilità (facoltativa)", "availability", p.availability, "placeholder='Es. su richiesta' maxlength='120'")}
           ${inputField("Prezzo indicativo (facoltativo)", "price", p.price, "placeholder='Es. 15 €' maxlength='50'")}
-          <div class="full-width">${textareaField("Descrizione pubblica", "description", shared.description, "maxlength='3000'")}</div>
+          <div class="full-width">${textareaField("Descrizione pubblica della specie", "description", shared.description, "maxlength='3000'")}</div>
         </div>
       </section>
       <section class="editor-section">
@@ -317,7 +323,31 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       </div>
       ${id ? `<div class="editor-danger"><p>Per rimuovere definitivamente questa pianta dall'inventario e dal catalogo:</p>
         <button class="btn btn-danger" type="button" data-action="delete-plant" data-id="${h(id)}">Elimina pianta</button></div>` : ""}
-    </form>`, id ? "Modifica pianta" : "Aggiungi pianta",
+    </form>
+    ${id ? `<section class="panel diary-panel">
+      <h2>Diario e storico delle modifiche</h2>
+      <p>Annota attività, eventi e osservazioni. Le modifiche della scheda vengono registrate automaticamente.</p>
+      <form id="journal-form" data-id="${h(id)}">
+        <div class="form-grid">
+          <label class="form-field"><span>Attività</span><select name="eventKind" class="select" required>
+            ${journalKinds.map(kind => `<option value="${h(kind)}">${h(kind)}</option>`).join("")}
+          </select></label>
+          ${inputField("Data attività", "eventDate", new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10), "type='date' required")}
+          <div class="full-width">${textareaField("Osservazione", "eventNotes", "", "required maxlength='1500' placeholder='Es. rinvasata in substrato drenante'")}</div>
+        </div>
+        <button class="btn btn-primary" type="submit">Registra attività</button>
+        <p role="status"></p>
+      </form>
+      ${state.journalError ? `<p class="notice error" role="alert">${h(state.journalError)}</p>` : ""}
+      <ol class="diary-list">${state.journalEntries.map(entry => `<li class="diary-item">
+        <span class="diary-date">${h(entry.eventDate || "Data non disponibile")}</span>
+        <strong>${h(entry.type || "Modifica")}</strong>
+        ${entry.note ? `<p>${h(entry.note)}</p>` : ""}
+        ${Array.isArray(entry.changedFields) && entry.changedFields.length ?
+          `<small>Campi modificati: ${h(entry.changedFields.join(", "))}</small>` : ""}
+      </li>`).join("")}</ol>
+      ${state.journalEntries.length === 0 ? `<p>Nessuna attività registrata.</p>` : ""}
+    </section>` : ""}`, id ? "Modifica pianta" : "Aggiungi pianta",
     "Aggiorna il catalogo e conserva i dettagli utili alla gestione del vivaio.");
   }
   function settingsPage() {
@@ -344,6 +374,13 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
       return adminFrame(`<div class="panel" role="status">Caricamento dell'inventario…</div>`,
         "Caricamento", "Verifica in corso dei dati privati.");
     }
+    if ((state.route === "/admin/nuova" || state.route.startsWith("/admin/modifica/")) &&
+        state.profilesError) return adminFrame(`<div class="panel" role="alert">${h(state.profilesError)}</div>`,
+          "Schede botaniche non disponibili", "Nessuna modifica è stata eseguita.");
+    if ((state.route === "/admin/nuova" || state.route.startsWith("/admin/modifica/")) &&
+        (!state.profilesReady || !state.lotsReady)) return adminFrame(
+          `<div class="panel" role="status">Caricamento specie e lotti di semina…</div>`,
+          "Caricamento", "Preparazione dei dati condivisi.");
     if (state.route === "/admin/nuova") return editPage("");
     if (state.route.startsWith("/admin/modifica/")) {
       const id = decodeRouteId(state.route.slice("/admin/modifica/".length));
