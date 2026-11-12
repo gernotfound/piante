@@ -13,7 +13,7 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
   function header() {
     return `<header class="site-header">
       <div class="container navbar">
-        <a class="brand" href="/" data-nav aria-label="Piante, torna alla home"><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+        <a class="brand" href="/" data-nav aria-label="Piantee, torna alla home"><img class="brand-symbol" src="/favicon.svg" width="36" height="36" alt="" aria-hidden="true">Piantee</a>
         <button type="button" class="mobile-menu" data-toggle-menu aria-controls="primary-navigation" aria-expanded="${state.menuOpen}" aria-label="${state.menuOpen ? "Chiudi il menu" : "Apri il menu"}">
           <span class="menu-lines" aria-hidden="true"><span></span><span></span><span></span></span>
           <span>Menu</span>
@@ -29,7 +29,7 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
     return `<footer class="site-footer"><div class="container">
       <div class="footer-main">
         <div class="footer-intro">
-          <a class="brand footer-brand" href="/" data-nav><span class="brand-symbol" aria-hidden="true">✳</span>Piante<span class="brand-dot">.</span></a>
+          <a class="brand footer-brand" href="/" data-nav><img class="brand-symbol" src="/favicon.svg" width="36" height="36" alt="" aria-hidden="true">Piantee</a>
           <p>Una collezione in crescita. Scopri le piante, le varietà e le loro caratteristiche.</p>
         </div>
         <nav class="footer-links" aria-label="Collegamenti nel footer">
@@ -37,7 +37,7 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
           <a href="/contatti" data-nav>Contatti</a><a href="/login" data-nav>Area riservata</a>
         </nav>
       </div>
-      <div class="footer-bottom"><span>© ${new Date().getFullYear()} Piante</span><span>Coltiviamo la curiosità per la natura.</span></div>
+      <div class="footer-bottom"><span>© ${new Date().getFullYear()} Piantee</span><span>Coltiviamo la curiosità per la natura.</span></div>
     </div></footer>`;
   }
   function alertBox(message, error = false) {
@@ -92,7 +92,7 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
         <div class="hero-art" aria-label="Piante della collezione">
           <div class="hero-orbit" aria-hidden="true"></div><div class="hero-orbit two" aria-hidden="true"></div>
           ${photo ? `<div class="hero-photo-frame">${imageMarkup(photo, true)}</div>` : heroArt}
-          <span class="hero-label">Piante · Natura · Scoperta</span>
+          <span class="hero-label">Piantee · Natura · Scoperta</span>
         </div>
       </div>
     </section>
@@ -286,9 +286,9 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
     return pageHero("Il progetto", "Chi siamo", "Una collezione in evoluzione, nata dalla passione per le piante.") +
       `<section class="section"><div class="container info-layout">
       <div><span class="eyebrow">La nostra storia</span><h2>Un progetto che cresce</h2>
-      <p>Piante è uno spazio dedicato alla coltivazione e alla scoperta del mondo botanico. Qui raccogliamo le specie della nostra collezione e le loro caratteristiche.</p>
+      <p>Piantee è uno spazio dedicato alla coltivazione e alla scoperta del mondo botanico. Qui raccogliamo le specie della nostra collezione e le loro caratteristiche.</p>
       <p>Il progetto è pensato per crescere insieme al vivaio, diventando un punto di riferimento per chi desidera conoscerne le piante.</p></div>
-      <div class="info-panel"><span class="eyebrow">Piante · Vivaio</span>
+      <div class="info-panel"><span class="eyebrow">Piantee · Vivaio</span>
       <h3>Radici, crescita, scoperta.</h3><p>Una vetrina che si arricchirà con ogni nuovo esemplare.</p></div>
       </div></section>`;
   }

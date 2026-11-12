@@ -2,8 +2,7 @@
 .site-header{position:sticky;top:0;z-index:50;background:var(--paper);border-bottom:1px solid var(--line)}
 .navbar{height:68px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand{display:inline-flex;align-items:center;gap:9px;font-size:1.55rem;font-family:"Playfair Display",Georgia,serif;font-weight:700;color:var(--forest);line-height:1}
-.brand-symbol{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:50%;background:var(--forest);color:#D9E9CB;font:700 1.45rem Georgia,serif}
-.brand-dot{color:var(--leaf);margin-left:-8px}
+.brand-symbol{display:block;flex:0 0 36px;width:36px;height:36px;object-fit:contain}
 .mobile-menu{min-width:48px;min-height:48px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;padding:5px 10px;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--forest);font-size:.65rem;font-weight:700}
 .menu-lines{display:flex;flex-direction:column;justify-content:center;gap:4px;width:21px;height:20px}
 .menu-lines span{display:block;width:100%;height:2px;background:currentColor;border-radius:2px}

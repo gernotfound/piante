@@ -90,8 +90,6 @@
   .admin-shell{display:grid;grid-template-columns:236px minmax(0,1fr)}
   .admin-sidebar{display:flex;flex-direction:column;position:sticky;top:0;height:100vh;min-height:640px;background:var(--forest);color:var(--white);padding:28px 14px}
   .admin-brand{padding:0 12px 30px;color:var(--white)}
-  .admin-brand .brand-symbol{background:#335F46}
-  .admin-brand .brand-dot{color:#D2DFBC}
   .sidebar-label{padding:0 13px;color:#B2CBAF;font-size:.65rem;letter-spacing:.13em;font-weight:700}
   .admin-side-links{display:flex;flex-direction:column;gap:5px;margin-top:19px}
   .admin-sidebar .admin-link{display:flex;align-items:center;gap:13px;min-height:47px;padding:10px 14px;border-radius:9px;font-size:.88rem;font-weight:600;color:#DCE8DC}
