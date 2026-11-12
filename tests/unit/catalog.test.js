@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { filterCatalog, filterInventory } from "../src/catalog.js";
+import { filterCatalog, filterInventory } from "../../src/catalog.js";
 
 const plants = [
   { id:"1", name:"Limone", scientificName:"Citrus limon", category:"Agrumi", published:true },

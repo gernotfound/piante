@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   tokenizeRules, rulesEquivalent, decideReconciliation, extractRulesSource, reconcileRules
-} from "../scripts/reconcile-firestore-rules.mjs";
+} from "../../scripts/reconcile-firestore-rules.mjs";
 
 const RELEASE = "projects/piante-a617e/releases/cloud.firestore";
 const OLD = "projects/piante-a617e/rulesets/old123";

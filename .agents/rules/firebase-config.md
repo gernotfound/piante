@@ -14,7 +14,7 @@ La configurazione Web in `src/config.js` (`apiKey`, `authDomain`, `projectId`, `
 
 ## Sicurezza e test
 
-- Test `tests/domain.test.js` e `tests/search-filters.test.js` per validazione, ricerca e proiezione; test `tests/rules.test.js` e `tests/plant-store.test.js` sull'emulatore Firestore; `tests/browser-e2e.test.js` sui due emulatori e Chrome. Dopo cambiamenti a auth/Rules pubblicazione, aggiungere test pertinenti. La CI del candidato non dimostra l'applicazione delle Rules live.
+- Test `tests/unit/domain.test.js` e `tests/unit/search-filters.test.js` per validazione, ricerca e proiezione; test `tests/integration/rules.test.js` e `tests/integration/plant-store.test.js` sull'emulatore Firestore; `tests/e2e/browser-e2e.test.js` sui due emulatori e Chrome. Dopo cambiamenti a auth/Rules pubblicazione, aggiungere test pertinenti. La CI del candidato non dimostra l'applicazione delle Rules live.
 - Non dedurre che Rules siano pubblicate perché un file esiste o i test passano. La console Firebase costituisce un sistema live distinto; anche le dichiarazioni dell'utente vanno registrate come tali.
 - Per modifiche alle Rules, confrontare database e collezioni reali. Un deploy Rules sovrascrive la policy per il database configurato e non è incluso nel workflow Hosting.
 - I record `siteOwner`, il catalogo e gli alias sono dati di produzione: non eliminarli, reimpostarli o seminarli automaticamente durante un test.

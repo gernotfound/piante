@@ -15,6 +15,17 @@ La progettazione dei filtri climatici e la cautela sui dati botanici sono descri
 
 Un documento **privatePlants/{id}** contiene anche le note interne. Solo i campi della funzione `catalogProjection` in `src/domain.js` vengono copiati in **catalog/{id}** al momento della pubblicazione. Le modifiche e le rimozioni usano transazioni Firestore: se la scheda è cambiata da un'altra sessione, l'editor blocca la scrittura e conserva i campi compilati fino alla scelta esplicita di ricaricare. Gli aggiornamenti asincroni Firestore e Authentication non azzerano i moduli di login/impostazioni e i filtri ancora da applicare. Inventario e catalogo restano atomici.
 
+## Struttura del codice e test
+
+- `index.html` carica gli stili e `src/main.js`, che coordina routing, eventi e Firebase.
+- `src/ui/public.js` e `src/ui/admin.js` contengono le schermate pubbliche e private; `src/ui/artwork.js` contiene i fallback grafici.
+- `src/domain.js`, `src/catalog.js` e `src/plant-store.js` separano validazione, ricerca e transazioni; `src/config.js` contiene la configurazione Web Firebase pubblica.
+- `styles/` contiene `base.css`, `public.css`, `admin.css` e `responsive.css`, caricati in ordine per preservare la cascata.
+- `tests/unit/`, `tests/contracts/`, `tests/integration/` e `tests/e2e/` separano test puri, contratti, emulatori Firestore e flussi browser.
+- `scripts/`, `.github/workflows/` e `docs/` custodiscono strumenti operativi, CI/deploy e documentazione. Test e file interni non sono pubblicati da Hosting.
+
+Comandi: `npm run check`, `npm test`, `npm run test:rules`, `npm run test:browser`. Gli ultimi due usano emulatori; non eseguire test su dati reali.
+
 ## Configurazione iniziale (necessaria)
 
 1. **Già completato:** è stata registrata l'app Web Firebase e la relativa configurazione pubblica è stata inserita in `src/config.js`. Questi parametri Web **non sono segreti**. Non inserire mai chiavi private, token o password nel repository.
