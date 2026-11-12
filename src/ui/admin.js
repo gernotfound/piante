@@ -249,7 +249,7 @@ export function createAdminViews({ state, publicViews, setEditBaseline }) {
           ${inputField("Data di semina (se nota)", "sownOn", p.sownOn, "type='date'")}
           ${inputField("Posizione attuale (privata)", "plantLocation", p.plantLocation,
             "maxlength='120' placeholder='Es. balcone, vaso grande'")}
-        ${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}
+          <div class="full-width">${textareaField("Note private (mai pubblicate)", "internalNotes", p.internalNotes, "maxlength='5000'")}</div>
         </div>
       </section>
       <details class="editor-section editor-fold" id="editor-origin">

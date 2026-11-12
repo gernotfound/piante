@@ -892,6 +892,11 @@ document.addEventListener("input", event => {
 });
 document.addEventListener("change", markPlantDirty);
 document.addEventListener("change", handlePlantSelection);
+// I controlli non validi dentro <details> chiusi devono poter ricevere il focus.
+document.addEventListener("invalid", event => {
+  const section = event.target.closest?.("#plant-form details.editor-fold");
+  if (section) section.open = true;
+}, true);
 document.addEventListener("error", (event) => {
   if (event.target instanceof HTMLImageElement && event.target.hasAttribute("data-photo")) {
     event.target.parentElement.innerHTML = leafArt;

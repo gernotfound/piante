@@ -251,6 +251,11 @@ test("browser: login, creazione, pubblicazione, conflitto tra schede, recupero, 
         await page.locator("#plant-form").waitFor({ timeout: 45000 });
          assert.equal(await page.locator("#plant-form details.editor-fold[open]").count(), 0,
            "Le sezioni avanzate sono chiuse inizialmente");
+         await page.locator("#editor-botany summary").click();
+         assert.equal(await page.locator('input[name="scientificName"]').isVisible(), true);
+         await page.evaluate(() => window.__pianteTestSnapshotRerender());
+         assert.equal(await page.locator("#editor-botany").evaluate(el => el.open), true,
+           "Una notifica asincrona non deve richiudere il pannello aperto");
        await expandEditor(page);
       } catch (error) {
         const state = await page.evaluate(() => window.__pianteDebug?.());
