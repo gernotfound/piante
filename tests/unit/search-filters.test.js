@@ -87,7 +87,7 @@ test("Proiezione pubblica: solo i metadati ammessi; vecchie schede ancora leggib
 });
 
 
-test("il codice con # e i dettagli privati sono ricercabili soltanto nell'inventario", () => {
+test("il codice breve è ricercabile nel catalogo, mentre i dettagli privati restano nell'inventario", () => {
   const plant = { id: "1234567890abcdefghij", name: "Papaya",
     category: "Tropicali da frutto", sourceDetails: "Frutto etichettato Formosa", published: true };
   const shortCode = specimenCodeOf(plant);
