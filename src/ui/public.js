@@ -116,7 +116,10 @@ export function createPublicViews({ state, appRoot, coldOptions }) {
         <p class="section-sub">Una selezione delle piante attualmente pubblicate.</p></div>
         <a class="text-link" href="/piante" data-nav>Scopri tutte le piante <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="grid">${featured.length ? featured.map(card).join("") : empty("Le prime piante pubblicate compariranno qui.")}</div>
+      ${alertBox(state.dbError, true)}
+      <div class="grid">${featured.length ? featured.map(card).join("") : empty(state.dbError
+        ? "Il catalogo non è momentaneamente disponibile."
+        : "Le prime piante pubblicate compariranno qui.")}</div>
     </div></section>
     <section class="section"><div class="container">
       <div class="service-strip">

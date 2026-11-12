@@ -433,6 +433,7 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       await page.locator('input[name="name"]').fill("Avocado");
       await page.locator('input[name="scientificName"]').fill("Persea americana");
       await page.locator('select[name="category"]').selectOption("Tropicali da frutto");
+      await page.locator('input[name="searchAliases"]').fill("aguacate");
       await page.locator('input[name="seedSourceCultivar"]').fill("Hass");
       await page.locator('select[name="lifeStage"]').selectOption("Piantina");
       await page.locator('#plant-form button[type="submit"]').click();
@@ -443,6 +444,19 @@ test("profili condivisi: specie manuale, cultivar distinta da seme, duplicazione
       const id = fresh.id;
       assert.equal(fresh.data().seedSourceCultivar, "Hass");
       assert.equal(fresh.data().cultivarId, "");
+      await page.goto(baseUrl + "/admin/nuova", { waitUntil: "domcontentloaded" });
+      await page.locator("#plant-form").waitFor({ timeout: 45000 });
+      await page.locator('input[name="name"]').fill("AGUACATE");
+      await page.locator('input[name="name"]').blur();
+      assert.equal(await page.locator('input[name="name"]').inputValue(), "Avocado");
+      assert.equal(await page.locator('input[name="scientificName"]').inputValue(), "Persea americana");
+      assert.equal(await page.locator('select[name="category"]').inputValue(), "Tropicali da frutto");
+      await page.locator('#plant-form button[type="submit"]').click();
+      await page.waitForURL("**/admin/piante", { timeout: 45000 });
+      const matching = (await getDocs(collection(owner, "privatePlants"))).docs
+        .filter(entry => entry.data().speciesId === fresh.data().speciesId);
+      assert.ok(matching.length >= 2);
+      assert.ok(matching.every(entry => entry.data().name === "Avocado"));
       await assert.rejects(getDoc(doc(guest, "plantProfiles", fresh.data().speciesId)),
         { code: "permission-denied" });
       assert.equal((await getDoc(doc(owner, "privatePlants", legacyId))).data().scientificName, undefined);

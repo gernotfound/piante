@@ -26,6 +26,7 @@ const state = {
   error: "",
   flash: "",
   filter: new URLSearchParams(window.location.search).get("q")?.slice(0, 120) || "",
+  catalogError: "", publicProfilesError: "",
   category: getCategoryFromUrl(),
   group: getGroupFromUrl(),
   fruitType: getFruitTypeFromUrl(),
@@ -106,6 +107,9 @@ function syncCatalogUrl() {
 }
 function confirmDiscard() {
   return (!formDirty && !journalDirty) || window.confirm("Hai modifiche non salvate. Vuoi uscire senza salvarle?");
+}
+function updatePublicErrors() {
+  state.dbError = [state.catalogError, state.publicProfilesError].filter(Boolean).join(" ");
 }
 function refreshSharedPlants() {
   state.profiles = state.owner ? state.ownerProfiles : state.publicProfiles;
@@ -249,17 +253,24 @@ async function startFirebase() {
           return { ...data, id: d.id, __snapshotVersion: plantVersion(data) };
         });
         state.publicProfilesReady = true;
+        state.publicProfilesError = "";
+        updatePublicErrors();
         refreshSharedPlants(); renderUnlessEditing();
       }, () => {
         state.publicProfilesReady = false;
-        state.dbError = "Impossibile leggere le schede botaniche pubbliche.";
+        state.publicProfilesError = "Impossibile leggere le schede botaniche pubbliche.";
+        updatePublicErrors();
         refreshSharedPlants(); renderUnlessEditing();
       });
     firebase.onSnapshot(firebase.collection(firebase.db, "catalog"), (snap) => {
       state.rawCatalog = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "it"));
-      refreshSharedPlants(); state.dbError = ""; renderUnlessEditing();
-    }, () => { state.dbError = "Impossibile leggere il catalogo. Controlla le regole Firestore."; renderUnlessEditing(); });
+      state.catalogError = "";
+      updatePublicErrors(); refreshSharedPlants(); renderUnlessEditing();
+    }, () => {
+      state.catalogError = "Impossibile leggere il catalogo. Controlla le regole Firestore.";
+      updatePublicErrors(); renderUnlessEditing();
+    });
     firebase.onAuthStateChanged(firebase.auth, async (user) => {
       const serial = ++authCheckSerial;
       if (privateListener) { privateListener(); privateListener = null; }
@@ -329,7 +340,8 @@ async function startFirebase() {
     });
     renderUnlessEditing();
   } catch {
-    state.dbError = "Connessione Firebase non disponibile.";
+    state.catalogError = "Connessione Firebase non disponibile.";
+    updatePublicErrors();
     state.error = "Non è stato possibile inizializzare Firebase.";
     state.authReady = true;
     render();

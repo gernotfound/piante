@@ -46,10 +46,19 @@ export function lotIdOf(speciesId, lotName) {
 export function profileByName(profiles, kind, name, parentId = "") {
   const normalized = normalizeTaxonName(name);
   if (!normalized) return null;
-  return profiles.find(profile => profile.kind === kind &&
-    (kind !== "cultivar" || profile.parentId === parentId) &&
-    (normalizeTaxonName(profile.name) === normalized ||
-      (Array.isArray(profile.aliases) && profile.aliases.includes(normalized)))) || null;
+  const eligible = profiles.filter(profile => profile.kind === kind &&
+    (kind !== "cultivar" || profile.parentId === parentId));
+  const exact = eligible.find(profile => normalizeTaxonName(profile.name) === normalized);
+  if (exact) return exact;
+  const matches = eligible.filter(profile => {
+    const aliases = [
+      ...(Array.isArray(profile.aliases) ? profile.aliases : []),
+      ...String(profile.searchAliases || "").split(/[,;\n]/)
+    ];
+    return aliases.some(alias => normalizeTaxonName(alias) === normalized);
+  });
+  // Non scegliere arbitrariamente tra specie con lo stesso sinonimo.
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export function profileForPlant(plant, profiles) {
