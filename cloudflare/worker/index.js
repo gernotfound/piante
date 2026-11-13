@@ -96,7 +96,7 @@ function encodeCursor(row) {
 function optionalFilter(params, key, maxLength) {
   if (!params.has(key)) return null;
   const value = params.get(key).trim();
-  if (!value || value.length > maxLength || /[\\u0000-\\u001f\\u007f]/.test(value)) {
+  if (!value || value.length > maxLength || /[\u0000-\u001f\u007f]/.test(value)) {
     throw new InvalidInput("Invalid filter");
   }
   return value;
