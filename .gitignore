@@ -14,3 +14,10 @@ gha-creds-*.json
 
 # Output Cloudflare generato separatamente da Firebase
 /cloudflare/dist/
+
+/.cloudflare/
+/cloudflare/public/
+/.wrangler/
+
+# Profilo locale creato da cf workers check --prebuilt
+/worker-startup.cpuprofile

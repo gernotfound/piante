@@ -19,7 +19,7 @@ test("I workflow usano una versione Node compatibile con le dipendenze Firebase"
 test("CI: permessi minimi e gate obbligatorio aggregato", () => {
   assert.match(ci, /permissions:\s*\n\s+contents: read/);
   assert.match(ci, /name: Canonical Verification/);
-  assert.match(ci, /needs: \[check, firestore-rules, browser-e2e, cloudflare-native, codeql\]/);
+  assert.match(ci, /needs: \[check, firestore-rules, browser-e2e, cloudflare-native, cloudflare-package, codeql\]/);
   assert.match(ci, /name: Browser E2E \(isolated emulators\)/);
   assert.match(ci, /BROWSER_RESULT.*needs\.browser-e2e\.result/);
   assert.match(ci, /BROWSER_RESULT.*!= "success"/);
@@ -29,6 +29,9 @@ test("CI: permessi minimi e gate obbligatorio aggregato", () => {
   assert.match(ci, /name: Cloudflare Worker and D1 \(local workerd\)/);
   assert.match(ci, /NATIVE_RESULT.*needs\.cloudflare-native\.result/);
   assert.match(ci, /NATIVE_RESULT.*!= "success"/);
+  assert.match(ci, /name: Cloudflare cf and Static Assets packaging/);
+  assert.match(ci, /PACKAGE_RESULT.*needs\.cloudflare-package\.result/);
+  assert.match(ci, /PACKAGE_RESULT.*!= "success"/);
 });
 
 test("Hosting segue Firestore Production, non una CI generica o una PR", () => {

@@ -65,7 +65,9 @@ test("tutte le risorse statiche HTML hanno un asset pubblicato e non importano F
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /<dialog\b/);
   assert.match(html, /href="\/favicon.svg"/);
-  assert.doesNotMatch(html + js, /firebase\/|firebaseapp|firebaseConfig|<script[^>]*type="module"/i);
+  assert.doesNotMatch(html + js, /firebase\/|firebaseapp|firebaseConfig/i);
+  assert.deepEqual([...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(match => match[1]), ["/app.js"]);
+  assert.match(html, /<script src="\/app\.js" type="module"><\/script>/);
   assert.doesNotMatch(html + js, /login|checkout|pagamento/i);
   assert.match(css, /minmax\(0,\s*1fr\)/);
   assert.match(css, /@media \(min-width: 600px\)/);

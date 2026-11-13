@@ -57,3 +57,10 @@ Il test isolato `tests/native/cloudflare-runtime.test.js` esegue il **modulo Wor
 La nuova verifica è un gate aggiuntivo di Canonical Verification. In CI viene installata una versione **esplicitamente fissata** di Miniflare nell'ambiente del job (senza modificare il lockfile del progetto). I test non creano né contattano D1 remoti, e non richiedono credenziali Cloudflare. La verifica del router Workers Static Assets effettivo, della configurazione `cf`, delle quote D1 e del provider live resta separata. L'emulatore non sostituisce il collaudo su Cloudflare.
 
 L'emulatore stabile fissato (`miniflare@4.20260730.0`) supporta una compatibility date fino al `2026-08-06`: il test locale usa **quella data supportata**, senza simulare falsamente la runtime date del novembre 2026. L'eventuale data di compatibilità di rilascio andrà verificata con la toolchain finale e il provider.
+
+
+## Candidato CF-02: packaging cf/Vite senza deploy (13/11/2026)
+
+Il passo successivo a workerd/D1 locale configura la CLI Cloudflare `cf` (beta) con `cloudflare.config.ts`: Worker previsto `piantee`, DB binding `DB` per il futuro database **nuovo** `piantee-db`. Vite riceve soltanto i quattro asset creati dall'allowlist `scripts/build-cloudflare-site.mjs`. L'icona originale è copiata in una directory pubblica generata e isolata. `/api` e `/api/*` passano per il Worker prima degli asset, senza fallback SPA sulle API.
+
+`npm run build:cloudflare:cf` prepara gli asset espliciti, esegue **Vite**, riallinea il Build Output generato dalla root isolata nella directory canonica `.cloudflare/output/v0`, verifica la presenza del Worker server e l’allowlist degli asset client e avvia il controllo locale `cf workers check --prebuilt`. Nessuna autenticazione, creazione di risorse o deploy. La CI contiene un job autonomo di packaging, necessario a Canonical Verification: l’esito va verificato sullo SHA candidato esatto. Non confondere un binding dichiarato per nome con un D1 creato, un collegamento live o il rispetto della giurisdizione UE.
