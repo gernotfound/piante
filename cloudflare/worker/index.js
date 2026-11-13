@@ -131,6 +131,7 @@ async function listCatalog(db, { limit, cursor, q, category }) {
   const binds = [];
   if (q) {
     const term = q.startsWith("#") ? q.slice(1) : q;
+    if (!term) throw new InvalidInput("Invalid code search");
     const pattern = literalLike(term);
     clauses.push(SEARCH_SQL);
     binds.push(pattern, pattern, pattern, pattern);
