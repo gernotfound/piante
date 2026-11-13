@@ -137,3 +137,31 @@ test("testo pubblico non è interpretato come HTML eseguibile", async () => {
     assert.ok((await page.locator(".plant-description").innerText()).includes("<img"));
   } finally { await page.close(); }
 });
+
+
+test("l'errore alla pagina successiva conserva le schede e il retry riprende dal cursore", async () => {
+  const page = await browser.newPage();
+  let secondPageCalls = 0;
+  try {
+    await page.route("**/api/v1/catalog*", async route => {
+      const isSecondPage = new URL(route.request().url()).searchParams.has("cursor");
+      if (!isSecondPage) {
+        await route.fulfill(json({ items: [specimen(0)], nextCursor: "second-page" }));
+        return;
+      }
+      secondPageCalls++;
+      await route.fulfill(secondPageCalls === 1
+        ? json({ error: { code: "service_unavailable" } }, 503)
+        : json({ items: [specimen(1)], nextCursor: null }));
+    });
+    await page.goto(url + "/");
+    await page.locator(".plant-card").first().waitFor();
+    await page.getByRole("button", { name: "Mostra altre piante" }).click();
+    await page.getByRole("button", { name: "Riprova" }).waitFor();
+    assert.equal(await page.locator(".plant-card").count(), 1);
+    await page.getByRole("button", { name: "Riprova" }).click();
+    await page.locator(".plant-card").nth(1).waitFor();
+    assert.equal(await page.locator(".plant-card").count(), 2);
+    assert.equal(secondPageCalls, 2);
+  } finally { await page.close(); }
+});
