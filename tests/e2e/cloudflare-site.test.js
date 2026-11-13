@@ -64,7 +64,8 @@ test("vetrina mobile e desktop senza overflow; scheda dettaglio e chiusura", asy
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   try {
-    await page.route("**/api/v1/catalog*", async route => {
+    // Playwright's single * does not cross '/': the detail route needs **.
+    await page.route("**/api/v1/catalog**", async route => {
       const path = new URL(route.request().url()).pathname;
       await route.fulfill(json(path.endsWith("/plant-000")
         ? specimen(0) : { items: [specimen(0)], nextCursor: null }));
@@ -91,7 +92,7 @@ test("vetrina mobile e desktop senza overflow; scheda dettaglio e chiusura", asy
 test("paginazione e duplicati: non perde le piante già mostrate", async () => {
   const page = await browser.newPage();
   try {
-    await page.route("**/api/v1/catalog*", async route => {
+    await page.route("**/api/v1/catalog**", async route => {
       const parsed = new URL(route.request().url());
       const next = parsed.searchParams.has("cursor");
       await route.fulfill(json(next
@@ -111,7 +112,7 @@ test("errore di rete, riprova e catalogo realmente vuoto", async () => {
   const page = await browser.newPage();
   let calls = 0;
   try {
-    await page.route("**/api/v1/catalog*", async route => {
+    await page.route("**/api/v1/catalog**", async route => {
       calls++;
       await route.fulfill(calls === 1 ? json({ error: { code: "service_unavailable" } }, 503)
         : json({ items: [], nextCursor: null }));
@@ -130,7 +131,7 @@ test("testo pubblico non è interpretato come HTML eseguibile", async () => {
   const page = await browser.newPage();
   try {
     const malicious = specimen(0, "<img src=x onerror=window.injectedByCatalog=true>");
-    await page.route("**/api/v1/catalog*", async route =>
+    await page.route("**/api/v1/catalog**", async route =>
       route.fulfill(json({ items: [malicious], nextCursor: null })));
     await page.goto(url + "/");
     await page.locator(".plant-card").first().waitFor();
@@ -145,7 +146,7 @@ test("l'errore alla pagina successiva conserva le schede e il retry riprende dal
   const page = await browser.newPage();
   let secondPageCalls = 0;
   try {
-    await page.route("**/api/v1/catalog*", async route => {
+    await page.route("**/api/v1/catalog**", async route => {
       const isSecondPage = new URL(route.request().url()).searchParams.has("cursor");
       if (!isSecondPage) {
         await route.fulfill(json({ items: [specimen(0)], nextCursor: "second-page" }));
