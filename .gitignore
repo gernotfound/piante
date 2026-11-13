@@ -18,3 +18,6 @@ gha-creds-*.json
 /.cloudflare/
 /cloudflare/public/
 /.wrangler/
+
+# Profilo locale creato da cf workers check --prebuilt
+/worker-startup.cpuprofile
