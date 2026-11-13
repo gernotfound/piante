@@ -70,3 +70,10 @@ Questo è un checkpoint storico basato su GitHub, da ricontrollare prima di ogni
 - [CF-09 #42](https://github.com/gernotfound/piante/issues/42): hostname, E2E, GO di rilascio, cutover e dismissione separata.
 
 Per nuove chat: partire da questo file, issue di fase e **nuova lettura di HEAD/PR** e console; il solo screenshot conferma **sottodominio account già esistente**, non **hostname Piantee creato**.
+
+
+## Aggiornamento 13 novembre 2026 — PR #47 integrata; prossimo gate runtime locale
+
+La [PR #47](https://github.com/gernotfound/piante/pull/47) è stata integrata mediante squash su `main` allo SHA `56568b99e74e7a8b49190e4547f50a7617389e7f`. La [CI post-merge 43430566780](https://github.com/gernotfound/piante/actions/runs/43430566780) ha superato cinque job. I workflow [Rules 43430887513](https://github.com/gernotfound/piante/actions/runs/43430887513) e [Hosting 43430928683](https://github.com/gernotfound/piante/actions/runs/43430928683) sono conclusi senza eseguire i passaggi privilegiati: Firebase non è stato pubblicato di nuovo.
+
+Il prossimo incremento CF-02 introduce una verifica riproducibile del Worker e D1 tramite **Miniflare/workerd locale**. Non è un test del D1 remoto in giurisdizione UE, né del router Static Assets o del rilascio. Restano vincolanti Fresh Start, zero import Firebase, account/risorse TheLogBook intatti, divieto di provisioning e deploy senza autorizzazione.
