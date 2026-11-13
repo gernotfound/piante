@@ -12,7 +12,8 @@ function simulator({ withDb = true } = {}) {
   return new Miniflare({
     scriptPath: workerPath,
     modules: true,
-    compatibilityDate: "2026-11-13",
+    // The pinned stable workerd build supports dates up to 2026-08-06.
+    compatibilityDate: "2026-08-06",
     ...(withDb ? { d1Databases: { DB: "00000000-0000-4000-8000-000000000047" } } : {})
   });
 }
