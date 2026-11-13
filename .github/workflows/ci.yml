@@ -117,7 +117,7 @@ jobs:
       - name: Configura Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '24.12.0'
+          node-version: '24.22.0'
       - name: Installa toolchain senza credenziali
         run: npm install --no-audit --no-fund
       - name: Costruisci il Cloudflare Build Output (solo locale)
