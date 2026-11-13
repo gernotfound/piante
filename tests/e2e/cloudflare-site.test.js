@@ -79,7 +79,9 @@ test("vetrina mobile e desktop senza overflow; scheda dettaglio e chiusura", asy
     assert.equal(await page.locator(".plant-card").count(), 1);
     await page.getByRole("button", { name: "Dettagli di Pianta di prova" }).click();
     await page.locator("#plant-dialog[open]").waitFor();
-    assert.ok((await page.locator("#dialog-body").innerText()).includes("#A00000"));
+    // Il dialog si apre prima della risposta HTTP: attendere il dettaglio effettivo,
+    // non scambiare lo stato di caricamento per un risultato definitivo.
+    await page.locator("#dialog-body").getByText("#A00000", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Chiudi dettagli" }).click();
     assert.equal(await page.locator("#plant-dialog").evaluate(element => element.open), false);
     assert.deepEqual(errors, []);
