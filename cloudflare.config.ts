@@ -1,10 +1,9 @@
 import { bindings, defineConfig } from "cf/config";
-import * as entrypoint from "./cloudflare/worker/index.js" with { type: "cf-worker" };
 
 export default defineConfig({
   worker: {
     name: "piantee",
-    entrypoint,
+    entrypoint: "./cloudflare/worker/index.js",
     compatibilityDate: "2026-08-06",
     assets: {
       runWorkerFirst: ["/api", "/api/*"],
