@@ -7,12 +7,19 @@ const retryButton = document.getElementById("retry-button");
 const dialog = document.getElementById("plant-dialog");
 const dialogBody = document.getElementById("dialog-body");
 const closeDialog = document.getElementById("close-dialog");
+const filterForm = document.getElementById("catalog-filters");
+const searchQuery = document.getElementById("search-query");
+const categoryFilter = document.getElementById("category-filter");
+const clearFilters = document.getElementById("clear-filters");
+const categoryHint = document.getElementById("category-hint");
 
 const state = {
   loading: false, items: [], nextCursor: null, hasLoaded: false,
-  error: false, seenIds: new Set(), seenCursors: new Set()
+  error: false, seenIds: new Set(), seenCursors: new Set(),
+  applied: { q: "", category: "" }, revision: 0
 };
 let detailRequest = null;
+let catalogRequest = null;
 
 function node(tag, className, text) {
   const element = document.createElement(tag);
@@ -90,7 +97,10 @@ function updateUi() {
   else if (state.error) status.textContent = state.items.length
     ? "Non è stato possibile caricare altre piante. Puoi riprovare; quelle già caricate sono conservate."
     : "Il catalogo non è disponibile al momento. Riprova.";
-  else if (!state.items.length && state.hasLoaded) status.textContent = "Non ci sono ancora piante pubblicate.";
+  else if (!state.items.length && state.hasLoaded) status.textContent =
+    state.applied.q || state.applied.category
+      ? "Nessuna pianta corrisponde ai filtri applicati."
+      : "Non ci sono ancora piante pubblicate.";
   else status.textContent = "";
 }
 
@@ -102,6 +112,9 @@ async function loadPage() {
     updateUi();
     return;
   }
+  const revision = state.revision;
+  const controller = new AbortController();
+  catalogRequest = controller;
   state.loading = true;
   state.error = false;
   updateUi();
@@ -109,9 +122,14 @@ async function loadPage() {
     const url = new URL("/api/v1/catalog", location.origin);
     url.searchParams.set("limit", "20");
     if (cursor) url.searchParams.set("cursor", cursor);
-    const response = await fetch(url.href, { headers: { Accept: "application/json" }, cache: "no-store" });
+    if (state.applied.q) url.searchParams.set("q", state.applied.q);
+    if (state.applied.category) url.searchParams.set("category", state.applied.category);
+    const response = await fetch(url.href, {
+      headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
+    });
     if (!response.ok) throw new Error("Catalog HTTP error");
     const body = await response.json();
+    if (revision !== state.revision || controller.signal.aborted) return;
     if (!Array.isArray(body.items) ||
         !(body.nextCursor === null || typeof body.nextCursor === "string") ||
         body.items.some(item => !item || typeof item.id !== "string" || !item.id)) {
@@ -133,10 +151,80 @@ async function loadPage() {
     state.nextCursor = body.nextCursor;
     state.hasLoaded = true;
   } catch {
-    state.error = true;
+    if (revision === state.revision && !controller.signal.aborted) state.error = true;
   } finally {
-    state.loading = false;
-    updateUi();
+    if (revision === state.revision) {
+      state.loading = false;
+      catalogRequest = null;
+      updateUi();
+    }
+  }
+}
+
+function selectedCategory(value) {
+  if (value && !Array.from(categoryFilter.options).some(option => option.value === value)) {
+    categoryFilter.add(new Option(value, value));
+  }
+  categoryFilter.value = value;
+}
+
+function filtersFromUrl() {
+  const params = new URL(location.href).searchParams;
+  return {
+    q: (params.get("q") || "").trim().slice(0, 80),
+    category: (params.get("category") || "").trim().slice(0, 120)
+  };
+}
+
+function applyFilters(filters, { writeHistory = false, syncControls = false } = {}) {
+  if (catalogRequest) catalogRequest.abort();
+  state.revision++;
+  state.loading = false;
+  state.error = false;
+  state.items = [];
+  state.nextCursor = null;
+  state.hasLoaded = false;
+  state.seenIds.clear();
+  state.seenCursors.clear();
+  state.applied = { q: filters.q, category: filters.category };
+  grid.replaceChildren();
+  if (syncControls) {
+    searchQuery.value = filters.q;
+    selectedCategory(filters.category);
+  }
+  if (writeHistory) {
+    const next = new URL(location.href);
+    for (const key of ["q", "category"]) {
+      if (filters[key]) next.searchParams.set(key, filters[key]);
+      else next.searchParams.delete(key);
+    }
+    if (next.href !== location.href) history.pushState(null, "", next);
+  }
+  updateUi();
+  loadPage();
+}
+
+async function loadCategories() {
+  try {
+    const response = await fetch("/api/v1/catalog/categories", {
+      headers: { Accept: "application/json" }, cache: "no-store"
+    });
+    if (!response.ok) throw new Error("Categories HTTP error");
+    const body = await response.json();
+    if (!Array.isArray(body.categories) || body.categories.length > 200 ||
+        body.categories.some(value => typeof value !== "string" || !value || value.length > 120)) {
+      throw new Error("Invalid categories response");
+    }
+    // Preserve a category the user selected while the request was in flight.
+    const selected = categoryFilter.value;
+    const options = [new Option("Tutte le categorie", "")];
+    for (const category of body.categories) options.push(new Option(category, category));
+    if (selected && !body.categories.includes(selected)) options.push(new Option(selected, selected));
+    categoryFilter.replaceChildren(...options);
+    categoryFilter.value = selected;
+    categoryHint.textContent = "";
+  } catch {
+    categoryHint.textContent = "Categorie non disponibili: la ricerca per nome rimane utilizzabile.";
   }
 }
 
@@ -186,6 +274,19 @@ async function showDetails(id) {
 
 moreButton.addEventListener("click", loadPage);
 retryButton.addEventListener("click", loadPage);
+filterForm.addEventListener("submit", event => {
+  event.preventDefault();
+  applyFilters({
+    q: searchQuery.value.trim(),
+    category: categoryFilter.value.trim()
+  }, { writeHistory: true });
+});
+clearFilters.addEventListener("click", () => {
+  applyFilters({ q: "", category: "" }, { writeHistory: true, syncControls: true });
+});
+window.addEventListener("popstate", () => {
+  applyFilters(filtersFromUrl(), { syncControls: true });
+});
 closeDialog.addEventListener("click", () => dialog.close());
 dialog.addEventListener("close", () => {
   if (detailRequest) detailRequest.abort();
@@ -193,4 +294,5 @@ dialog.addEventListener("close", () => {
   dialogBody.replaceChildren();
 });
 
-loadPage();
+applyFilters(filtersFromUrl(), { syncControls: true });
+loadCategories();
