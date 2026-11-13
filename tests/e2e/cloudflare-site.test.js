@@ -250,3 +250,21 @@ test("risposta lenta di un vecchio filtro non sovrascrive il filtro successivo",
     await page.close();
   }
 });
+
+
+test("link con categoria in maiuscole diverse non duplica il selettore; Unicode resta distinto", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.route("**/api/v1/catalog?*", route =>
+      route.fulfill(json({ items: [], nextCursor: null })));
+    await page.route("**/api/v1/catalog/categories", route =>
+      route.fulfill(json({ categories: ["Fruttifere", "Épices", "épices"] })));
+    await page.goto(url + "/?category=fruttifere");
+    await page.waitForFunction(() =>
+      document.querySelector("#category-filter").options.length === 4);
+    assert.deepEqual(await page.locator("#category-filter option").evaluateAll(options =>
+      options.map(option => option.value)), ["", "Fruttifere", "Épices", "épices"]);
+    assert.equal(await page.locator("#category-filter").inputValue(), "Fruttifere");
+    assert.equal(new URL(page.url()).searchParams.get("category"), "fruttifere");
+  } finally { await page.close(); }
+});

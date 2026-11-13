@@ -161,11 +161,16 @@ async function loadPage() {
   }
 }
 
+// SQLite NOCASE only folds ASCII, so the selector must not merge Unicode categories.
+function categoryKey(value) {
+  return value.replace(/[A-Z]/g, letter => letter.toLowerCase());
+}
+
 function selectedCategory(value) {
-  if (value && !Array.from(categoryFilter.options).some(option => option.value === value)) {
-    categoryFilter.add(new Option(value, value));
-  }
-  categoryFilter.value = value;
+  const match = Array.from(categoryFilter.options)
+    .find(option => categoryKey(option.value) === categoryKey(value));
+  if (value && !match) categoryFilter.add(new Option(value, value));
+  categoryFilter.value = match ? match.value : value;
 }
 
 function filtersFromUrl() {
@@ -217,11 +222,12 @@ async function loadCategories() {
     }
     // Preserve a category the user selected while the request was in flight.
     const selected = categoryFilter.value;
+    const match = body.categories.find(category => categoryKey(category) === categoryKey(selected));
     const options = [new Option("Tutte le categorie", "")];
     for (const category of body.categories) options.push(new Option(category, category));
-    if (selected && !body.categories.includes(selected)) options.push(new Option(selected, selected));
+    if (selected && !match) options.push(new Option(selected, selected));
     categoryFilter.replaceChildren(...options);
-    categoryFilter.value = selected;
+    categoryFilter.value = match || selected;
     categoryHint.textContent = "";
   } catch {
     categoryHint.textContent = "Categorie non disponibili: la ricerca per nome rimane utilizzabile.";
