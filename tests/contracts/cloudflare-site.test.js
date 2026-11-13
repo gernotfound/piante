@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { buildCloudflareSite } from "../../scripts/build-cloudflare-site.mjs";
 
@@ -30,18 +31,23 @@ test("Cloudflare costruisce solo gli asset dichiarati, in directory indipendente
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("l'elenco non cresce quando vengono aggiunti accidentalmente file sotto site/", () => {
-  const dir = mkdtempSync(join(tmpdir(), "piantee-cf-negative-"));
-  const probe = new URL("../../cloudflare/site/server-secret-never-publish.js", import.meta.url);
+test("l'elenco non cresce quando vengono aggiunti file non revisionati", async () => {
+  const workspace = mkdtempSync(join(tmpdir(), "piantee-cf-negative-"));
   try {
-    writeFileSync(probe, "export const neverPublic = true;\n");
-    const emitted = buildCloudflareSite(join(dir, "public"));
+    for (const source of [...Object.values(SOURCES), "scripts/build-cloudflare-site.mjs"]) {
+      const destination = join(workspace, source);
+      mkdirSync(dirname(destination), { recursive: true });
+      copyFileSync(new URL(source, ROOT), destination);
+    }
+    const secret = join(workspace, "cloudflare/site/server-secret-never-publish.js");
+    writeFileSync(secret, "export const neverPublic = true;\\n");
+    const { buildCloudflareSite: isolatedBuild } = await import(
+      pathToFileURL(join(workspace, "scripts/build-cloudflare-site.mjs")).href
+    );
+    const emitted = isolatedBuild();
     assert.deepEqual(emitted, Object.keys(SOURCES).sort());
-    assert.equal(existsSync(join(dir, "public/server-secret-never-publish.js")), false);
-  } finally {
-    rmSync(probe, { force: true });
-    rmSync(dir, { recursive: true, force: true });
-  }
+    assert.equal(existsSync(join(workspace, "cloudflare/dist/server-secret-never-publish.js")), false);
+  } finally { rmSync(workspace, { recursive: true, force: true }); }
 });
 
 test("tutte le risorse statiche HTML hanno un asset pubblicato e non importano Firebase", () => {
