@@ -8,6 +8,11 @@
 - **Questa non è l'architettura live:** i paragrafi seguenti descrivono Firebase. Il nuovo D1 parte vuoto con una nuova identità amministrativa; non importa dati/account né mantiene adattamenti per versioni vecchie.
 - La PR draft [#44](https://github.com/gernotfound/piante/pull/44) gestisce separatamente il contesto dell'account Cloudflare e l'hostname gratuito `https://piantee.califano-ger.workers.dev`, confermato dal proprietario ma non ancora creato o pubblicato. Nessun merge/deploy/risorsa esterna è implicito nell'aggiunta del modello SQL.
 
+## Frontend Cloudflare candidato (non distribuito)
+
+- `cloudflare/site/`: nuova vetrina anonima, indipendente dal vecchio `src/` Firebase; `scripts/build-cloudflare-site.mjs` produce `cloudflare/dist/`, separata dal `dist/` distribuito da Firebase. Nessun archivio privato, migrazione o login implementato.
+- Il Worker `cloudflare/worker/index.js` fornisce solo catalogo pubblico da `public_catalog`; gestione privata negata. Contratti e test: [API Cloudflare](cloudflare-api.md), [D1](cloudflare-data-model.md), `tests/e2e/cloudflare-site.test.js`. Lo stato live resta Firebase: SQL/HTML/Worker candidati non sono un deploy.
+
 ## Frontend
 
 - `index.html`: HTML iniziale e metadati; `styles/base.css`, `styles/public.css`, `styles/admin.css`, `styles/responsive.css`: token/componenti, catalogo, gestionale e responsive (caricati nell'ordine originale).
