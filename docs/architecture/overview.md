@@ -6,7 +6,7 @@
 
 - La migrazione architetturale Cloudflare è descritta nell'[EPIC #32](https://github.com/gernotfound/piante/issues/32), nel [contratto D1 Fresh Start](cloudflare-data-model.md) e nel [contratto API Workers candidato](cloudflare-api.md) (lettura pubblica, amministrazione non disponibile). Lo schema candidato è `cloudflare/migrations/0001_initial.sql` con test `tests/contracts/cloudflare-schema.test.js`.
 - **Questa non è l'architettura live:** i paragrafi seguenti descrivono Firebase. Il nuovo D1 parte vuoto con una nuova identità amministrativa; non importa dati/account né mantiene adattamenti per versioni vecchie.
-- La PR draft [#44](https://github.com/gernotfound/piante/pull/44) gestisce separatamente il contesto dell'account Cloudflare e l'hostname gratuito `https://piantee.califano-ger.workers.dev`, confermato dal proprietario ma non ancora creato o pubblicato. Nessun merge/deploy/risorsa esterna è implicito nell'aggiunta del modello SQL.
+- La PR [#44](https://github.com/gernotfound/piante/pull/44), già integrata, registra il contesto dell'account Cloudflare e l'hostname gratuito `https://piantee.califano-ger.workers.dev`, confermato dal proprietario ma non ancora creato o pubblicato. L'integrazione del file SQL non equivale alla sua applicazione sul database D1, né a un deploy Cloudflare.
 
 ## Frontend Cloudflare candidato (non distribuito)
 

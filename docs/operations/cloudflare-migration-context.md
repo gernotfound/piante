@@ -37,6 +37,15 @@ Non riportare nei documenti pubblici email di account, segreti, token, identific
 - **PENDING:** nessun codice Piantee è stato deployato su Cloudflare; non esistono prova di D1, autenticazione, security gate o URL pubblicamente raggiungibile. Il pulsante `Deploy` della procedura Hello World non serve per pubblicare il prodotto vero e non va usato come scorciatoia.
 - **Azione successiva:** lavorare sulla vera app con il nome `piantee`, mantenendo integrità dei gate CF-02/CF-09 e senza toccare TheLogBook, Firebase o dati attuali. Conservare hostname come decisione; leggere il provider dopo un eventuale provisioning autorizzato.
 
+## Aggiornamento GitHub — integrazione seriale del 13/11/2026
+
+Questo è un checkpoint storico basato su GitHub, da ricontrollare prima di ogni nuovo merge. Le verifiche sul provider Cloudflare descritte sopra mantengono la propria data e non vengono aggiornate implicitamente dai commit.
+
+- La [PR #43](https://github.com/gernotfound/piante/pull/43) è stata integrata con squash merge nel commit `4b07f7ce75232a68de300828d83f588dfe0440bd`. [CI main 43420318487](https://github.com/gernotfound/piante/actions/runs/43420318487) **success**. Nel successivo [workflow Firestore Rules 43420595130](https://github.com/gernotfound/piante/actions/runs/43420595130) e [workflow Hosting 43420632354](https://github.com/gernotfound/piante/actions/runs/43420632354), la verifica del perimetro ha dato esito positivo, ma **tutti gli step privilegiati di riconciliazione e deploy Firebase sono risultati skipped**: nessuna pubblicazione legacy provocata dal commit CF-02
+- La [PR #45](https://github.com/gernotfound/piante/pull/45) è stata integrata con squash merge nel commit `40f52303e6413a6dbaf89eeceb88eb2476af5ce6`. Sono entrati soltanto modello D1, test SQLite sintetici e documentazione; **nessuna migration applicata a un D1 remoto**. [CI post-merge 43420972635](https://github.com/gernotfound/piante/actions/runs/43420972635) da verificare sul suo esatto SHA prima di eventuali fasi successive
+- La [PR #46](https://github.com/gernotfound/piante/pull/46) raccoglie API pubblica e frontend Cloudflare indipendente da Firebase; resta un candidato fino al proprio merge autorizzato, con CI exact-SHA e verifica autonoma del nuovo main. Il riferimento del branch, dello SHA e del gate corrente è nella PR e nella [EPIC #32](https://github.com/gernotfound/piante/issues/32)
+- **Non confondere repository e provider:** la disponibilità dei sorgenti sul main non crea né rende raggiungibile il Worker `piantee`; D1 EU, binding, autenticazione proprietario, configurazione `cf`, verifica native runtime e rilascio sono ancora fasi distinte. Nessun dato/account Firebase deve essere importato
+
 ## Prossimi passi e gate
 
 1. **Nome confermato:** `piantee`. Dal percorso `Create application → Start with Hello World!`, non fare `Deploy` del codice dimostrativo; per il vero rilascio è necessario predisporre codice, build, bindings e gate della nuova app, poi creare/pubblicare il Worker finale.

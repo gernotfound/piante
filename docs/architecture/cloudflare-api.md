@@ -1,6 +1,6 @@
 # Piantee — API Workers candidata (CF-02 su schema CF-01)
 
-**Stato 13/11/2026:** solo codice su branch di sviluppo, nessun deploy Cloudflare o API raggiungibile sul nuovo hostname. La produzione attuale resta Firebase. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
+**Stato del runtime (13/11/2026):** il codice Worker/frontend è presente nel repository; nessun Worker Piantee, database D1 o API Cloudflare è stato verificato come pubblicato. La produzione attuale resta Firebase. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
 
 ## Contratto implementato
 
@@ -21,7 +21,7 @@ Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codific
 - Il DB assente, una query fallita o un risultato fuori contratto producono `503 service_unavailable`, **non** un catalogo artificiosamente vuoto. Dettagli SQL e dati interni non compaiono nella risposta.
 - La paginazione keyset è deterministica su dataset invariato; inserimenti o ritiri durante la navigazione possono variare le pagine. Il futuro backend di pubblicazione dovrà scrivere `published_at` in formato UTC ISO uniforme (es. `new Date().toISOString()`) per conservare l'ordinamento testuale atteso.
 - **Nessuna scrittura è possibile:** perfino header Cloudflare Access falsificati e cookie non sbloccano l'admin. Non interpretare questa negazione iniziale come autenticazione implementata: CF-03 dovrà validare JWT/identità owner e affrontare logout, recupero, CSRF e URL alternativi.
-- `cloudflare/worker/index.js` è codice server. La directory non viene inclusa nel build legacy `dist/`; la [PR draft #43](https://github.com/gernotfound/piante/pull/43) rafforza ulteriormente l'allowlist dei moduli pubblici.
+- `cloudflare/worker/index.js` è codice server. La directory non viene inclusa nel build legacy `dist/`; la [PR #43 integrata](https://github.com/gernotfound/piante/pull/43) rafforza l'allowlist dei moduli pubblici.
 - Quando verrà preparata la configurazione reale Static Assets, usare instradamento **Worker-first selettivo per `/api/*`**, mantenendo gli asset statici fuori dal consumo Worker quando possibile. Non è stato aggiunto un file `wrangler.toml/jsonc` né un binding remoto: la CLI del progetto va scelta secondo la configurazione effettiva; per un nuovo progetto Cloudflare la preferenza attuale è `cf`.
 
 ## Frontend pubblico indipendente da Firebase (candidato CF-04)
