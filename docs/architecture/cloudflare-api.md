@@ -24,6 +24,20 @@ Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codific
 - `cloudflare/worker/index.js` è codice server. La directory non viene inclusa nel build legacy `dist/`; la [PR draft #43](https://github.com/gernotfound/piante/pull/43) rafforza ulteriormente l'allowlist dei moduli pubblici.
 - Quando verrà preparata la configurazione reale Static Assets, usare instradamento **Worker-first selettivo per `/api/*`**, mantenendo gli asset statici fuori dal consumo Worker quando possibile. Non è stato aggiunto un file `wrangler.toml/jsonc` né un binding remoto: la CLI del progetto va scelta secondo la configurazione effettiva; per un nuovo progetto Cloudflare la preferenza attuale è `cf`.
 
+## Frontend pubblico indipendente da Firebase (candidato CF-04)
+
+Il nuovo frontend è in `cloudflare/site/index.html`, `cloudflare/site/styles.css` e `cloudflare/site/app.js`. Non importa Firebase SDK, non implementa login e non visualizza dati di prova: richiede solo l'API `GET /api/v1/catalog` e `GET /api/v1/catalog/:id`. Mostra un catalogo davvero vuoto quando la risposta è vuota, un errore con comando **Riprova** quando API/D1 falliscono, pagine successive senza duplicati e dettagli in dialog accessibile. Le foto compaiono solo tramite URL HTTPS presenti nei dati; in assenza o errore viene mostrata una dicitura testuale, senza immagini finte. Testo botanico nel DOM tramite `textContent`, mai `innerHTML`. La navigazione amministrativa è volutamente assente finché CF-03 non è realizzato.
+
+`scripts/build-cloudflare-site.mjs` crea **esclusivamente** `cloudflare/dist/` (quattro file: `index.html`, `app.js`, `styles.css`, `favicon.svg` originale). L'output è ignorato da Git. Il precedente comando `npm run build` conserva il suo significato Firebase: il comando aggiunto è `npm run build:cloudflare`. Il build non include `cloudflare/worker/`, migrazioni SQL, file `src/` o documenti interni. Anche test e script operativi restano esclusi.
+
+L'attuale sito HTML Firebase **non può essere copiato** direttamente nel nuovo hosting: importerebbe autenticazione e riferimenti a dati vecchi. Questa nuova pagina è volutamente minimale e Mobile First, in attesa di ricerca/filtri e UI gestionale. L'hostname `piantee.califano-ger.workers.dev` è confermato, **non ancora creato o live**.
+
+### Test del frontend (candidato)
+
+- `tests/contracts/cloudflare-site.test.js`: allowlist del build, nessun file segreto, risorse referenziate, regressione contro asset extra, layout/marcatura minima senza import Firebase.
+- `tests/e2e/cloudflare-site.test.js`: browser Chromium con server e API sintetiche **solo locali**, larghezze 320/360/390/430/768/1024/1440 CSS px, lista, dettagli, paginazione, errore/recupero e iniezione di markup. Il file è incluso nello script `npm run test:browser` insieme agli E2E Firebase.
+- Questi controlli non provano URL cloudflare, Access, D1 reale o SEO/SSR. La CLI `cf` è ancora in beta e la configurazione con binding D1 definitivo verrà validata solo dopo il provisioning autorizzato di un D1 di Piantee, separato da TheLogBook. **Nessun binding D1 remoto è stato inventato.**
+
 ## Verifiche e limiti
 
 La suite `tests/contracts/cloudflare-public-api.test.js` usa il vero motore SQLite in memoria con soli dati sintetici, caricando `cloudflare/migrations/0001_initial.sql` dalla PR CF-01; un adattatore minimo simula `prepare/bind/all/first` di D1. Copre catalogo vuoto, dati privati, pubblicazione/ritiro, paginazione con timestamp uguali, limiti e cursor malevoli, accessi amministrativi negati, metodi HTTP, risposte 503, fallback SPA e parametrizzazione SQL.
