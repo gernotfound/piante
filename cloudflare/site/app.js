@@ -150,17 +150,18 @@ function detailField(label, value) {
 
 async function showDetails(id) {
   if (detailRequest) detailRequest.abort();
-  detailRequest = new AbortController();
+  const controller = new AbortController();
+  detailRequest = controller;
   dialogBody.replaceChildren(node("p", "", "Caricamento dettagli…"));
   if (!dialog.open) dialog.showModal();
   try {
     const response = await fetch("/api/v1/catalog/" + encodeURIComponent(id), {
-      signal: detailRequest.signal, cache: "no-store", headers: { Accept: "application/json" }
+      signal: controller.signal, cache: "no-store", headers: { Accept: "application/json" }
     });
     if (!response.ok) throw new Error("Detail HTTP error");
     const item = await response.json();
     if (!item || item.id !== id) throw new Error("Invalid detail response");
-    if (!dialog.open || detailRequest.signal.aborted) return;
+    if (!dialog.open || controller.signal.aborted || detailRequest !== controller) return;
     const contents = document.createDocumentFragment();
     contents.append(plantImage(item), node("h3", "", text(item.taxon_name) || "Nome non disponibile"));
     for (const [label, value] of [
@@ -178,7 +179,7 @@ async function showDetails(id) {
     }
     dialogBody.replaceChildren(contents);
   } catch {
-    if (detailRequest.signal.aborted) return;
+    if (controller.signal.aborted || detailRequest !== controller) return;
     dialogBody.replaceChildren(node("p", "", "Impossibile caricare i dettagli. Chiudi e riprova."));
   }
 }
