@@ -23,7 +23,10 @@ async function setup(t, { withDb = true } = {}) {
   t.after(() => worker.dispose());
   if (!withDb) return { worker };
   const db = await worker.getD1Database("DB");
-  await db.exec(schema);
+  // D1.exec treats comment-only lines as empty statements; execute identical
+  // SQL without those lines, preserving the original migration on disk.
+  const executable = schema.split(/\r?\n/).filter(line => !line.trimStart().startsWith("--")).join("\n");
+  await db.exec(executable);
   return { worker, db };
 }
 
