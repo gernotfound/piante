@@ -36,7 +36,7 @@ I nomi scientifici, la rusticità, l'autofertilità e gli altri attributi non ve
 - La vista `public_catalog` riferisce i profili botanici via JOIN: una modifica condivisa ai dati botanici pubblicabili si riflette sulle pubblicazioni senza replicare tutti i profili. Eliminare `public_listings` toglie immediatamente la riga dalla vista; dopo il rilascio servirà invalidazione della cache HTTP pubblica.
 - Mesi, ordine e ricerche iniziali usano tabelle e indici normali. **Non è previsto FTS5 nella v1**: la sua esportazione D1 richiede un dump per SQLite CLI che non si può reimportare direttamente in D1, quindi l'eventuale adozione futura richiederà un collaudo di backup/restore.
 
-## Test, verifiche non eseguite, release
+## API di lettura collegata\n\nLa [API Workers candidata](cloudflare-api.md) legge esclusivamente la vista `public_catalog` tramite query parametrizzate e nessuna operazione di amministrazione. La sua PR CF-02 dipende dallo schema CF-01; fino a validazione nativa su D1/Workers si tratta solo di contratto testato in SQLite sintetico.\n\n## Test, verifiche non eseguite, release
 
 La suite `tests/contracts/cloudflare-schema.test.js` esegue la migration contro **SQLite locale in memoria** mediante `node:sqlite`: database inizialmente vuoto, FK, valori sconosciuti, alias ambigui, codici riservati e collisioni `REPLACE`, diario append-only, confini pubblico/privato, ritiro dal catalogo, rollback in transazione, CAS e indici di ricerca.
 
