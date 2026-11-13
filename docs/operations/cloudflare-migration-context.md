@@ -20,6 +20,15 @@
 
 Non riportare nei documenti pubblici email di account, segreti, token, identificativi personali o dati Firebase esistenti. Il sottodominio account e gli hostname dei Worker sono pubblici e necessari a documentare il routing.
 
+
+## Schermata di scelta del nome — 2026-11-13 (USER-REPORTED screenshot; NO DEPLOY)
+
+- Il proprietario ha aperto **Create application → Start with Hello World! → Deploy Hello World** nella console Workers. La schermata mostra il campo **Worker name** con l'anteprima `piantee.califano-ger.workers.dev` e una spunta di validazione; il proprietario **non ha confermato il nome**, quindi l'anteprima non è una decisione né una prova di provisioning o di prenotazione.
+- Il campo consente di modificare il prefisso (nome del Worker). Il suffisso account `califano-ger.workers.dev` è condiviso con TheLogBook e non va cambiato nell'ambito di questa configurazione senza analizzare le conseguenze.
+- Sono visibili l'opzione **Protect with Cloudflare Access** con selettore apparentemente disattivato e il pulsante **Deploy**. Non è stata mostrata alcuna azione su questi controlli; la posizione visiva del toggle non prova che la futura app sarà o resterà non protetta.
+- Questo flusso genera un **Worker Hello World**, non il codice Piantee. Non cliccare Deploy per creare un segnaposto prima di aver scelto nome e strategia di rilascio/Access; nessun hostname Piantee è attestato come live, né sono stati creati D1 o altri servizi.
+- Prossimo passo: lasciare al proprietario la scelta libera del nome del Worker nella UI, verificare anteprima e disponibilità senza finalizzare; mantenere PR draft e gate CF-02/CF-09 pendenti.
+
 ## Prossimi passi e gate
 
 1. Dalla pagina Workers & Pages premere **Create application**. Esaminare la schermata prima di confermare opzioni o distribuire: distinguere Workers da Pages; scegliere il nome del Worker compatibile con l'architettura e l'eventuale progetto già creato da un altro intervento.
