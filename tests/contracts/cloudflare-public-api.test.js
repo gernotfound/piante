@@ -113,7 +113,10 @@ test("limiti, parametri doppi/sconosciuti e cursori malevoli respinti", async ()
   try {
     for (const query of ["limit=0", "limit=41", "limit=-1", "limit=1.2", "limit=0003",
       "limit=99999", "limit=3&limit=4", "cursor=", "cursor=%25", "cursor=not-a-cursor",
-      "q=secret", "limit=4&foo=bar", "cursor=" + "x".repeat(513)]) {
+      "q=", "q=%20", "q=%23", "q=%00", "q=" + "q".repeat(81),
+      "category=", "category=%20", "category=" + "x".repeat(121),
+      "category=Fruttifere&category=Ornamentali", "q=x&q=y",
+      "limit=4&foo=bar", "cursor=" + "x".repeat(513)]) {
       const out = await request(`/api/v1/catalog?${query}`, { DB: db });
       assert.equal(out.status, 400, query);
       assert.deepEqual(out.body, { error: { code: "invalid_request" } });
@@ -174,7 +177,9 @@ test("query pubbliche parametrizzate e nessun SELECT da tabelle private", () => 
   assert.doesNotMatch(source, /FROM\s+(?:specimens|seed_lots|journal_entries|specimen_code_reservations)\b/i);
   assert.doesNotMatch(source, /SELECT\s+\*/i);
   assert.match(source, /\.prepare\(DETAIL_SQL\)\.bind\(id\)/);
-  assert.match(source, /\.bind\(cursor\[0\], cursor\[0\], cursor\[1\], limit \+ 1\)/);
+  assert.match(source, /\.bind\(\.\.\.binds, limit \+ 1\)/);
+  assert.match(source, /binds\.push\(cursor\[0\], cursor\[0\], cursor\[1\]\)/);
+  assert.match(source, /FROM public_catalog/);
 });
 
 
@@ -208,4 +213,83 @@ test("il risultato JSON applica una seconda allowlist anche se D1 restituisse ca
     assert.equal(JSON.stringify([list.body, detail.body]).includes("PRIVATE"), false);
     assert.equal(Object.hasOwn(detail.body, "internal_notes"), false);
   } finally { close(); }
+});
+
+test("ricerca anonima su campi pubblici, codice con # e LIKE letterale", async () => {
+  const { db, sql, close } = syntheticDatabase();
+  try {
+    seed(sql, 2);
+    sql.prepare("UPDATE taxa SET category = ? WHERE id = 'taxon-1'").run("Fruttifere");
+    sql.prepare(`INSERT INTO taxa (id,kind,name,name_key,category,created_at,updated_at)
+      VALUES ('taxon-2','unverified','Esemplare_%!','esemplare_%!','Ornamentali',?,?)`).run(NOW,NOW);
+    sql.prepare(`INSERT INTO specimen_code_reservations (code,specimen_id,reserved_at)
+      VALUES ('V00001','plant-999',?)`).run(NOW);
+    sql.prepare(`INSERT INTO specimens (id,taxon_id,code,created_at,updated_at)
+      VALUES ('plant-999','taxon-2','V00001',?,?)`).run(NOW,NOW);
+    sql.prepare(`INSERT INTO public_listings (specimen_id,published_at,updated_at)
+      VALUES ('plant-999',?,?)`).run(NOW,NOW);
+
+    const list = async query => (await request("/api/v1/catalog?" + query, { DB: db })).body.items.map(x => x.id);
+    assert.deepEqual(await list("q=Pianta"), ["plant-001", "plant-000"]);
+    assert.deepEqual(await list("q=%23T00001"), ["plant-001"]);
+    assert.deepEqual(await list("q=T00000"), ["plant-000"]);
+    assert.deepEqual(await list("q=Riservato"), []);
+    assert.deepEqual(await list("q=%25"), ["plant-999"], "% deve restare letterale");
+    assert.deepEqual(await list("q=_"), ["plant-999"], "_ deve restare letterale");
+    assert.deepEqual(await list("q=!"), ["plant-999"], "! deve restare letterale");
+    assert.deepEqual(await list("category=Fruttifere"), ["plant-001", "plant-000"]);
+    assert.deepEqual(await list("category=Ornamentali"), ["plant-999"]);
+    assert.deepEqual(await list("category=fruttifere&q=%23T00001"), ["plant-001"]);
+    assert.deepEqual(await list("category=Fruttifere&q=Esemplare"), []);
+    assert.deepEqual(await list("category=Ornamentali&q=Esemplare"), ["plant-999"]);
+  } finally { close(); }
+});
+
+test("categorie suggerite: solo catalogo pubblico, senza categorie private", async () => {
+  const { db, sql, close } = syntheticDatabase();
+  try {
+    seed(sql, 2);
+    sql.prepare("UPDATE taxa SET category = 'Fruttifere' WHERE id = 'taxon-1'").run();
+    sql.prepare(`INSERT INTO taxa (id,kind,name,name_key,category,created_at,updated_at)
+      VALUES ('unpublished','unverified','Segreta','segreta','SEGRETO',?,?)`).run(NOW, NOW);
+    const response = await request("/api/v1/catalog/categories", { DB: db });
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, { categories: ["Fruttifere"] });
+    assert.equal(JSON.stringify(response.body).includes("SEGRETO"), false);
+    assert.equal((await request("/api/v1/catalog/categories?bad=1", { DB: db })).status, 400);
+    assert.equal((await request("/api/v1/catalog/categories", { DB: db }, { method: "POST" })).status, 405);
+    sql.prepare("DELETE FROM public_listings").run();
+    assert.deepEqual((await request("/api/v1/catalog/categories", { DB: db })).body, { categories: [] });
+  } finally { close(); }
+});
+
+test("cursor filtrato non miscela pagine, nessuna duplicazione per la stessa categoria", async () => {
+  const { db, sql, close } = syntheticDatabase();
+  try {
+    seed(sql, 9);
+    sql.prepare("UPDATE taxa SET category = 'Fruttifere' WHERE id = 'taxon-1'").run();
+    const seen = new Set();
+    let cursor;
+    do {
+      const params = new URLSearchParams({ limit: "3", q: "Pianta", category: "Fruttifere" });
+      if (cursor) params.set("cursor", cursor);
+      const response = await request("/api/v1/catalog?" + params, { DB: db });
+      assert.equal(response.status, 200);
+      for (const row of response.body.items) {
+        assert.equal(seen.has(row.id), false);
+        seen.add(row.id);
+      }
+      cursor = response.body.nextCursor;
+    } while (cursor);
+    assert.equal(seen.size, 9);
+  } finally { close(); }
+});
+
+test("errori della lista categorie non vengono mascherati come lista vuota", async () => {
+  const noDb = await request("/api/v1/catalog/categories", {});
+  assert.equal(noDb.status, 503);
+  const failure = { prepare() { throw new Error("PRIVATE_SQL_DETAILS"); } };
+  const response = await request("/api/v1/catalog/categories", { DB: failure });
+  assert.equal(response.status, 503);
+  assert.equal(JSON.stringify(response.body).includes("PRIVATE_SQL_DETAILS"), false);
 });
