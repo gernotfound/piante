@@ -46,6 +46,13 @@ Questo è un checkpoint storico basato su GitHub, da ricontrollare prima di ogni
 - La [PR #46](https://github.com/gernotfound/piante/pull/46) raccoglie API pubblica e frontend Cloudflare indipendente da Firebase; resta un candidato fino al proprio merge autorizzato, con CI exact-SHA e verifica autonoma del nuovo main. Il riferimento del branch, dello SHA e del gate corrente è nella PR e nella [EPIC #32](https://github.com/gernotfound/piante/issues/32)
 - **Non confondere repository e provider:** la disponibilità dei sorgenti sul main non crea né rende raggiungibile il Worker `piantee`; D1 EU, binding, autenticazione proprietario, configurazione `cf`, verifica native runtime e rilascio sono ancora fasi distinte. Nessun dato/account Firebase deve essere importato
 
+## Checkpoint incrementale CF-04 — 13 novembre 2026 (VERIFIED-REPO CANDIDATE, NO DEPLOY)
+
+- Stato di partenza verificato: `main` `f716f34a931de43f9460415bb137dbd12772a656`, con le PR #43/#45/#46 integrate. Il codice pubblico Workers/D1 è nel repository, ma il runtime Cloudflare non è attivo.
+- Lettura diretta Cloudflare in sola lettura, account con sottodominio `califano-ger`: un Worker (`thelogbook-frontend`) e un D1 (`thelogbook-cf02-eu-isolated-20261113`) che appartengono a un altro progetto. **Zero Worker `piantee`, zero D1 Piantee**. Nessuna modifica a quelle risorse.
+- Nuovo candidato nel branch `cf-04-catalog-search-filters-20261113`: query `q` e `category` parametrizzate contro la sola vista pubblica, endpoint categorie derivate da schede pubblicate, UI mobile form con stato applicato distinto dalla bozza, URL condivisibili, reset, gestione richieste obsolete e test SQL/browser. Contratti: [API Workers](../architecture/cloudflare-api.md), [D1](../architecture/cloudflare-data-model.md). Stato di CI, PR e SHA vanno riletti da GitHub prima di dichiararli verificati; qui non si anticipa l'esito.
+- Nessuna risorsa nuova, migration remota, credenziale, DNS o deploy in questa fase. Per test nativi Worker+D1 è necessaria CLI `cf` installata/configurata in ambiente dedicato: non considerare SQLite `node:sqlite` un test D1. Autenticazione owner CF-03 e cutover ancora pendenti.
+
 ## Prossimi passi e gate
 
 1. **Nome confermato:** `piantee`. Dal percorso `Create application → Start with Hello World!`, non fare `Deploy` del codice dimostrativo; per il vero rilascio è necessario predisporre codice, build, bindings e gate della nuova app, poi creare/pubblicare il Worker finale.
