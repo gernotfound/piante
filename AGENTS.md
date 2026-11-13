@@ -18,6 +18,7 @@ Ambito: repository `gernotfound/piante`, sito pubblico del vivaio e gestionale p
 | Firebase Authentication, Firestore, separazione pubblico/privato, Hosting | [Contratto Firebase](.agents/rules/firebase-config.md) |
 | Deploy, CI, permessi GitHub, messa in produzione, rollback | [Runbook di pubblicazione](docs/operations/firebase-hosting-runbook.md) |
 | Sicurezza repository, ruleset main, CodeQL, alert secret scanning | [Sicurezza GitHub](docs/operations/github-security-runbook.md) |
+| Migrazione Cloudflare Fresh Start: account, hostname, stato provider e handoff | [Contesto Cloudflare](docs/operations/cloudflare-migration-context.md) |
 | Documenti architetturali e operativi | [Indice documenti](docs/README.md) |
 | Panoramica tecnica dell'app | [Architettura](docs/architecture/overview.md) |
 

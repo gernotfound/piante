@@ -1,0 +1,56 @@
+# Piantee → Cloudflare: contesto operativo e indirizzo gratuito
+
+**Checkpoint:** 2026-11-13. **Stato:** pianificazione/guida alla creazione; nessun Worker Piantee o D1 di produzione verificato. Questo documento registra evidenze datate, non sostituisce un read-back della console/provider.
+
+## Decisioni di prodotto vigenti
+
+- **Fresh Start:** la nuova app Cloudflare nasce con D1 **nuovo e vuoto** e un nuovo account/identità amministrativa. Non importare, replicare, convertire né riutilizzare account, sessioni, dati botanici o record dell'attuale Firebase. Non creare adattamenti per schede legacy.
+- **Hosting target:** Cloudflare Workers con Static Assets e API; D1 SQL da creare in giurisdizione EU quando autorizzato. Architettura e criteri nelle issue [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-02 #35](https://github.com/gernotfound/piante/issues/35) e fasi collegate.
+- **Indirizzo scelto dall'owner il 13/11/2026:** `https://piantee.califano-ger.workers.dev` per il nuovo Piantee su Cloudflare, senza acquistare un dominio. Il proprietario ha esplicitamente confermato il nome **dopo** aver visto il campo `Worker name` della console. Questa è una **decisione di prodotto** e **non** equivale a creazione/prenotazione del Worker o al GO per il sito in produzione. Il suffisso `califano-ger.workers.dev` è condiviso con TheLogBook e non va modificato. Un hostname `workers.dev` non è un dominio registrato con gestione DNS autonoma; le protezioni disponibili e le regole WAF sul dominio personalizzato non sono identiche.
+- **Vecchia produzione separata:** `https://piantee.web.app` resta gestita da Firebase; nessun DNS, dato, account o servizio legacy viene modificato automaticamente. La chiusura del vecchio stack è una decisione distinta e potenzialmente distruttiva.
+
+## Evidenze osservate sulla console Cloudflare
+
+| Data e provenienza | Evidenza | Limite |
+|---|---|---|
+| 2026-11-13, **USER-REPORTED screenshot** Workers & Pages | Sottodominio account: `califano-ger.workers.dev` | Screenshot, non read-back API; valore modificabile dall'account |
+| 2026-11-13, **USER-REPORTED screenshot** | Una sola applicazione elencata: `thelogbook-frontend`, URL `thelogbook-frontend.califano-ger.workers.dev` | Una pagina elenco non prova assenza di altre risorse su account differenti, né integrazioni backend |
+| 2026-11-13, **USER-REPORTED screenshot** | Il pannello mostra quota Workers giornaliera di 100.000 richieste nel riepilogo Free | Quota riferita alla schermata, non impegno futuro né verifica del consumo effettivo; considerare TheLogBook nello stesso account |
+| 2026-11-13, **VERIFIED-REPO GitHub** | `main` all'atto della rilevazione: `1b0e910327a648286f071a0d1e73c3af2d48b8af`; codice corrente Firebase, nessun file Cloudflare Worker nella tree `main` osservata | Ricontrollare SHA prima di ogni modifica; la pianificazione nelle issue non equivale a implementazione |
+
+Non riportare nei documenti pubblici email di account, segreti, token, identificativi personali o dati Firebase esistenti. Il sottodominio account e gli hostname dei Worker sono pubblici e necessari a documentare il routing.
+
+
+## Schermata di scelta del nome — 2026-11-13 (USER-REPORTED screenshot; NO DEPLOY)
+
+- Il proprietario ha aperto **Create application → Start with Hello World! → Deploy Hello World** nella console Workers. La schermata mostra il campo **Worker name** con l'anteprima `piantee.califano-ger.workers.dev` e una spunta di validazione; il proprietario **non ha confermato il nome**, quindi l'anteprima non è una decisione né una prova di provisioning o di prenotazione.
+- Il campo consente di modificare il prefisso (nome del Worker). Il suffisso account `califano-ger.workers.dev` è condiviso con TheLogBook e non va cambiato nell'ambito di questa configurazione senza analizzare le conseguenze.
+- Sono visibili l'opzione **Protect with Cloudflare Access** con selettore apparentemente disattivato e il pulsante **Deploy**. Non è stata mostrata alcuna azione su questi controlli; la posizione visiva del toggle non prova che la futura app sarà o resterà non protetta.
+- Questo flusso genera un **Worker Hello World**, non il codice Piantee. Non cliccare Deploy per creare un segnaposto prima di aver scelto nome e strategia di rilascio/Access; nessun hostname Piantee è attestato come live, né sono stati creati D1 o altri servizi.
+- **Decisione successiva verificata:** nome approvato `piantee`; non fare deploy del Worker Hello World come surrogato del frontend. Preparare Worker reale tramite il percorso CF-02 e verificare URL/runtime solo dopo un rilascio autorizzato; mantenere PR draft e gate CF-02/CF-09 pendenti.
+
+
+## Conferma URL e verifica diretta Cloudflare — 2026-11-13
+
+- **USER-APPROVED:** il proprietario ha confermato espressamente `piantee.califano-ger.workers.dev` e chiesto di procedere; il nome del Worker destinato a Piantee sarà `piantee`.
+- **VERIFIED-CLOUDFLARE-API, sola lettura:** endpoint `GET /accounts/{account_id}/workers/subdomain` restituisce `califano-ger`; `GET /accounts/{account_id}/workers/scripts` restituisce un solo Worker `thelogbook-frontend`. Nessun Worker denominato `piantee` compare nell'elenco al momento della verifica. Non prova disponibilità riservata, funzionamento TLS o hostname pubblicato.
+- **PENDING:** nessun codice Piantee è stato deployato su Cloudflare; non esistono prova di D1, autenticazione, security gate o URL pubblicamente raggiungibile. Il pulsante `Deploy` della procedura Hello World non serve per pubblicare il prodotto vero e non va usato come scorciatoia.
+- **Azione successiva:** lavorare sulla vera app con il nome `piantee`, mantenendo integrità dei gate CF-02/CF-09 e senza toccare TheLogBook, Firebase o dati attuali. Conservare hostname come decisione; leggere il provider dopo un eventuale provisioning autorizzato.
+
+## Prossimi passi e gate
+
+1. **Nome confermato:** `piantee`. Dal percorso `Create application → Start with Hello World!`, non fare `Deploy` del codice dimostrativo; per il vero rilascio è necessario predisporre codice, build, bindings e gate della nuova app, poi creare/pubblicare il Worker finale.
+2. **Nessun deploy placeholder automatico.** La creazione di un Worker di esempio può renderlo accessibile pubblicamente: verificare con l'owner il passaggio conclusivo e il collegamento al futuro build reale. Non cambiare il Worker di TheLogBook né il sottodominio comune `califano-ger.workers.dev`.
+3. Per infrastruttura futura: preparare test isolati, confini client/server, D1 EU nuovo, auth admin nuova, quote/sicurezza/API, controlli exact-SHA e rollback. Vietato popolare D1 di produzione con dati demo o Firebase.
+4. Dopo la creazione/deploy autorizzati: controllare l'hostname effettivo da provider e via HTTPS, accesso guest/admin e URL alternativi, eventuali bypass, TLS, errori/quote; registrare esito e SHA. Separare CI verde, deployment e prova runtime.
+5. Prima di modificare `main` o pubblicare Piantee Cloudflare: rispettare i gate in [CF-09 #42](https://github.com/gernotfound/piante/issues/42). Il presente aggiornamento documentale non autorizza merge, deploy, eliminazioni, migrazioni o cambi di billing.
+
+## Tracciamento e handoff
+
+- [CF-EPIC #32](https://github.com/gernotfound/piante/issues/32): indice e vincoli globali, scelta Fresh Start.
+- [CF-00 #33](https://github.com/gernotfound/piante/issues/33): fattibilità Free e budget/quota account condivisa.
+- [CF-02 #35](https://github.com/gernotfound/piante/issues/35): Worker/Static Assets/API e D1 EU isolato, provisioning e CI.
+- [CF-07 #40](https://github.com/gernotfound/piante/issues/40): API security, URL alternativi, WAF/Access/Turnstile, rate limiting.
+- [CF-09 #42](https://github.com/gernotfound/piante/issues/42): hostname, E2E, GO di rilascio, cutover e dismissione separata.
+
+Per nuove chat: partire da questo file, issue di fase e **nuova lettura di HEAD/PR** e console; il solo screenshot conferma **sottodominio account già esistente**, non **hostname Piantee creato**.
