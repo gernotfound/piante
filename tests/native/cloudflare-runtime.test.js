@@ -23,10 +23,20 @@ async function setup(t, { withDb = true } = {}) {
   t.after(() => worker.dispose());
   if (!withDb) return { worker };
   const db = await worker.getD1Database("DB");
-  // D1.exec treats comment-only lines as empty statements; execute identical
-  // SQL without those lines, preserving the original migration on disk.
-  const executable = schema.split(/\r?\n/).filter(line => !line.trimStart().startsWith("--")).join("\n");
-  await db.exec(executable);
+  // D1.exec interprets multiline statements as separate queries. The v1
+  // migration contains only top-level CREATE TABLE/INDEX/TRIGGER/VIEW statements.
+  // Prepare each complete statement without modifying the source migration.
+  const executable = schema.split(/\r?\n/)
+    .filter(line => !line.trimStart().startsWith("--")).join("\n");
+  const statements = executable.split(/(?=^CREATE (?:TABLE|INDEX|TRIGGER|VIEW)\b)/gm)
+    .map(statement => statement.trim()).filter(Boolean);
+  assert.equal(statements.length, 24, "Review the loader when migration v1 changes");
+  assert.ok(statements.every(statement => /^CREATE (?:TABLE|INDEX|TRIGGER|VIEW)\b/.test(statement)
+    && statement.endsWith(";")), "Unexpected SQL in initial migration");
+  const applied = await db.batch(statements.map(statement =>
+    db.prepare(statement.replace(/\r?\n/g, " "))));
+  assert.equal(applied.length, statements.length);
+  assert.ok(applied.every(result => result.success === true));
   return { worker, db };
 }
 
