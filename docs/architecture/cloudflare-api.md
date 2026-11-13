@@ -16,7 +16,7 @@ Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codific
 
 ## Privacy, consistenza e fallimenti
 
-- I dati sono letti **solo** da `public_catalog` tramite `DB.prepare(...).bind(...)`; anche le colonne selezionate costituiscono un'allowlist esplicita. Il client non riceve note interne, provenienza, diari, lotti, posizione privata, identificativi di account o query SQL arbitrarie.
+- I dati sono letti **solo** da `public_catalog` tramite `DB.prepare(...).bind(...)`; le colonne selezionate costituiscono una prima allowlist e **ogni risposta JSON viene ricostruita campo per campo** tramite una seconda allowlist. Un campo privato restituito inaspettatamente da un adattatore D1 non viene inviato al client. Il client non riceve note interne, provenienza, diari, lotti, posizione privata, identificativi di account o query SQL arbitrarie.
 - `Cache-Control: no-store, max-age=0` evita che una scheda ritirata dal catalogo continui a essere servita dalla cache applicativa; per un caching più aggressivo occorrono invalidazione e test specifici. Non sono presenti intestazioni CORS permissive.
 - Il DB assente, una query fallita o un risultato fuori contratto producono `503 service_unavailable`, **non** un catalogo artificiosamente vuoto. Dettagli SQL e dati interni non compaiono nella risposta.
 - La paginazione keyset è deterministica su dataset invariato; inserimenti o ritiri durante la navigazione possono variare le pagine. Il futuro backend di pubblicazione dovrà scrivere `published_at` in formato UTC ISO uniforme (es. `new Date().toISOString()`) per conservare l'ordinamento testuale atteso.
