@@ -77,3 +77,10 @@ Per nuove chat: partire da questo file, issue di fase e **nuova lettura di HEAD/
 La [PR #47](https://github.com/gernotfound/piante/pull/47) è stata integrata mediante squash su `main` allo SHA `56568b99e74e7a8b49190e4547f50a7617389e7f`. La [CI post-merge 43430566780](https://github.com/gernotfound/piante/actions/runs/43430566780) ha superato cinque job. I workflow [Rules 43430887513](https://github.com/gernotfound/piante/actions/runs/43430887513) e [Hosting 43430928683](https://github.com/gernotfound/piante/actions/runs/43430928683) sono conclusi senza eseguire i passaggi privilegiati: Firebase non è stato pubblicato di nuovo.
 
 Il prossimo incremento CF-02 introduce una verifica riproducibile del Worker e D1 tramite **Miniflare/workerd locale**. Non è un test del D1 remoto in giurisdizione UE, né del router Static Assets o del rilascio. Restano vincolanti Fresh Start, zero import Firebase, account/risorse TheLogBook intatti, divieto di provisioning e deploy senza autorizzazione.
+
+
+## PR #48 integrata e nuova fase di packaging (13 novembre 2026)
+
+La [PR #48](https://github.com/gernotfound/piante/pull/48) è stata integrata tramite squash in `main` `b18953bbf083c79592be0e1da3cb14730c3c006e`. La [CI post-merge 43433161078](https://github.com/gernotfound/piante/actions/runs/43433161078) ha concluso **SUCCESS 6/6**, incluso workerd/D1 locale. I workflow [Rules 43433443662](https://github.com/gernotfound/piante/actions/runs/43433443662) e [Hosting 43433483870](https://github.com/gernotfound/piante/actions/runs/43433483870) hanno completato senza eseguire alcuno step di deploy privilegiato. La produzione Firebase non è stata modificata dal merge.
+
+Nuova fase CF-02: predisposizione del packaging statico attraverso `cf` e Vite, alimentato solo dalla allowlist dei file pubblici. È un candidato di build, non un Worker live; l'account TheLogBook e tutti i database esistenti devono rimanere intatti. Creazione D1 EU e pubblicazione necessitano un mandato distinto e verifiche live.

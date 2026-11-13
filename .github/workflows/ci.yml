@@ -105,6 +105,27 @@ jobs:
       - name: Esegui la migration D1 e il Worker nel runtime workerd locale
         run: node --test tests/native/cloudflare-runtime.test.js
 
+  cloudflare-package:
+    name: Cloudflare cf and Static Assets packaging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidato
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Configura Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.12.0'
+      - name: Installa toolchain senza credenziali
+        run: npm install --no-audit --no-fund
+      - name: Costruisci il Cloudflare Build Output (solo locale)
+        run: |
+          set -euo pipefail
+          npm run build:cloudflare:cf
+          test -d .cloudflare/output/v0
+
   codeql:
     name: Security / CodeQL
     runs-on: ubuntu-24.04
@@ -132,7 +153,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: ${{ always() }}
-    needs: [check, firestore-rules, browser-e2e, cloudflare-native, codeql]
+    needs: [check, firestore-rules, browser-e2e, cloudflare-native, cloudflare-package, codeql]
     steps:
       - name: Richiedi controlli e analisi di sicurezza riusciti
         shell: bash
@@ -142,6 +163,7 @@ jobs:
           BROWSER_RESULT: ${{ needs.browser-e2e.result }}
           CODEQL_RESULT: ${{ needs.codeql.result }}
           NATIVE_RESULT: ${{ needs.cloudflare-native.result }}
+          PACKAGE_RESULT: ${{ needs.cloudflare-package.result }}
         run: |
           set -euo pipefail
           echo "Sintassi e unit test: ${CHECK_RESULT}"
@@ -149,7 +171,8 @@ jobs:
           echo "Browser E2E:          ${BROWSER_RESULT}"
           echo "CodeQL:               ${CODEQL_RESULT}"
           echo "Cloudflare native:    ${NATIVE_RESULT}"
-          if [[ "${CHECK_RESULT}" != "success" || "${RULES_RESULT}" != "success" || "${BROWSER_RESULT}" != "success" || "${CODEQL_RESULT}" != "success" || "${NATIVE_RESULT}" != "success" ]]; then
+          echo "Cloudflare package:   ${PACKAGE_RESULT}"
+          if [[ "${CHECK_RESULT}" != "success" || "${RULES_RESULT}" != "success" || "${BROWSER_RESULT}" != "success" || "${CODEQL_RESULT}" != "success" || "${NATIVE_RESULT}" != "success" || "${PACKAGE_RESULT}" != "success" ]]; then
             echo "::error::Almeno un controllo richiesto non è riuscito: nessuna release è consentita."
             exit 1
           fi

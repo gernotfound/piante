@@ -14,3 +14,7 @@ gha-creds-*.json
 
 # Output Cloudflare generato separatamente da Firebase
 /cloudflare/dist/
+
+/.cloudflare/
+/cloudflare/public/
+/.wrangler/
