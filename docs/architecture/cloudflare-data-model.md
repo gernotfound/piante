@@ -1,12 +1,12 @@
 # Piantee — modello dati Cloudflare D1 (candidato CF-01)
 
-**Stato: PROPOSTA IMPLEMENTATA IN BRANCH, NON IN PRODUZIONE.** Questa pagina descrive il nuovo modello SQL contenuto in `cloudflare/migrations/0001_initial.sql`. La fonte di verità per l'implementazione candidata è il file SQL e i test `tests/contracts/cloudflare-schema.test.js`; i provider determinano ciò che è stato realmente distribuito. Riferimento operativo: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35).
+**Stato: MODELLO SQL NEL REPOSITORY, MIGRATION D1 NON APPLICATA.** Questa pagina descrive il nuovo modello SQL contenuto in `cloudflare/migrations/0001_initial.sql`. La fonte di verità per l'implementazione candidata è il file SQL e i test `tests/contracts/cloudflare-schema.test.js`; i provider determinano ciò che è stato realmente distribuito. Riferimento operativo: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35).
 
 ## Confini del Fresh Start
 
 - Il **nuovo** database D1 partirà **vuoto**, con specie, cultivar, lotti, piante, prenotazioni di codici, diari e catalogo a zero righe. Il file è solo una *migration v1* per un nuovo database, senza INSERT di dati esistenti o utenti.
 - **Nessun accesso, export, import, riconciliazione, conversione o compatibilità** con Firestore, account Firebase o codici già usati in Firebase. Solo funzioni di prodotto possono essere ripensate per la nuova applicazione.
-- Il sito e i dati Firebase restano intatti. Non sono stati creati Worker, D1, credenziali, dominio, DNS o deploy Cloudflare per questa modifica. Il proprietario ha confermato il nome futuro `piantee` e l'hostname gratuito `https://piantee.califano-ger.workers.dev` (documentato nella PR draft #44). L'URL non risulta ancora creato o pubblicato e la scelta non autorizza un deploy.
+- Il sito e i dati Firebase restano intatti. Non sono stati creati Worker, D1, credenziali, dominio, DNS o deploy Cloudflare per questa modifica. Il proprietario ha confermato il nome futuro `piantee` e l'hostname gratuito `https://piantee.califano-ger.workers.dev` (documentato nella PR #44 integrata). L'URL non risulta ancora creato o pubblicato e la scelta non autorizza un deploy.
 - Il nuovo D1 dovrà essere creato con `jurisdiction=eu` **prima** di eseguire la migration; la giurisdizione non può essere aggiunta successivamente. Non è garantita da sola la localizzazione UE di Worker, Access, CDN o log.
 
 ## Modello relazionale e requisiti
@@ -35,6 +35,10 @@ I nomi scientifici, la rusticità, l'autofertilità e gli altri attributi non ve
 - `version` è disponibile sui profili, lotti e piante per aggiornamenti ottimistici. **Un `UPDATE ... WHERE version=?` che modifica zero righe NON fallisce automaticamente**: la futura API Workers deve trattarlo come conflitto, interrompendo tutte le scritture correlate (pubblicazione, codice, profilo, diario) e distinguendo retry dopo esiti incerti. I test attuali provano la segnalazione di 0 righe, non ancora l'atomicità di un'API D1 end-to-end.
 - La vista `public_catalog` riferisce i profili botanici via JOIN: una modifica condivisa ai dati botanici pubblicabili si riflette sulle pubblicazioni senza replicare tutti i profili. Eliminare `public_listings` toglie immediatamente la riga dalla vista; dopo il rilascio servirà invalidazione della cache HTTP pubblica.
 - Mesi, ordine e ricerche iniziali usano tabelle e indici normali. **Non è previsto FTS5 nella v1**: la sua esportazione D1 richiede un dump per SQLite CLI che non si può reimportare direttamente in D1, quindi l'eventuale adozione futura richiederà un collaudo di backup/restore.
+
+## API di lettura collegata
+
+La [API Workers candidata](cloudflare-api.md) legge esclusivamente la vista `public_catalog` tramite query parametrizzate e nessuna operazione di amministrazione. Il Worker di sola lettura usa lo schema CF-01; fino a validazione nativa su D1/Workers si tratta solo di contratto testato in SQLite sintetico.
 
 ## Test, verifiche non eseguite, release
 

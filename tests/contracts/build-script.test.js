@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-test("i controlli sintattici scoprono automaticamente i file futuri", () => {
+test("i controlli sintattici scoprono automaticamente i file futuri, anche Worker", () => {
   const pkg = JSON.parse(read("../../package.json"));
   assert.equal(pkg.scripts.check, "node scripts/check-syntax.mjs");
   const scanner = read("../../scripts/check-syntax.mjs");
-  assert.match(scanner, /const directories = \["src", "scripts", "tests"\]/);
+  assert.match(scanner, /const directories = \["src", "scripts", "tests", "cloudflare"\]/);
   assert.match(scanner, /readdirSync\(/);
   assert.match(scanner, /--check/);
   assert.match(scanner, /entry\.isDirectory\(\)/);

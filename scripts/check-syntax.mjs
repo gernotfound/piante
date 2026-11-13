@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
-const directories = ["src", "scripts", "tests"];
+const directories = ["src", "scripts", "tests", "cloudflare"];
 let checked = 0;
 
 function checkDirectory(dir) {
