@@ -1,5 +1,5 @@
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { extname, join, resolve, sep } from "node:path";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, rmSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
@@ -8,10 +8,19 @@ const PUBLIC_FILES = [
   "index.html", "favicon.ico", "favicon.svg", "favicon-16x16.png",
   "favicon-32x32.png", "favicon-48x48.png", "social-preview-v1.png"
 ];
-const SOURCE_DIRECTORIES = [["src", ".js"], ["styles", ".css"]];
 
-// Only explicitly approved public files and frontend source types are deployed.
-// New documentation, tests and operational files must never be copied automatically.
+// Only explicitly reviewed client files may enter dist/. A recursive src/ copy
+// would accidentally expose future Worker modules or server-only code.
+const CLIENT_MODULES = [
+  "src/main.js", "src/config.js", "src/domain.js", "src/catalog.js",
+  "src/plant-store.js", "src/specimen-codes.js", "src/taxonomy.js",
+  "src/ui/public.js", "src/ui/admin.js", "src/ui/artwork.js"
+];
+const CLIENT_STYLES = [
+  "styles/base.css", "styles/public.css", "styles/admin.css",
+  "styles/responsive.css"
+];
+
 export function buildSite(output = DEFAULT_OUTPUT) {
   const destination = resolve(output);
   if (destination === ROOT || ROOT.startsWith(destination + sep)) {
@@ -35,17 +44,7 @@ export function buildSite(output = DEFAULT_OUTPUT) {
     emitted.push(relativePath.replaceAll("\\", "/"));
   }
 
-  function copySourceDirectory(dir, extension) {
-    for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isSymbolicLink()) throw new Error("Symlink non previsto tra i sorgenti pubblici: " + path);
-      if (entry.isDirectory()) copySourceDirectory(path, extension);
-      else if (entry.isFile() && extname(entry.name) === extension) copy(path);
-    }
-  }
-
-  for (const file of PUBLIC_FILES) copy(file);
-  for (const [dir, extension] of SOURCE_DIRECTORIES) copySourceDirectory(dir, extension);
+  for (const file of [...PUBLIC_FILES, ...CLIENT_MODULES, ...CLIENT_STYLES]) copy(file);
   return emitted.sort();
 }
 
