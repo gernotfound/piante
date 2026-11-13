@@ -67,6 +67,10 @@ test("vetrina mobile e desktop senza overflow; scheda dettaglio e chiusura", asy
     // Playwright's single * does not cross '/': the detail route needs **.
     await page.route("**/api/v1/catalog**", async route => {
       const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/categories")) {
+        await route.fulfill(json({ categories: [] }));
+        return;
+      }
       await route.fulfill(json(path.endsWith("/plant-000")
         ? specimen(0) : { items: [specimen(0)], nextCursor: null }));
     });
@@ -92,7 +96,7 @@ test("vetrina mobile e desktop senza overflow; scheda dettaglio e chiusura", asy
 test("paginazione e duplicati: non perde le piante già mostrate", async () => {
   const page = await browser.newPage();
   try {
-    await page.route("**/api/v1/catalog**", async route => {
+    await page.route("**/api/v1/catalog?*", async route => {
       const parsed = new URL(route.request().url());
       const next = parsed.searchParams.has("cursor");
       await route.fulfill(json(next
@@ -112,7 +116,7 @@ test("errore di rete, riprova e catalogo realmente vuoto", async () => {
   const page = await browser.newPage();
   let calls = 0;
   try {
-    await page.route("**/api/v1/catalog**", async route => {
+    await page.route("**/api/v1/catalog?*", async route => {
       calls++;
       await route.fulfill(calls === 1 ? json({ error: { code: "service_unavailable" } }, 503)
         : json({ items: [], nextCursor: null }));
@@ -131,7 +135,7 @@ test("testo pubblico non è interpretato come HTML eseguibile", async () => {
   const page = await browser.newPage();
   try {
     const malicious = specimen(0, "<img src=x onerror=window.injectedByCatalog=true>");
-    await page.route("**/api/v1/catalog**", async route =>
+    await page.route("**/api/v1/catalog?*", async route =>
       route.fulfill(json({ items: [malicious], nextCursor: null })));
     await page.goto(url + "/");
     await page.locator(".plant-card").first().waitFor();
@@ -146,7 +150,7 @@ test("l'errore alla pagina successiva conserva le schede e il retry riprende dal
   const page = await browser.newPage();
   let secondPageCalls = 0;
   try {
-    await page.route("**/api/v1/catalog**", async route => {
+    await page.route("**/api/v1/catalog?*", async route => {
       const isSecondPage = new URL(route.request().url()).searchParams.has("cursor");
       if (!isSecondPage) {
         await route.fulfill(json({ items: [specimen(0)], nextCursor: "second-page" }));
@@ -166,5 +170,101 @@ test("l'errore alla pagina successiva conserva le schede e il retry riprende dal
     await page.locator(".plant-card").nth(1).waitFor();
     assert.equal(await page.locator(".plant-card").count(), 2);
     assert.equal(secondPageCalls, 2);
+  } finally { await page.close(); }
+});
+
+
+test("ricerca e categoria da URL, applicazione esplicita, navigazione Indietro", async () => {
+  const page = await browser.newPage({ viewport: { width: 320, height: 740 } });
+  const requests = [];
+  try {
+    await page.route("**/api/v1/catalog?*", async route => {
+      const params = new URL(route.request().url()).searchParams;
+      requests.push({ q: params.get("q"), category: params.get("category") });
+      const result = params.get("q") === "Altro" ? [specimen(1)] : [specimen(0)];
+      await route.fulfill(json({ items: result, nextCursor: null }));
+    });
+    await page.route("**/api/v1/catalog/categories", route =>
+      route.fulfill(json({ categories: ["Fruttifere", "Ornamentali"] })));
+    await page.goto(url + "/?q=Pianta&category=Fruttifere");
+    await page.locator(".plant-card").first().waitFor();
+    assert.equal(await page.locator("#search-query").inputValue(), "Pianta");
+    assert.equal(await page.locator("#category-filter").inputValue(), "Fruttifere");
+    assert.deepEqual(requests[0], { q: "Pianta", category: "Fruttifere" });
+
+    await page.locator("#search-query").fill("Altro");
+    await page.locator("#category-filter").selectOption("Ornamentali");
+    assert.equal(requests.length, 1, "Modifiche non applicate non devono inviare richieste");
+    await page.getByRole("button", { name: "Applica filtri" }).click();
+    await page.locator(".plant-card .plant-code").getByText("#A00001").waitFor();
+    assert.equal(new URL(page.url()).searchParams.get("q"), "Altro");
+    assert.equal(new URL(page.url()).searchParams.get("category"), "Ornamentali");
+    assert.deepEqual(requests.at(-1), { q: "Altro", category: "Ornamentali" });
+
+    await page.goBack();
+    await page.locator(".plant-card .plant-code").getByText("#A00000").waitFor();
+    assert.equal(await page.locator("#search-query").inputValue(), "Pianta");
+    assert.equal(await page.locator("#category-filter").inputValue(), "Fruttifere");
+
+    await page.getByRole("button", { name: "Azzera" }).click();
+    await page.waitForURL(href => !new URL(href).searchParams.has("q"));
+    assert.equal(await page.locator("#search-query").inputValue(), "");
+    assert.equal(await page.locator("#category-filter").inputValue(), "");
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    assert.ok(overflow <= 1);
+  } finally { await page.close(); }
+});
+
+test("risposta lenta di un vecchio filtro non sovrascrive il filtro successivo", async () => {
+  const page = await browser.newPage();
+  let releaseSlow;
+  let slowStarted;
+  const started = new Promise(resolve => { slowStarted = resolve; });
+  try {
+    await page.route("**/api/v1/catalog?*", async route => {
+      const q = new URL(route.request().url()).searchParams.get("q");
+      if (q === "Lenta") {
+        slowStarted();
+        await new Promise(resolve => { releaseSlow = resolve; });
+        try { await route.fulfill(json({ items: [specimen(9)], nextCursor: null })); }
+        catch { /* La richiesta è già stata annullata dal nuovo filtro. */ }
+        return;
+      }
+      await route.fulfill(json({ items: [specimen(q === "Veloce" ? 2 : 0)], nextCursor: null }));
+    });
+    await page.route("**/api/v1/catalog/categories", route =>
+      route.fulfill(json({ categories: [] })));
+    await page.goto(url + "/");
+    await page.locator(".plant-card").first().waitFor();
+    await page.locator("#search-query").fill("Lenta");
+    await page.getByRole("button", { name: "Applica filtri" }).click();
+    await started;
+    await page.locator("#search-query").fill("Veloce");
+    await page.getByRole("button", { name: "Applica filtri" }).click();
+    await page.locator(".plant-card .plant-code").getByText("#A00002").waitFor();
+    releaseSlow();
+    assert.equal(await page.locator(".plant-card").count(), 1);
+    assert.equal(new URL(page.url()).searchParams.get("q"), "Veloce");
+  } finally {
+    if (releaseSlow) releaseSlow();
+    await page.close();
+  }
+});
+
+
+test("link con categoria in maiuscole diverse non duplica il selettore; Unicode resta distinto", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.route("**/api/v1/catalog?*", route =>
+      route.fulfill(json({ items: [], nextCursor: null })));
+    await page.route("**/api/v1/catalog/categories", route =>
+      route.fulfill(json({ categories: ["Fruttifere", "Épices", "épices"] })));
+    await page.goto(url + "/?category=fruttifere");
+    await page.waitForFunction(() =>
+      document.querySelector("#category-filter").options.length === 4);
+    assert.deepEqual(await page.locator("#category-filter option").evaluateAll(options =>
+      options.map(option => option.value)), ["", "Fruttifere", "Épices", "épices"]);
+    assert.equal(await page.locator("#category-filter").inputValue(), "Fruttifere");
+    assert.equal(new URL(page.url()).searchParams.get("category"), "fruttifere");
   } finally { await page.close(); }
 });

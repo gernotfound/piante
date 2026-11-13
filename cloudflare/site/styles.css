@@ -41,6 +41,37 @@ h3 { font-size: 1.38rem; line-height: 1.22; margin: 0; }
 .lead { max-width: 61ch; color: #405D4D; font-size: clamp(1rem, 2.6vw, 1.2rem); line-height: 1.7; margin: 0; }
 .catalog { padding-bottom: 94px; scroll-margin-top: 24px; }
 .section-heading { margin-bottom: 26px; border-top: 1px solid #cfd9c9; padding-top: 27px; }
+.filter-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 22px;
+  margin: 0 0 8px;
+  border: 1px solid #d9e2d4;
+  border-radius: 18px;
+  background: white;
+}
+.filter-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.filter-field label { font-size: .9rem; font-weight: 700; }
+.filter-field input, .filter-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #789380;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--forest);
+  font: inherit;
+  font-size: 1rem;
+}
+.filter-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.filter-actions .button { flex: 1 1 130px; }
+.filter-hint { min-height: 1px; margin: 8px 0; font-size: .86rem; color: #52705a; line-height: 1.5; }
+@media (min-width: 760px) {
+  .filter-form { grid-template-columns: minmax(0, 1fr) minmax(180px, .7fr) auto; align-items: end; }
+  .filter-actions .button { flex: 0 0 auto; }
+}
 .feedback { color: #3e5b4b; line-height: 1.65; padding: 12px 0 20px; }
 .feedback:empty { display: none; }
 .plant-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; }

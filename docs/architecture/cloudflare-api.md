@@ -7,12 +7,15 @@
 | Endpoint | Comportamento |
 | --- | --- |
 | `GET /api/v1/catalog` | Solo righe della vista SQL `public_catalog`; ritorna `{items: [...], nextCursor: string|null}`, ordinate per `published_at DESC, id DESC` |
+| `GET /api/v1/catalog/categories` | Elenco ordinato delle categorie distinte **solo dalle piante già pubblicate**, fino a 200; un errore D1 o elenco troppo grande non è spacciato per elenco vuoto |
 | `GET /api/v1/catalog/:id` | Solo record pubblicato, altrimenti HTTP 404; ID ASCII `A-Za-z0-9_-`, max 96 |
 | `/api/v1/admin` e `/api/v1/admin/*` | HTTP 403 **sempre**; nessun endpoint amministrativo è ancora attivo |
 | Altre route `/api/*` | HTTP 404, mai una pagina SPA/asset restituito con HTTP 200 |
 | Metodi diversi da `GET` sulle route catalogo | HTTP 405 e `Allow: GET` |
 
-Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codificato Base64URL, non firmato né usato come credenziale: autorizza **solo** a proseguire una lista pubblica, senza informazioni segrete. La ricerca e i filtri `q`, `category` ecc. **non sono implementati** in questo incremento; i parametri non riconosciuti o ripetuti producono 400, non risultati ingannevoli.
+Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codificato Base64URL, non firmato né usato come credenziale: autorizza **solo** a proseguire una lista pubblica, senza informazioni segrete. I parametri facoltativi della lista sono `q` (ricerca, massimo 80 caratteri) e `category` (filtro di categoria esatta, massimo 120 caratteri). Valori vuoti, caratteri di controllo, parametri duplicati o sconosciuti restituiscono 400.
+
+`q` cerca nei soli campi pubblici `taxon_name`, `scientific_name`, `cultivar_name` e `code`. Il prefisso `#` limita la ricerca al solo codice dell'esemplare, senza cercare nei nomi. `LIKE` è sempre parametrizzato; `%`, `_` e `!` sono caratteri **letterali**, non wildcard. Il filtro `category` usa uguaglianza con `COLLATE NOCASE` SQLite (insensibile al caso per ASCII, non una ricerca Unicode avanzata). Combinazioni e cursore sono applicati alla medesima query pubblica. `GET /api/v1/catalog/categories` legge la stessa vista SQL, senza mai elencare profili collegati solo a piante private. Le categorie che differiscono soltanto per maiuscole ASCII sono presentate come un'unica opzione, in coerenza con il filtro case-insensitive. L'ordinamento e la paginazione restano quelli del catalogo pubblico.
 
 ## Privacy, consistenza e fallimenti
 
@@ -26,16 +29,16 @@ Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codific
 
 ## Frontend pubblico indipendente da Firebase (candidato CF-04)
 
-Il nuovo frontend è in `cloudflare/site/index.html`, `cloudflare/site/styles.css` e `cloudflare/site/app.js`. Non importa Firebase SDK, non implementa login e non visualizza dati di prova: richiede solo l'API `GET /api/v1/catalog` e `GET /api/v1/catalog/:id`. Mostra un catalogo davvero vuoto quando la risposta è vuota, un errore con comando **Riprova** quando API/D1 falliscono, pagine successive senza duplicati e dettagli in dialog accessibile. Le foto compaiono solo tramite URL HTTPS presenti nei dati; in assenza o errore viene mostrata una dicitura testuale, senza immagini finte. Testo botanico nel DOM tramite `textContent`, mai `innerHTML`. La navigazione amministrativa è volutamente assente finché CF-03 non è realizzato.
+Il nuovo frontend è in `cloudflare/site/index.html`, `cloudflare/site/styles.css` e `cloudflare/site/app.js`. Non importa Firebase SDK, non implementa login e non visualizza dati di prova: richiede soltanto le API pubbliche `GET /api/v1/catalog`, `GET /api/v1/catalog/:id` e `GET /api/v1/catalog/categories`. Mostra un catalogo davvero vuoto quando la risposta è vuota, un errore con comando **Riprova** quando API/D1 falliscono, pagine successive senza duplicati e dettagli in dialog accessibile. Ricerca e categoria si applicano **solo** con il pulsante del form, non durante la digitazione; i filtri applicati restano nell'URL (con ritorno/avanti browser), mentre le selezioni non applicate non vengono sovrascritte dalle risposte asincrone. Il cambio filtro interrompe la richiesta precedente e azzera il cursore. Le categorie vengono caricate da un endpoint pubblico separato, e un errore dei suggerimenti non blocca la ricerca per nome. Le foto compaiono solo tramite URL HTTPS presenti nei dati; in assenza o errore viene mostrata una dicitura testuale, senza immagini finte. Testo botanico nel DOM tramite `textContent`, mai `innerHTML`. La navigazione amministrativa è volutamente assente finché CF-03 non è realizzato.
 
 `scripts/build-cloudflare-site.mjs` crea **esclusivamente** `cloudflare/dist/` (quattro file: `index.html`, `app.js`, `styles.css`, `favicon.svg` originale). L'output è ignorato da Git. Il precedente comando `npm run build` conserva il suo significato Firebase: il comando aggiunto è `npm run build:cloudflare`. Il build non include `cloudflare/worker/`, migrazioni SQL, file `src/` o documenti interni. Anche test e script operativi restano esclusi.
 
-L'attuale sito HTML Firebase **non può essere copiato** direttamente nel nuovo hosting: importerebbe autenticazione e riferimenti a dati vecchi. Questa nuova pagina è volutamente minimale e Mobile First, in attesa di ricerca/filtri e UI gestionale. L'hostname `piantee.califano-ger.workers.dev` è confermato, **non ancora creato o live**.
+L'attuale sito HTML Firebase **non può essere copiato** direttamente nel nuovo hosting: importerebbe autenticazione e riferimenti a dati vecchi. Questa nuova pagina è volutamente minimale e Mobile First: ricerca e categoria sono presenti, mentre restano da realizzare l'interfaccia gestionale autenticata, l'accessibilità su dispositivi fisici e gli approfondimenti SEO. L'hostname `piantee.califano-ger.workers.dev` è confermato, **non ancora creato o live**.
 
 ### Test del frontend (candidato)
 
 - `tests/contracts/cloudflare-site.test.js`: allowlist del build, nessun file segreto, risorse referenziate, regressione contro asset extra, layout/marcatura minima senza import Firebase.
-- `tests/e2e/cloudflare-site.test.js`: browser Chromium con server e API sintetiche **solo locali**, larghezze 320/360/390/430/768/1024/1440 CSS px, lista, dettagli, paginazione, errore/recupero e iniezione di markup. Il file è incluso nello script `npm run test:browser` insieme agli E2E Firebase.
+- `tests/e2e/cloudflare-site.test.js`: browser Chromium con server e API sintetiche **solo locali**, larghezze 320/360/390/430/768/1024/1440 CSS px, lista, dettagli, paginazione, ricerca, categorie, deep-link, indietro/avanti, risposte in ritardo, errore/recupero e iniezione di markup. Il file è incluso nello script `npm run test:browser` insieme agli E2E Firebase.
 - Questi controlli non provano URL cloudflare, Access, D1 reale o SEO/SSR. La CLI `cf` è ancora in beta e la configurazione con binding D1 definitivo verrà validata solo dopo il provisioning autorizzato di un D1 di Piantee, separato da TheLogBook. **Nessun binding D1 remoto è stato inventato.**
 
 ## Verifiche e limiti

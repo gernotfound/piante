@@ -40,6 +40,23 @@
         </div>
       </div>
 
+      <form id="catalog-filters" class="filter-form" role="search" aria-label="Cerca nel catalogo" action="/" method="get">
+        <div class="filter-field">
+          <label for="search-query">Nome o codice della pianta</label>
+          <input id="search-query" name="q" type="search" maxlength="80" placeholder="Es. Avocado o #ABC123" autocomplete="off">
+        </div>
+        <div class="filter-field">
+          <label for="category-filter">Categoria</label>
+          <select id="category-filter" name="category">
+            <option value="">Tutte le categorie</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button type="submit" class="button button-primary">Applica filtri</button>
+          <button id="clear-filters" type="button" class="button button-secondary">Azzera</button>
+        </div>
+      </form>
+      <p id="category-hint" class="filter-hint" role="status" aria-live="polite"></p>
       <div id="catalog-status" class="feedback" role="status" aria-live="polite">Caricamento del catalogo…</div>
       <div id="catalog-grid" class="plant-grid" aria-busy="true"></div>
       <div class="catalog-actions">

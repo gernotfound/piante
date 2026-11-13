@@ -10,7 +10,7 @@
 
 ## Frontend Cloudflare candidato (non distribuito)
 
-- `cloudflare/site/`: nuova vetrina anonima, indipendente dal vecchio `src/` Firebase; `scripts/build-cloudflare-site.mjs` produce `cloudflare/dist/`, separata dal `dist/` distribuito da Firebase. Nessun archivio privato, migrazione o login implementato.
+- `cloudflare/site/`: nuova vetrina anonima, con ricerca nome/codice e filtro categoria applicati dal form e conservati nell'URL, indipendente dal vecchio `src/` Firebase; `scripts/build-cloudflare-site.mjs` produce `cloudflare/dist/`, separata dal `dist/` distribuito da Firebase. Nessun archivio privato, migrazione o login implementato.
 - Il Worker `cloudflare/worker/index.js` fornisce solo catalogo pubblico da `public_catalog`; gestione privata negata. Contratti e test: [API Cloudflare](cloudflare-api.md), [D1](cloudflare-data-model.md), `tests/e2e/cloudflare-site.test.js`. Lo stato live resta Firebase: SQL/HTML/Worker candidati non sono un deploy.
 
 ## Frontend

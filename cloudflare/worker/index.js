@@ -1,11 +1,15 @@
 // Worker-side API only. This module must never be copied into public static assets.
 // The admin surface is intentionally unavailable until CF-03 has verified auth.
 const CATALOG_PATH = "/api/v1/catalog";
+const CATEGORIES_PATH = "/api/v1/catalog/categories";
 const ITEM_PATH = /^\/api\/v1\/catalog\/([A-Za-z0-9_-]{1,96})$/;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,96}$/;
 const CURSOR_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 40;
+const MAX_SEARCH_LENGTH = 80;
+const MAX_CATEGORY_LENGTH = 120;
+const MAX_CATEGORY_OPTIONS = 200;
 
 // An explicit public allowlist provides a second defense if the SQL view evolves.
 // Anonymous queries must never read private specimen, lot or journal tables.
@@ -31,11 +35,15 @@ function publicRow(row) {
   return projected;
 }
 
-const LIST_SQL = `SELECT ${PUBLIC_COLUMNS} FROM public_catalog
-  ORDER BY published_at DESC, id DESC LIMIT ?`;
-const LIST_AFTER_SQL = `SELECT ${PUBLIC_COLUMNS} FROM public_catalog
-  WHERE published_at < ? OR (published_at = ? AND id < ?)
-  ORDER BY published_at DESC, id DESC LIMIT ?`;
+// Only fixed fragments appear in SQL; user input always goes through bind().
+const ORDER_SQL = "ORDER BY published_at DESC, id DESC LIMIT ?";
+const SEARCH_SQL = "(taxon_name LIKE ? ESCAPE '!' OR scientific_name LIKE ? ESCAPE '!' OR cultivar_name LIKE ? ESCAPE '!' OR code LIKE ? ESCAPE '!')";
+const CODE_SEARCH_SQL = "code LIKE ? ESCAPE '!'";
+const AFTER_SQL = "(published_at < ? OR (published_at = ? AND id < ?))";
+const CATEGORIES_SQL = `SELECT MIN(category) AS category FROM public_catalog
+  WHERE category IS NOT NULL AND trim(category) != ''
+  GROUP BY category COLLATE NOCASE
+  ORDER BY category COLLATE NOCASE, category LIMIT ?`;
 const DETAIL_SQL = `SELECT ${PUBLIC_COLUMNS} FROM public_catalog WHERE id = ? LIMIT 1`;
 
 const RESPONSE_HEADERS = {
@@ -87,13 +95,32 @@ function encodeCursor(row) {
     .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
+function optionalFilter(params, key, maxLength) {
+  if (!params.has(key)) return null;
+  const value = params.get(key).trim();
+  if (!value || value.length > maxLength || /[\u0000-\u001f\u007f]/.test(value)) {
+    throw new InvalidInput("Invalid filter");
+  }
+  return value;
+}
+
 function parseListParams(params) {
   for (const key of params.keys()) {
-    if (!["limit", "cursor"].includes(key) || params.getAll(key).length !== 1) {
+    if (!["limit", "cursor", "q", "category"].includes(key) || params.getAll(key).length !== 1) {
       throw new InvalidInput("Unknown or duplicated parameter");
     }
   }
-  return { limit: parseLimit(params), cursor: parseCursor(params.get("cursor")) };
+  return {
+    limit: parseLimit(params),
+    cursor: parseCursor(params.get("cursor")),
+    q: optionalFilter(params, "q", MAX_SEARCH_LENGTH),
+    category: optionalFilter(params, "category", MAX_CATEGORY_LENGTH)
+  };
+}
+
+// LIKE metacharacters are literal user text, not a user-controlled wildcard.
+function literalLike(value) {
+  return "%" + value.replace(/[!%_]/g, char => "!" + char) + "%";
 }
 
 function dbFromEnv(env) {
@@ -101,17 +128,52 @@ function dbFromEnv(env) {
   return env.DB;
 }
 
-async function listCatalog(db, { limit, cursor }) {
-  const stmt = cursor
-    ? db.prepare(LIST_AFTER_SQL).bind(cursor[0], cursor[0], cursor[1], limit + 1)
-    : db.prepare(LIST_SQL).bind(limit + 1);
-  const result = await stmt.all();
+async function listCatalog(db, { limit, cursor, q, category }) {
+  const clauses = [];
+  const binds = [];
+  if (q) {
+    const codeOnly = q.startsWith("#");
+    const term = codeOnly ? q.slice(1) : q;
+    if (!term) throw new InvalidInput("Invalid code search");
+    const pattern = literalLike(term);
+    clauses.push(codeOnly ? CODE_SEARCH_SQL : SEARCH_SQL);
+    if (codeOnly) binds.push(pattern);
+    else binds.push(pattern, pattern, pattern, pattern);
+  }
+  if (category) {
+    clauses.push("category = ? COLLATE NOCASE");
+    binds.push(category);
+  }
+  if (cursor) {
+    clauses.push(AFTER_SQL);
+    binds.push(cursor[0], cursor[0], cursor[1]);
+  }
+  const sql = `SELECT ${PUBLIC_COLUMNS} FROM public_catalog
+    ${clauses.length ? "WHERE " + clauses.join(" AND ") : ""}
+    ${ORDER_SQL}`;
+  const result = await db.prepare(sql).bind(...binds, limit + 1).all();
   if (result?.success !== true || !Array.isArray(result.results)) {
     throw new Error("Database returned an unexpected result");
   }
   const hasMore = result.results.length > limit;
   const items = result.results.slice(0, limit).map(publicRow);
   return { items, nextCursor: hasMore ? encodeCursor(items[items.length - 1]) : null };
+}
+
+async function listCategories(db) {
+  const result = await db.prepare(CATEGORIES_SQL).bind(MAX_CATEGORY_OPTIONS + 1).all();
+  if (result?.success !== true || !Array.isArray(result.results) ||
+      result.results.length > MAX_CATEGORY_OPTIONS) {
+    throw new Error("Category list is not available");
+  }
+  const categories = result.results.map(row => {
+    if (!row || typeof row.category !== "string" ||
+        !row.category.trim() || row.category.length > MAX_CATEGORY_LENGTH) {
+      throw new Error("Invalid category");
+    }
+    return row.category;
+  });
+  return { categories };
 }
 
 async function getCatalogItem(db, id) {
@@ -133,10 +195,11 @@ export default {
         return failure(403, "admin_unavailable");
       }
       const isList = path === CATALOG_PATH;
+      const isCategories = path === CATEGORIES_PATH;
       const item = path.match(ITEM_PATH);
-      if (!isList && !item) return failure(404, "not_found");
+      if (!isList && !isCategories && !item) return failure(404, "not_found");
       if (request.method !== "GET") return failure(405, "method_not_allowed", { Allow: "GET" });
-      if (item && url.search) return failure(400, "invalid_request");
+      if (!isList && url.search) return failure(400, "invalid_request");
 
       let page;
       try {
@@ -150,6 +213,7 @@ export default {
       if (!db) return failure(503, "service_unavailable");
       try {
         if (isList) return json(await listCatalog(db, page));
+        if (isCategories) return json(await listCategories(db));
         const record = await getCatalogItem(db, item[1]);
         return record === null ? failure(404, "not_found") : json(record);
       } catch (error) {
