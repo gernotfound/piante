@@ -7,6 +7,7 @@ Questa cartella contiene **contesto operativo e tecnico**, non segreti e non cer
 | [AGENTS.md](../AGENTS.md) | Istruzioni principali e mappa dei contratti | Normativo per il lavoro nel repository |
 | [Regola servizi esterni](../.agents/rules/external-services.md) | IAM, credenziali, provider, quote e sicurezza | Contratto operativo |
 | [Regola Firebase](../.agents/rules/firebase-config.md) | Auth, catalogo privato/pubblico, Rules e Hosting | Contratto tecnico |
+| [Contesto migrazione Cloudflare](operations/cloudflare-migration-context.md) | Decisioni Fresh Start, rilevazioni account/hostname, issue e prossimo passo | Registro di evidenze datate; non attesta deploy o risorse già create |
 | [Architettura](architecture/overview.md) | Boundary, file e flussi dati del sito | Descrizione del codice da verificare |
 | [Design Mobile First](design/mobile-first.md) | Palette, breakpoint, UX del vivaio e compatibilità browser | Decisioni frontend e piano di verifica |
 | [Registro servizi esterni](operations/external-services-register.md) | Cosa è stato fatto/dichiarato, cosa resta da verificare | Registro operativo, non verità live permanente |
