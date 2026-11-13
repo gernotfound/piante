@@ -6,7 +6,7 @@
 
 - Il **nuovo** database D1 partirà **vuoto**, con specie, cultivar, lotti, piante, prenotazioni di codici, diari e catalogo a zero righe. Il file è solo una *migration v1* per un nuovo database, senza INSERT di dati esistenti o utenti.
 - **Nessun accesso, export, import, riconciliazione, conversione o compatibilità** con Firestore, account Firebase o codici già usati in Firebase. Solo funzioni di prodotto possono essere ripensate per la nuova applicazione.
-- Il sito e i dati Firebase restano intatti. Non sono stati creati Worker, D1, credenziali, dominio, DNS o deploy Cloudflare per questa modifica. Scegliere nome/hostname rimane decisione del proprietario, già annotata nella PR draft #44.
+- Il sito e i dati Firebase restano intatti. Non sono stati creati Worker, D1, credenziali, dominio, DNS o deploy Cloudflare per questa modifica. Il proprietario ha confermato il nome futuro `piantee` e l'hostname gratuito `https://piantee.califano-ger.workers.dev` (documentato nella PR draft #44). L'URL non risulta ancora creato o pubblicato e la scelta non autorizza un deploy.
 - Il nuovo D1 dovrà essere creato con `jurisdiction=eu` **prima** di eseguire la migration; la giurisdizione non può essere aggiunta successivamente. Non è garantita da sola la localizzazione UE di Worker, Access, CDN o log.
 
 ## Modello relazionale e requisiti
