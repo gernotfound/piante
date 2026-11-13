@@ -176,3 +176,36 @@ test("query pubbliche parametrizzate e nessun SELECT da tabelle private", () => 
   assert.match(source, /\.prepare\(DETAIL_SQL\)\.bind\(id\)/);
   assert.match(source, /\.bind\(cursor\[0\], cursor\[0\], cursor\[1\], limit \+ 1\)/);
 });
+
+
+test("il risultato JSON applica una seconda allowlist anche se D1 restituisse campi extra", async () => {
+  const { db, sql, close } = syntheticDatabase();
+  try {
+    seed(sql, 1);
+    const extra = {
+      prepare(query) {
+        const statement = db.prepare(query);
+        return {
+          bind(...args) {
+            const bound = statement.bind(...args);
+            return {
+              async all() {
+                const result = await bound.all();
+                return { ...result, results: result.results.map(row => ({ ...row, internal_notes: "PRIVATE" })) };
+              },
+              async first() {
+                return { ...await bound.first(), internal_notes: "PRIVATE" };
+              }
+            };
+          }
+        };
+      }
+    };
+    const list = await request("/api/v1/catalog", { DB: extra });
+    const detail = await request("/api/v1/catalog/plant-000", { DB: extra });
+    assert.equal(list.status, 200);
+    assert.equal(detail.status, 200);
+    assert.equal(JSON.stringify([list.body, detail.body]).includes("PRIVATE"), false);
+    assert.equal(Object.hasOwn(detail.body, "internal_notes"), false);
+  } finally { close(); }
+});
