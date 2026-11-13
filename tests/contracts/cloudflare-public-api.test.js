@@ -232,6 +232,8 @@ test("ricerca anonima su campi pubblici, codice con # e LIKE letterale", async (
     const list = async query => (await request("/api/v1/catalog?" + query, { DB: db })).body.items.map(x => x.id);
     assert.deepEqual(await list("q=Pianta"), ["plant-001", "plant-000"]);
     assert.deepEqual(await list("q=%23T00001"), ["plant-001"]);
+    assert.deepEqual(await list("q=%23Pianta"), [], "Il prefisso # deve cercare esclusivamente i codici");
+    assert.deepEqual(await list("q=%23Esemplare"), [], "Il prefisso # non deve cercare il nome botanico");
     assert.deepEqual(await list("q=T00000"), ["plant-000"]);
     assert.deepEqual(await list("q=Riservato"), []);
     assert.deepEqual(await list("q=%25"), ["plant-999"], "% deve restare letterale");
@@ -250,12 +252,19 @@ test("categorie suggerite: solo catalogo pubblico, senza categorie private", asy
   try {
     seed(sql, 2);
     sql.prepare("UPDATE taxa SET category = 'Fruttifere' WHERE id = 'taxon-1'").run();
+    sql.prepare("INSERT INTO taxa (id,kind,name,name_key,category,created_at,updated_at) VALUES ('case-taxon','unverified','Seconda pianta','seconda pianta','fruttifere',?,?)").run(NOW, NOW);
+    sql.prepare("INSERT INTO specimen_code_reservations (code,specimen_id,reserved_at) VALUES ('U00001','case-plant',?)").run(NOW);
+    sql.prepare("INSERT INTO specimens (id,taxon_id,code,created_at,updated_at) VALUES ('case-plant','case-taxon','U00001',?,?)").run(NOW, NOW);
+    sql.prepare("INSERT INTO public_listings (specimen_id,published_at,updated_at) VALUES ('case-plant',?,?)").run(NOW, NOW);
     sql.prepare(`INSERT INTO taxa (id,kind,name,name_key,category,created_at,updated_at)
       VALUES ('unpublished','unverified','Segreta','segreta','SEGRETO',?,?)`).run(NOW, NOW);
     const response = await request("/api/v1/catalog/categories", { DB: db });
     assert.equal(response.status, 200);
-    assert.deepEqual(response.body, { categories: ["Fruttifere"] });
+    assert.deepEqual(response.body, { categories: ["Fruttifere"] }, "Le varianti di maiuscole non devono generare opzioni duplicate");
     assert.equal(JSON.stringify(response.body).includes("SEGRETO"), false);
+    const filtered = await request("/api/v1/catalog?category=FRUTTIFERE", { DB: db });
+    assert.equal(filtered.status, 200);
+    assert.equal(filtered.body.items.length, 3, "Il filtro deve trovare entrambe le varianti della categoria");
     assert.equal((await request("/api/v1/catalog/categories?bad=1", { DB: db })).status, 400);
     assert.equal((await request("/api/v1/catalog/categories", { DB: db }, { method: "POST" })).status, 405);
     sql.prepare("DELETE FROM public_listings").run();

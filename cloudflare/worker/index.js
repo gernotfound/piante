@@ -38,9 +38,11 @@ function publicRow(row) {
 // Only fixed fragments appear in SQL; user input always goes through bind().
 const ORDER_SQL = "ORDER BY published_at DESC, id DESC LIMIT ?";
 const SEARCH_SQL = "(taxon_name LIKE ? ESCAPE '!' OR scientific_name LIKE ? ESCAPE '!' OR cultivar_name LIKE ? ESCAPE '!' OR code LIKE ? ESCAPE '!')";
+const CODE_SEARCH_SQL = "code LIKE ? ESCAPE '!'";
 const AFTER_SQL = "(published_at < ? OR (published_at = ? AND id < ?))";
-const CATEGORIES_SQL = `SELECT DISTINCT category FROM public_catalog
+const CATEGORIES_SQL = `SELECT MIN(category) AS category FROM public_catalog
   WHERE category IS NOT NULL AND trim(category) != ''
+  GROUP BY category COLLATE NOCASE
   ORDER BY category COLLATE NOCASE, category LIMIT ?`;
 const DETAIL_SQL = `SELECT ${PUBLIC_COLUMNS} FROM public_catalog WHERE id = ? LIMIT 1`;
 
@@ -130,11 +132,13 @@ async function listCatalog(db, { limit, cursor, q, category }) {
   const clauses = [];
   const binds = [];
   if (q) {
-    const term = q.startsWith("#") ? q.slice(1) : q;
+    const codeOnly = q.startsWith("#");
+    const term = codeOnly ? q.slice(1) : q;
     if (!term) throw new InvalidInput("Invalid code search");
     const pattern = literalLike(term);
-    clauses.push(SEARCH_SQL);
-    binds.push(pattern, pattern, pattern, pattern);
+    clauses.push(codeOnly ? CODE_SEARCH_SQL : SEARCH_SQL);
+    if (codeOnly) binds.push(pattern);
+    else binds.push(pattern, pattern, pattern, pattern);
   }
   if (category) {
     clauses.push("category = ? COLLATE NOCASE");
