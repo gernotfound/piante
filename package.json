@@ -15,7 +15,7 @@
   "devDependencies": {
     "@firebase/rules-unit-testing": "6.0.0",
     "firebase": "13.2.0",
-    "firebase-tools": "15.34.2",
+    "firebase-tools": "15.35.0",
     "playwright": "1.65.0",
     "cf": "1.0.0-beta.31",
     "@cloudflare/vite-plugin": "2.0.0-beta.v.15",
