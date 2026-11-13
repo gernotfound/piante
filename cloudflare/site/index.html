@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173B2D">
+  <meta name="description" content="Scopri le piante pubblicate nel catalogo Piantee.">
+  <meta name="color-scheme" content="light">
+  <title>Piantee — Catalogo botanico</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#catalogo">Vai al catalogo</a>
+  <header class="site-header">
+    <div class="container brand-row">
+      <a class="brand" href="/" aria-label="Piantee, pagina iniziale">
+        <img src="/favicon.svg" width="44" height="44" alt="">
+        <span>Piantee</span>
+      </a>
+      <nav aria-label="Navigazione principale">
+        <a href="#catalogo">Catalogo</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro container" aria-labelledby="page-title">
+      <p class="eyebrow">Catalogo botanico</p>
+      <h1 id="page-title">Le piante di Piantee</h1>
+      <p class="lead">Esplora le piante che abbiamo scelto di presentare. Le caratteristiche non ancora accertate rimangono non indicate.</p>
+    </section>
+
+    <section id="catalogo" class="container catalog" aria-labelledby="catalog-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Le nostre piante</p>
+          <h2 id="catalog-title">Catalogo</h2>
+        </div>
+      </div>
+
+      <div id="catalog-status" class="feedback" role="status" aria-live="polite">Caricamento del catalogo…</div>
+      <div id="catalog-grid" class="plant-grid" aria-busy="true"></div>
+      <div class="catalog-actions">
+        <button id="retry-button" class="button button-secondary" type="button" hidden>Riprova</button>
+        <button id="more-button" class="button button-primary" type="button" hidden>Mostra altre piante</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span>Piantee</span>
+      <span>Catalogo informativo, senza acquisti online.</span>
+    </div>
+  </footer>
+
+  <dialog id="plant-dialog" class="plant-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-header">
+      <h2 id="dialog-title">Dettagli della pianta</h2>
+      <button id="close-dialog" class="icon-button" type="button" aria-label="Chiudi dettagli">Chiudi</button>
+    </div>
+    <div id="dialog-body" class="dialog-body" aria-live="polite"></div>
+  </dialog>
+</body>
+</html>
