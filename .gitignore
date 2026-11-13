@@ -11,3 +11,6 @@ gha-creds-*.json
 
 # Output statico rigenerabile, non versionare
 /dist/
+
+# Output Cloudflare generato separatamente da Firebase
+/cloudflare/dist/
