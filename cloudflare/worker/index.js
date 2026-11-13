@@ -9,10 +9,28 @@ const MAX_LIMIT = 40;
 
 // An explicit public allowlist provides a second defense if the SQL view evolves.
 // Anonymous queries must never read private specimen, lot or journal tables.
-const PUBLIC_COLUMNS = `id, code, taxon_name, scientific_name, taxon_kind,
-  category, taxon_description, growth_habit, light, water, taxon_pollination,
-  taxon_cold_min_c, cultivar_name, cultivar_fruit_notes, cultivar_cold_min_c,
-  cultivar_pollination, summary, photo_url, published_at`;
+const PUBLIC_FIELDS = [
+  "id", "code", "taxon_name", "scientific_name", "taxon_kind",
+  "category", "taxon_description", "growth_habit", "light", "water",
+  "taxon_pollination", "taxon_cold_min_c", "cultivar_name", "cultivar_fruit_notes",
+  "cultivar_cold_min_c", "cultivar_pollination", "summary", "photo_url", "published_at"
+];
+const PUBLIC_COLUMNS = PUBLIC_FIELDS.join(", ");
+
+function publicRow(row) {
+  if (!row || typeof row !== "object" ||
+      typeof row.id !== "string" || !ID_PATTERN.test(row.id) ||
+      typeof row.published_at !== "string" || row.published_at.length > 40) {
+    throw new Error("Database returned an invalid public row");
+  }
+  const projected = {};
+  for (const field of PUBLIC_FIELDS) {
+    if (!Object.hasOwn(row, field)) throw new Error("Database omitted a public field");
+    projected[field] = row[field];
+  }
+  return projected;
+}
+
 const LIST_SQL = `SELECT ${PUBLIC_COLUMNS} FROM public_catalog
   ORDER BY published_at DESC, id DESC LIMIT ?`;
 const LIST_AFTER_SQL = `SELECT ${PUBLIC_COLUMNS} FROM public_catalog
@@ -92,16 +110,16 @@ async function listCatalog(db, { limit, cursor }) {
     throw new Error("Database returned an unexpected result");
   }
   const hasMore = result.results.length > limit;
-  const items = result.results.slice(0, limit);
+  const items = result.results.slice(0, limit).map(publicRow);
   return { items, nextCursor: hasMore ? encodeCursor(items[items.length - 1]) : null };
 }
 
 async function getCatalogItem(db, id) {
   const row = await db.prepare(DETAIL_SQL).bind(id).first();
-  if (row !== null && (typeof row !== "object" || row.id !== id)) {
-    throw new Error("Database returned an unexpected row");
-  }
-  return row;
+  if (row === null) return null;
+  const publicRecord = publicRow(row);
+  if (publicRecord.id !== id) throw new Error("Database returned an unexpected row");
+  return publicRecord;
 }
 
 export default {
