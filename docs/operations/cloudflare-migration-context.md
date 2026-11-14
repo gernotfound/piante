@@ -2,6 +2,13 @@
 
 **Ultimo read-back provider: 14/11/2026.** Implementazione isolata GitHub; nessun Worker né D1 Piantee. Cloudflare Access risulta non abilitato. Gli SHA e gli stati delle PR menzionati nei checkpoint precedenti sono storici, non sostituiscono nuove letture GitHub/provider.
 
+## Decisione vincolante e avanzamento — 14/11/2026
+
+- **Unico amministratore per tutta la vita del prodotto:** nessuna registrazione pubblica, nessun altro account, invito, ruolo o tabella utenti D1. Visitatori anonimi consultano soltanto il catalogo pubblicato. La verifica JWT firma/issuer/audience/subject dell'unico owner è sul Worker; più dispositivi del medesimo proprietario non implicano più utenti. Se occorre recuperare/sostituire l'identità, procedura controllata nel provider con revoca delle sessioni, non funzione di auto-registrazione.
+- **CF-05 nuovo candidato su branch `cf-05-single-owner-private-read-20261114`:** da main `c2b9755fe314675f95009a989d40cd680baabded`, predisposte API GET private `/api/v1/admin/specimens` e `/api/v1/admin/taxa`, liste paginabili e dettagli, *solo* dopo JWT verificato. Tutte le scritture restano negate. Verifiche candidate/merge/CI vanno riletti su GitHub: qui non si anticipano risultati.
+- **Cloudflare provider letto in sola lettura il 14/11:** solo Worker `thelogbook-frontend` e D1 `thelogbook-cf02-eu-isolated-20261113` (`eu`); assenti Worker e D1 Piantee. Access API `GET /access/apps` risponde `access.api.error.not_enabled`: servizio **non abilitato**. Nessuna creazione, attivazione o modifica di provider in questo incremento; evitare effetti collaterali su TheLogBook.
+- **Blocchi di rilascio:** attivazione separata Cloudflare Access con policy limitate a tutte le route admin (anche ingress alternativi), nuovo proprietario e MFA/recovery, D1 UE vuoto, CRUD con transazioni/CAS, UI mobile, prove di backup, quote e browser live. I test isolati non certificano login né pubblicazione.
+
 ## Stato corrente e blocchi verificati — 14/11/2026
 
 - **GitHub prima del merge PR #50:** `main` `f4eaf0ea8ea4554d35521899ae8f4e5d48bd6447`; [PR #49](https://github.com/gernotfound/piante/pull/49) **merged**, CI main [43450295236](https://github.com/gernotfound/piante/actions/runs/43450295236) **7/7 success**; Rules e Hosting successivi senza operazioni privilegiate. [PR #50](https://github.com/gernotfound/piante/pull/50) ha implementato la verifica JWT, CI [43584546968](https://github.com/gernotfound/piante/actions/runs/43584546968) **7/7 success** sul commit `ef3364776235e53122c4ca6034b5263632f2262e` (candidato storico). Verificare il merge e ogni commit successivo, non inferirli dalla CI precedente.

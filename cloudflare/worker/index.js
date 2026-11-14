@@ -1,5 +1,6 @@
 // Worker-side API only. This module must never be copied into public static assets.
 import { verifyAccessOwner } from "./access-auth.js";
+import { InvalidAdminQuery, isAdminInventoryPath, readAdminInventory } from "./admin-inventory.js";
 
 const OWNER_SESSION_PATH = "/api/v1/admin/session";
 const CATALOG_PATH = "/api/v1/catalog";
@@ -199,12 +200,27 @@ export default {
         if (!(await verifyAccessOwner(request, env))) {
           return failure(403, "forbidden");
         }
-        if (path !== OWNER_SESSION_PATH) return failure(403, "admin_unavailable");
+        const inventory = isAdminInventoryPath(path);
+        if (path !== OWNER_SESSION_PATH && !inventory) {
+          return failure(403, "admin_unavailable");
+        }
         if (request.method !== "GET") {
           return failure(405, "method_not_allowed", { Allow: "GET" });
         }
-        if (url.search) return failure(400, "invalid_request");
-        return json({ authenticated: true });
+        if (path === OWNER_SESSION_PATH) {
+          if (url.search) return failure(400, "invalid_request");
+          return json({ authenticated: true });
+        }
+        const db = dbFromEnv(env);
+        if (!db) return failure(503, "service_unavailable");
+        try {
+          const data = await readAdminInventory(db, path, url.searchParams);
+          return data === null ? failure(404, "not_found") : json(data);
+        } catch (error) {
+          if (error instanceof InvalidAdminQuery) return failure(400, "invalid_request");
+          // Never expose private fields, SQL or D1 failure details in errors.
+          return failure(503, "service_unavailable");
+        }
       }
       const isList = path === CATALOG_PATH;
       const isCategories = path === CATEGORIES_PATH;

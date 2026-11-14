@@ -91,6 +91,13 @@ test("workerd + D1: migration effettiva, catalogo realmente vuoto, policy privat
     headers: { "Cf-Access-Jwt-Assertion": "forged", Cookie: "CF_Authorization=fake" }
   })).status, 403);
   assert.equal((await get(worker, "/api/v1/admin/session")).status, 403);
+  for (const path of ["/api/v1/admin/specimens", "/api/v1/admin/specimens/plant-1",
+    "/api/v1/admin/taxa", "/api/v1/admin/taxa/taxon-1"]) {
+    assert.equal((await get(worker, path)).status, 403);
+    assert.equal((await get(worker, path, {
+      headers: { "Cf-Access-Jwt-Assertion": "forged", Cookie: "CF_Authorization=fake" }
+    })).status, 403);
+  }
   assert.equal((await get(worker, "/api/v1/admin/session", {
     headers: { "Cf-Access-Jwt-Assertion": "forged" }
   })).status, 403);
