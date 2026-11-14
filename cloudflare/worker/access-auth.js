@@ -89,7 +89,7 @@ export async function verifyAccessOwner(request, env, {
         Object.hasOwn(header, "crit") ||
         !validClaims(payload, { issuer, audience, ownerSub }, now)) return false;
     const key = await fetchSigningKey({ issuer }, header.kid, fetcher);
-    return crypto.subtle.verify(
+    return await crypto.subtle.verify(
       "RSASSA-PKCS1-v1_5", key, decodeBase64Url(segments[2]),
       new TextEncoder().encode(segments[0] + "." + segments[1])
     );
