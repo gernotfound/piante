@@ -1,6 +1,6 @@
 # Piantee — API Workers candidata (CF-02 su schema CF-01)
 
-**Stato del runtime (13/11/2026):** il codice Worker/frontend è presente nel repository; nessun Worker Piantee, database D1 o API Cloudflare è stato verificato come pubblicato. La produzione attuale resta Firebase. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
+**Stato verificato 14/11/2026:** catalogo e packaging cf/Vite sono nel repository; la guardia JWT owner è nella PR #50. In Cloudflare non esistono ancora Worker/D1 Piantee e Access ha risposto `access.api.error.not_enabled`: nessun login live. La produzione precedente rimane Firebase. Lo stato di merge della PR va riletto su GitHub. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
 
 ## Contratto implementato
 
@@ -9,7 +9,8 @@
 | `GET /api/v1/catalog` | Solo righe della vista SQL `public_catalog`; ritorna `{items: [...], nextCursor: string|null}`, ordinate per `published_at DESC, id DESC` |
 | `GET /api/v1/catalog/categories` | Elenco ordinato delle categorie distinte **solo dalle piante già pubblicate**, fino a 200; un errore D1 o elenco troppo grande non è spacciato per elenco vuoto |
 | `GET /api/v1/catalog/:id` | Solo record pubblicato, altrimenti HTTP 404; ID ASCII `A-Za-z0-9_-`, max 96 |
-| `/api/v1/admin` e `/api/v1/admin/*` | HTTP 403 **sempre**; nessun endpoint amministrativo è ancora attivo |
+| `GET /api/v1/admin/session` | Dopo firma JWT RS256 e nuova identità owner verificate: `200 {"authenticated":true}` e `Cache-Control: no-store`. Altrimenti `403`. Nessun dato privato restituito. |
+| Altri `/api/v1/admin` e `/api/v1/admin/*` | Sempre `403`, anche per un proprietario autenticato: nessun CRUD attivo |
 | Altre route `/api/*` | HTTP 404, mai una pagina SPA/asset restituito con HTTP 200 |
 | Metodi diversi da `GET` sulle route catalogo | HTTP 405 e `Allow: GET` |
 
@@ -23,9 +24,9 @@ Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codific
 - `Cache-Control: no-store, max-age=0` evita che una scheda ritirata dal catalogo continui a essere servita dalla cache applicativa; per un caching più aggressivo occorrono invalidazione e test specifici. Non sono presenti intestazioni CORS permissive.
 - Il DB assente, una query fallita o un risultato fuori contratto producono `503 service_unavailable`, **non** un catalogo artificiosamente vuoto. Dettagli SQL e dati interni non compaiono nella risposta.
 - La paginazione keyset è deterministica su dataset invariato; inserimenti o ritiri durante la navigazione possono variare le pagine. Il futuro backend di pubblicazione dovrà scrivere `published_at` in formato UTC ISO uniforme (es. `new Date().toISOString()`) per conservare l'ordinamento testuale atteso.
-- **Nessuna scrittura è possibile:** perfino header Cloudflare Access falsificati e cookie non sbloccano l'admin. Non interpretare questa negazione iniziale come autenticazione implementata: CF-03 dovrà validare JWT/identità owner e affrontare logout, recupero, CSRF e URL alternativi.
+- **Nessuna scrittura è possibile:** header Access falsificati e cookie non sbloccano l'admin. La PR #50 aggiunge solo un controllo JWT su `/admin/session`; login effettivo, logout, recupero, CSRF, verifica URL alternativi e CRUD rimangono pendenti.
 - `cloudflare/worker/index.js` è codice server. La directory non viene inclusa nel build legacy `dist/`; la [PR #43 integrata](https://github.com/gernotfound/piante/pull/43) rafforza l'allowlist dei moduli pubblici.
-- Quando verrà preparata la configurazione reale Static Assets, usare instradamento **Worker-first selettivo per `/api/*`**, mantenendo gli asset statici fuori dal consumo Worker quando possibile. Non è stato aggiunto un file `wrangler.toml/jsonc` né un binding remoto: la CLI del progetto va scelta secondo la configurazione effettiva; per un nuovo progetto Cloudflare la preferenza attuale è `cf`.
+- `cloudflare.config.ts` già definisce **Worker-first per `/api` e `/api/*`**; gli asset restano fuori dalle invocazioni Worker quando possibile. `cf`/Vite è verificato in CI, ma non esiste binding D1 remoto, deployment o file Wrangler.
 
 ## Frontend pubblico indipendente da Firebase (candidato CF-04)
 
@@ -64,3 +65,22 @@ L'emulatore stabile fissato (`miniflare@4.20260730.0`) supporta una compatibilit
 Il passo successivo a workerd/D1 locale configura la CLI Cloudflare `cf` (beta) con `cloudflare.config.ts`: Worker previsto `piantee`, DB binding `DB` per il futuro database **nuovo** `piantee-db`. Vite riceve soltanto i quattro asset creati dall'allowlist `scripts/build-cloudflare-site.mjs`. L'icona originale è copiata in una directory pubblica generata e isolata. `/api` e `/api/*` passano per il Worker prima degli asset, senza fallback SPA sulle API.
 
 `npm run build:cloudflare:cf` prepara gli asset espliciti, esegue **Vite**, riallinea il Build Output generato dalla root isolata nella directory canonica `.cloudflare/output/v0`, verifica la presenza del Worker server e l’allowlist degli asset client e avvia il controllo locale `cf workers check --prebuilt`. Nessuna autenticazione, creazione di risorse o deploy. La CI contiene un job autonomo di packaging, necessario a Canonical Verification: l’esito va verificato sullo SHA candidato esatto. Non confondere un binding dichiarato per nome con un D1 creato, un collegamento live o il rispetto della giurisdizione UE.
+
+
+## CF-03: verifica JWT Cloudflare Access per l'unico proprietario (candidato 14/11/2026)
+
+La nuova guardia `cloudflare/worker/access-auth.js` esamina solo l'asserzione `Cf-Access-Jwt-Assertion`: **non** riconosce cookie, email dichiarate dal client, header non firmati o UID Firebase. Il Worker verifica la firma **RS256** con WebCrypto, recuperando le chiavi pubbliche dall'endpoint di Cloudflare Access della **team domain fidata**, e richiede `kid`, `iss`, `aud`, `type=app`, `sub` dell'unico owner, tempi `iat/nbf/exp`. Il JWKS viene letto per ogni verifica: niente chiavi hardcoded né caching non verificato. I fallimenti e l'assenza di configurazione impediscono sempre l'accesso. Non si restituiscono email, subject o dettagli degli errori al client.
+
+Nuovo endpoint **solamente preparatorio**: `GET /api/v1/admin/session` può restituire `{"authenticated":true}` **solo** dopo JWT verificato, con `Cache-Control: no-store`. Tutte le altre API admin continuano a negare l'accesso anche all'owner: **nessuna operazione privata/CRUD è sbloccata** e non esiste ancora pagina login.
+
+**Configurazione richiesta al futuro deployment** (non inserire valori reali nel repository pubblico):
+
+- `ACCESS_TEAM_DOMAIN`: origin HTTPS esatto `https://<team>.cloudflareaccess.com`, senza percorsi, porte o query. Non prendere questo URL da JWT, query o header HTTP.
+- `ACCESS_AUD`: application audience tag esatto dell'app Access **solo amministrazione**, 64 caratteri esadecimali.
+- `ACCESS_OWNER_SUB`: subject Cloudflare Access del **nuovo** proprietario, identificato con prova autenticata sul provider; non ricavare da UID Firebase o da email dell'account precedente.
+
+**Ingress Cloudflare:** configurare applicazione Access self-hosted soltanto sulle route amministrative della destinazione `piantee.califano-ger.workers.dev`, mantenendo pubblico `GET /api/v1/catalog*`. Non attivare protezione dell'intero Worker/account: renderebbe privato il catalogo e potrebbe influenzare TheLogBook. Per ogni hostname di produzione, preview/version o route alternativa verificare separatamente che lo stesso controllo server-side si applichi; nessuna protezione di path sostituisce la validazione JWT nel Worker.
+
+**Limiti del candidato:** l'applicazione Access, nuova identità owner, registrazione/recupero, logout, sessione reale, protezione delle API write e D1 EU restano **PENDING**. Test RSA con identità fittizie e workerd locale non dimostrano login/accesso su Cloudflare. Un JWT valido può rimanere utilizzabile fino alla scadenza anche dopo un logout esterno: protezione del provider, durata breve, revoca e QA di recupero vanno testati prima dell'attivazione CRUD.
+
+Fonti di progettazione: [Cloudflare Access per Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/), [JWT e keys](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [application token](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/).

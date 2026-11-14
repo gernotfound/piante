@@ -16,7 +16,10 @@ test("cf: worker Piantee, D1 separato e API sempre worker-first", () => {
   assert.match(cf, /runWorkerFirst: \["\/api", "\/api\/\*"\]/);
   assert.match(cf, /notFoundHandling: "none"/);
   assert.match(cf, /DB: bindings\.d1\(\{ name: "piantee-db" \}\)/);
-  assert.doesNotMatch(cf, /firebase|thelogbook|service[_-]?account|secret/i);
+  for (const name of ["ACCESS_TEAM_DOMAIN", "ACCESS_AUD", "ACCESS_OWNER_SUB"]) {
+    assert.match(cf, new RegExp(name + ": bindings\\.secret\\(\\)"));
+  }
+  assert.doesNotMatch(cf, /firebase|thelogbook|service[_-]?account/i);
 });
 
 test("Vite usa solo la build pubblica e l'icona originali", () => {

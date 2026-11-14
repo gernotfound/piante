@@ -9,6 +9,11 @@ export default defineConfig({
       runWorkerFirst: ["/api", "/api/*"],
       notFoundHandling: "none"
     },
-    env: { DB: bindings.d1({ name: "piantee-db" }) }
+    env: {
+      DB: bindings.d1({ name: "piantee-db" }),
+      ACCESS_TEAM_DOMAIN: bindings.secret(),
+      ACCESS_AUD: bindings.secret(),
+      ACCESS_OWNER_SUB: bindings.secret()
+    }
   }
 });

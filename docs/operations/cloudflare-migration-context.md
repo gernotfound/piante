@@ -1,6 +1,13 @@
 # Piantee → Cloudflare: contesto operativo e indirizzo gratuito
 
-**Checkpoint:** 2026-11-13. **Stato:** pianificazione/guida alla creazione; nessun Worker Piantee o D1 di produzione verificato. Questo documento registra evidenze datate, non sostituisce un read-back della console/provider.
+**Ultimo read-back provider: 14/11/2026.** Implementazione isolata GitHub; nessun Worker né D1 Piantee. Cloudflare Access risulta non abilitato. Gli SHA e gli stati delle PR menzionati nei checkpoint precedenti sono storici, non sostituiscono nuove letture GitHub/provider.
+
+## Stato corrente e blocchi verificati — 14/11/2026
+
+- **GitHub prima del merge PR #50:** `main` `f4eaf0ea8ea4554d35521899ae8f4e5d48bd6447`; [PR #49](https://github.com/gernotfound/piante/pull/49) **merged**, CI main [43450295236](https://github.com/gernotfound/piante/actions/runs/43450295236) **7/7 success**; Rules e Hosting successivi senza operazioni privilegiate. [PR #50](https://github.com/gernotfound/piante/pull/50) ha implementato la verifica JWT, CI [43584546968](https://github.com/gernotfound/piante/actions/runs/43584546968) **7/7 success** sul commit `ef3364776235e53122c4ca6034b5263632f2262e` (candidato storico). Verificare il merge e ogni commit successivo, non inferirli dalla CI precedente.
+- **Cloudflare API sola lettura:** sottodominio account `califano-ger`, solo Worker `thelogbook-frontend` e D1 `thelogbook-cf02-eu-isolated-20261113` giurisdizione `eu`, entrambi di TheLogBook. Nessun Worker `piantee`, nessun D1 `piantee-db`, nessun binding live Piantee.
+- **Access non abilitato:** `GET /accounts/{account_id}/access/apps` ha restituito HTTP 403 / `access.api.error.not_enabled`. L'implementazione di verifica JWT non attiva da sola un servizio di login. Devono essere configurati e verificati senza effetti su TheLogBook: Access per i soli percorsi admin, nuovo proprietario, audience, sessioni, recovery, URL alternativi e sostenibilità Free.
+- **Destinazione:** Worker + Static Assets + D1 + Access per il nuovo Piantee, con GitHub per sorgenti/CI e fotografie HTTPS esterne quando disponibili. Firebase resta sistema separato fino a GO e dismissione autorizzata. **Fresh Start assoluto**, senza dati/account importati.
 
 ## Decisioni di prodotto vigenti
 
@@ -87,4 +94,11 @@ Nuova fase CF-02: predisposizione del packaging statico attraverso `cf` e Vite, 
 
 ### Checkpoint candidato CF-02 packaging — 13 novembre 2026
 
-La [PR draft #49](https://github.com/gernotfound/piante/pull/49) introduce `cf` + Vite v2 beta per generare localmente lo Static Assets bundle e il Worker API, mantenendo l'allowlist di quattro asset di origine, il frontend separato da `src/` Firebase e la destinazione `piantee`. La build passa per `npm run build:cloudflare:cf`, che genera il Build Output canonico senza credenziali e senza deploy. Il controllo locale conferma il modulo Worker e la struttura degli asset, **non** che il Worker sia online né che esista un D1. La [CI 43437294827](https://github.com/gernotfound/piante/actions/runs/43437294827) è stata SUCCESS 7/7 sul commit preliminare `4a64ff2635301ecd89df6d76839ad40f6a06eee9`; ogni successivo commit richiede un nuovo gate exact-SHA. Nessun provisioning autorizzato in questa fase.
+La [PR #49](https://github.com/gernotfound/piante/pull/49), draft al momento del checkpoint storico e poi integrata, introduce `cf` + Vite v2 beta per generare localmente lo Static Assets bundle e il Worker API, mantenendo l'allowlist di quattro asset di origine, il frontend separato da `src/` Firebase e la destinazione `piantee`. La build passa per `npm run build:cloudflare:cf`, che genera il Build Output canonico senza credenziali e senza deploy. Il controllo locale conferma il modulo Worker e la struttura degli asset, **non** che il Worker sia online né che esista un D1. La [CI 43437294827](https://github.com/gernotfound/piante/actions/runs/43437294827) è stata SUCCESS 7/7 sul commit preliminare `4a64ff2635301ecd89df6d76839ad40f6a06eee9`; ogni successivo commit richiede un nuovo gate exact-SHA. Nessun provisioning autorizzato in questa fase.
+
+
+## Candidato CF-03 — Access owner JWT, 14 novembre 2026
+
+Nuovo branch `cf-03-access-jwt-owner-20261114`, [PR draft #50](https://github.com/gernotfound/piante/pull/50), base remoto `f4eaf0ea8ea4554d35521899ae8f4e5d48bd6447`. Prima implementazione isolata del confine amministratore Cloudflare Access: verifica RS256/JWKS firmato, `iss/aud/sub/type/exp/nbf/iat` e fail-closed per assenza configurazione/chiave/sessione; `GET /api/v1/admin/session` è l'unica route nuova dopo autenticazione. Nessun CRUD e nessun collegamento Firebase. La CI finale [43584546968](https://github.com/gernotfound/piante/actions/runs/43584546968) è **success 7/7** sul candidato `ef3364776235e53122c4ca6034b5263632f2262e`; l'esito del merge e di eventuali commit successivi è distinto.
+
+**Provider:** 14/11/2026, lettura Cloudflare: subdomain `califano-ger`, solo Worker `thelogbook-frontend` e D1 `thelogbook-cf02-eu-isolated-20261113` (EU). Nessun Worker né D1 Piantee. Nessuna modifica a Cloudflare, Firebase, account TheLogBook, IAM, DNS o billing eseguita da questo incremento. Piantee resta **non live**. Prima di consentire login bisogna predisporre una app Access con path di admin e nuovo soggetto owner, testare JWT/protezione di URL alternativi e recovery; dati Firebase **non vanno letti o trasferiti**.

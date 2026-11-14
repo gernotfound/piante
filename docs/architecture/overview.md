@@ -4,14 +4,14 @@
 
 ## Schema Cloudflare in preparazione (non distribuito)
 
-- La migrazione architetturale Cloudflare è descritta nell'[EPIC #32](https://github.com/gernotfound/piante/issues/32), nel [contratto D1 Fresh Start](cloudflare-data-model.md) e nel [contratto API Workers candidato](cloudflare-api.md) (lettura pubblica, amministrazione non disponibile). Lo schema candidato è `cloudflare/migrations/0001_initial.sql` con test `tests/contracts/cloudflare-schema.test.js`.
+- La migrazione architetturale Cloudflare è descritta nell'[EPIC #32](https://github.com/gernotfound/piante/issues/32), nel [contratto D1 Fresh Start](cloudflare-data-model.md) e nel [contratto API Workers candidato](cloudflare-api.md) (lettura pubblica e verifica sessione owner in PR #50; CRUD non disponibile). Lo schema candidato è `cloudflare/migrations/0001_initial.sql` con test `tests/contracts/cloudflare-schema.test.js`.
 - **Questa non è l'architettura live:** i paragrafi seguenti descrivono Firebase. Il nuovo D1 parte vuoto con una nuova identità amministrativa; non importa dati/account né mantiene adattamenti per versioni vecchie.
 - La PR [#44](https://github.com/gernotfound/piante/pull/44), già integrata, registra il contesto dell'account Cloudflare e l'hostname gratuito `https://piantee.califano-ger.workers.dev`, confermato dal proprietario ma non ancora creato o pubblicato. L'integrazione del file SQL non equivale alla sua applicazione sul database D1, né a un deploy Cloudflare.
 
 ## Frontend Cloudflare candidato (non distribuito)
 
 - `cloudflare/site/`: nuova vetrina anonima, con ricerca nome/codice e filtro categoria applicati dal form e conservati nell'URL, indipendente dal vecchio `src/` Firebase; `scripts/build-cloudflare-site.mjs` produce `cloudflare/dist/`, separata dal `dist/` distribuito da Firebase. Nessun archivio privato, migrazione o login implementato.
-- Il Worker `cloudflare/worker/index.js` fornisce solo catalogo pubblico da `public_catalog`; gestione privata negata. Contratti e test: [API Cloudflare](cloudflare-api.md), [D1](cloudflare-data-model.md), `tests/e2e/cloudflare-site.test.js`. Lo stato live resta Firebase: SQL/HTML/Worker candidati non sono un deploy.
+- Il Worker `cloudflare/worker/index.js` legge il catalogo pubblico da `public_catalog`; la PR #50 aggiunge una verifica JWT prima della sola conferma di sessione amministrativa. Le API gestionali private rimangono negate. Contratti e test: [API Cloudflare](cloudflare-api.md), [D1](cloudflare-data-model.md), `tests/e2e/cloudflare-site.test.js`. Lo stato live resta Firebase: SQL/HTML/Worker candidati non sono un deploy.
 
 ## Frontend
 

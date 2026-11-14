@@ -1,5 +1,7 @@
 // Worker-side API only. This module must never be copied into public static assets.
-// The admin surface is intentionally unavailable until CF-03 has verified auth.
+import { verifyAccessOwner } from "./access-auth.js";
+
+const OWNER_SESSION_PATH = "/api/v1/admin/session";
 const CATALOG_PATH = "/api/v1/catalog";
 const CATEGORIES_PATH = "/api/v1/catalog/categories";
 const ITEM_PATH = /^\/api\/v1\/catalog\/([A-Za-z0-9_-]{1,96})$/;
@@ -192,7 +194,17 @@ export default {
     // Nothing under /api can ever fall through to an SPA or static-asset 200.
     if (path === "/api" || path.startsWith("/api/")) {
       if (path === "/api/v1/admin" || path.startsWith("/api/v1/admin/")) {
-        return failure(403, "admin_unavailable");
+        // Access rules can be bypassed by alternate routes: verify at the origin.
+        // Private CRUD remains closed until the authenticated D1 API exists.
+        if (!(await verifyAccessOwner(request, env))) {
+          return failure(403, "forbidden");
+        }
+        if (path !== OWNER_SESSION_PATH) return failure(403, "admin_unavailable");
+        if (request.method !== "GET") {
+          return failure(405, "method_not_allowed", { Allow: "GET" });
+        }
+        if (url.search) return failure(400, "invalid_request");
+        return json({ authenticated: true });
       }
       const isList = path === CATALOG_PATH;
       const isCategories = path === CATEGORIES_PATH;

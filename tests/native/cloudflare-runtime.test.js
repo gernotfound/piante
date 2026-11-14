@@ -12,6 +12,7 @@ function simulator({ withDb = true } = {}) {
   return new Miniflare({
     scriptPath: workerPath,
     modules: true,
+    modulesRules: [{ type: "ESModule", include: ["**/*.js"] }],
     // The pinned stable workerd build supports dates up to 2026-08-06.
     compatibilityDate: "2026-08-06",
     ...(withDb ? { d1Databases: { DB: "00000000-0000-4000-8000-000000000047" } } : {})
@@ -88,6 +89,10 @@ test("workerd + D1: migration effettiva, catalogo realmente vuoto, policy privat
   assert.deepEqual((await get(worker, "/api/v1/catalog/categories")).body, { categories: [] });
   assert.equal((await get(worker, "/api/v1/admin/plants", {
     headers: { "Cf-Access-Jwt-Assertion": "forged", Cookie: "CF_Authorization=fake" }
+  })).status, 403);
+  assert.equal((await get(worker, "/api/v1/admin/session")).status, 403);
+  assert.equal((await get(worker, "/api/v1/admin/session", {
+    headers: { "Cf-Access-Jwt-Assertion": "forged" }
   })).status, 403);
   assert.equal((await get(worker, "/api/v1/missing")).status, 404);
 });
