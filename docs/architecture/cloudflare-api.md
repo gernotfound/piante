@@ -64,3 +64,22 @@ L'emulatore stabile fissato (`miniflare@4.20260730.0`) supporta una compatibilit
 Il passo successivo a workerd/D1 locale configura la CLI Cloudflare `cf` (beta) con `cloudflare.config.ts`: Worker previsto `piantee`, DB binding `DB` per il futuro database **nuovo** `piantee-db`. Vite riceve soltanto i quattro asset creati dall'allowlist `scripts/build-cloudflare-site.mjs`. L'icona originale è copiata in una directory pubblica generata e isolata. `/api` e `/api/*` passano per il Worker prima degli asset, senza fallback SPA sulle API.
 
 `npm run build:cloudflare:cf` prepara gli asset espliciti, esegue **Vite**, riallinea il Build Output generato dalla root isolata nella directory canonica `.cloudflare/output/v0`, verifica la presenza del Worker server e l’allowlist degli asset client e avvia il controllo locale `cf workers check --prebuilt`. Nessuna autenticazione, creazione di risorse o deploy. La CI contiene un job autonomo di packaging, necessario a Canonical Verification: l’esito va verificato sullo SHA candidato esatto. Non confondere un binding dichiarato per nome con un D1 creato, un collegamento live o il rispetto della giurisdizione UE.
+
+
+## CF-03: verifica JWT Cloudflare Access per l'unico proprietario (candidato 14/11/2026)
+
+La nuova guardia `cloudflare/worker/access-auth.js` esamina solo l'asserzione `Cf-Access-Jwt-Assertion`: **non** riconosce cookie, email dichiarate dal client, header non firmati o UID Firebase. Il Worker verifica la firma **RS256** con WebCrypto, recuperando le chiavi pubbliche dall'endpoint di Cloudflare Access della **team domain fidata**, e richiede `kid`, `iss`, `aud`, `type=app`, `sub` dell'unico owner, tempi `iat/nbf/exp`. Il JWKS viene letto per ogni verifica: niente chiavi hardcoded né caching non verificato. I fallimenti e l'assenza di configurazione impediscono sempre l'accesso. Non si restituiscono email, subject o dettagli degli errori al client.
+
+Nuovo endpoint **solamente preparatorio**: `GET /api/v1/admin/session` può restituire `{"authenticated":true}` **solo** dopo JWT verificato, con `Cache-Control: no-store`. Tutte le altre API admin continuano a negare l'accesso anche all'owner: **nessuna operazione privata/CRUD è sbloccata** e non esiste ancora pagina login.
+
+**Configurazione richiesta al futuro deployment** (non inserire valori reali nel repository pubblico):
+
+- `ACCESS_TEAM_DOMAIN`: origin HTTPS esatto `https://<team>.cloudflareaccess.com`, senza percorsi, porte o query. Non prendere questo URL da JWT, query o header HTTP.
+- `ACCESS_AUD`: application audience tag esatto dell'app Access **solo amministrazione**, 64 caratteri esadecimali.
+- `ACCESS_OWNER_SUB`: subject Cloudflare Access del **nuovo** proprietario, identificato con prova autenticata sul provider; non ricavare da UID Firebase o da email dell'account precedente.
+
+**Ingress Cloudflare:** configurare applicazione Access self-hosted soltanto sulle route amministrative della destinazione `piantee.califano-ger.workers.dev`, mantenendo pubblico `GET /api/v1/catalog*`. Non attivare protezione dell'intero Worker/account: renderebbe privato il catalogo e potrebbe influenzare TheLogBook. Per ogni hostname di produzione, preview/version o route alternativa verificare separatamente che lo stesso controllo server-side si applichi; nessuna protezione di path sostituisce la validazione JWT nel Worker.
+
+**Limiti del candidato:** l'applicazione Access, nuova identità owner, registrazione/recupero, logout, sessione reale, protezione delle API write e D1 EU restano **PENDING**. Test RSA con identità fittizie e workerd locale non dimostrano login/accesso su Cloudflare. Un JWT valido può rimanere utilizzabile fino alla scadenza anche dopo un logout esterno: protezione del provider, durata breve, revoca e QA di recupero vanno testati prima dell'attivazione CRUD.
+
+Fonti di progettazione: [Cloudflare Access per Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/), [JWT e keys](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [application token](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/).

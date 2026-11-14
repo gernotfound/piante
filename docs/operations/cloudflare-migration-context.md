@@ -88,3 +88,10 @@ Nuova fase CF-02: predisposizione del packaging statico attraverso `cf` e Vite, 
 ### Checkpoint candidato CF-02 packaging — 13 novembre 2026
 
 La [PR draft #49](https://github.com/gernotfound/piante/pull/49) introduce `cf` + Vite v2 beta per generare localmente lo Static Assets bundle e il Worker API, mantenendo l'allowlist di quattro asset di origine, il frontend separato da `src/` Firebase e la destinazione `piantee`. La build passa per `npm run build:cloudflare:cf`, che genera il Build Output canonico senza credenziali e senza deploy. Il controllo locale conferma il modulo Worker e la struttura degli asset, **non** che il Worker sia online né che esista un D1. La [CI 43437294827](https://github.com/gernotfound/piante/actions/runs/43437294827) è stata SUCCESS 7/7 sul commit preliminare `4a64ff2635301ecd89df6d76839ad40f6a06eee9`; ogni successivo commit richiede un nuovo gate exact-SHA. Nessun provisioning autorizzato in questa fase.
+
+
+## Candidato CF-03 — Access owner JWT, 14 novembre 2026
+
+Nuovo branch `cf-03-access-jwt-owner-20261114`, [PR draft #50](https://github.com/gernotfound/piante/pull/50), base remoto `f4eaf0ea8ea4554d35521899ae8f4e5d48bd6447`. Prima implementazione isolata del confine amministratore Cloudflare Access: verifica RS256/JWKS firmato, `iss/aud/sub/type/exp/nbf/iat` e fail-closed per assenza configurazione/chiave/sessione; `GET /api/v1/admin/session` è l'unica route nuova dopo autenticazione. Nessun CRUD e nessun collegamento Firebase. La CI finale deve essere verificata sullo SHA candidato.
+
+**Provider:** 14/11/2026, lettura Cloudflare: subdomain `califano-ger`, solo Worker `thelogbook-frontend` e D1 `thelogbook-cf02-eu-isolated-20261113` (EU). Nessun Worker né D1 Piantee. Nessuna modifica a Cloudflare, Firebase, account TheLogBook, IAM, DNS o billing eseguita da questo incremento. Piantee resta **non live**. Prima di consentire login bisogna predisporre una app Access con path di admin e nuovo soggetto owner, testare JWT/protezione di URL alternativi e recovery; dati Firebase **non vanno letti o trasferiti**.
