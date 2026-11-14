@@ -10,7 +10,7 @@ Questa cartella contiene **contesto operativo e tecnico**, non segreti e non cer
 | [Contesto migrazione Cloudflare](operations/cloudflare-migration-context.md) | Decisioni Fresh Start, rilevazioni account/hostname, issue e prossimo passo | Registro di evidenze datate; non attesta deploy o risorse già create |
 | [Architettura](architecture/overview.md) | Boundary, file e flussi dati del sito | Descrizione del codice da verificare |
 | [Schema D1 Cloudflare](architecture/cloudflare-data-model.md) | Profilo botanico relazionale, vincoli di integrità, separazione dati e prove SQLite | Modello candidato CF-01, non database in produzione |
-| [API e vetrina Cloudflare](architecture/cloudflare-api.md) | Endpoint pubblici, sicurezza, frontend isolato, test e limiti della verifica | Candidato CF-02/CF-04, non prova di runtime Cloudflare |
+| [API e vetrina Cloudflare](architecture/cloudflare-api.md) | Endpoint pubblici, sicurezza, frontend isolato, test e limiti della verifica | Candidato CF-02/CF-03/CF-04, non prova di runtime Cloudflare |
 | [Design Mobile First](design/mobile-first.md) | Palette, breakpoint, UX del vivaio e compatibilità browser | Decisioni frontend e piano di verifica |
 | [Registro servizi esterni](operations/external-services-register.md) | Cosa è stato fatto/dichiarato, cosa resta da verificare | Registro operativo, non verità live permanente |
 | [Runbook Hosting e Firestore Rules](operations/firebase-hosting-runbook.md) | Setup WIF dei due deployer, ordine Rules→Hosting, verifica e rollback | Istruzioni; non prova di esecuzione |

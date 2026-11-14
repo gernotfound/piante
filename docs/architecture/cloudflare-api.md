@@ -1,6 +1,6 @@
 # Piantee — API Workers candidata (CF-02 su schema CF-01)
 
-**Stato del runtime (13/11/2026):** il codice Worker/frontend è presente nel repository; nessun Worker Piantee, database D1 o API Cloudflare è stato verificato come pubblicato. La produzione attuale resta Firebase. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
+**Stato verificato 14/11/2026:** catalogo e packaging cf/Vite sono nel repository; la guardia JWT owner è nella PR #50. In Cloudflare non esistono ancora Worker/D1 Piantee e Access ha risposto `access.api.error.not_enabled`: nessun login live. La produzione precedente rimane Firebase. Lo stato di merge della PR va riletto su GitHub. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
 
 ## Contratto implementato
 
@@ -9,7 +9,8 @@
 | `GET /api/v1/catalog` | Solo righe della vista SQL `public_catalog`; ritorna `{items: [...], nextCursor: string|null}`, ordinate per `published_at DESC, id DESC` |
 | `GET /api/v1/catalog/categories` | Elenco ordinato delle categorie distinte **solo dalle piante già pubblicate**, fino a 200; un errore D1 o elenco troppo grande non è spacciato per elenco vuoto |
 | `GET /api/v1/catalog/:id` | Solo record pubblicato, altrimenti HTTP 404; ID ASCII `A-Za-z0-9_-`, max 96 |
-| `/api/v1/admin` e `/api/v1/admin/*` | HTTP 403 **sempre**; nessun endpoint amministrativo è ancora attivo |
+| `GET /api/v1/admin/session` | Dopo firma JWT RS256 e nuova identità owner verificate: `200 {"authenticated":true}` e `Cache-Control: no-store`. Altrimenti `403`. Nessun dato privato restituito. |
+| Altri `/api/v1/admin` e `/api/v1/admin/*` | Sempre `403`, anche per un proprietario autenticato: nessun CRUD attivo |
 | Altre route `/api/*` | HTTP 404, mai una pagina SPA/asset restituito con HTTP 200 |
 | Metodi diversi da `GET` sulle route catalogo | HTTP 405 e `Allow: GET` |
 
@@ -23,9 +24,9 @@ Il parametro `limit` è un intero da 1 a 40 (default 20). Il `cursor` è codific
 - `Cache-Control: no-store, max-age=0` evita che una scheda ritirata dal catalogo continui a essere servita dalla cache applicativa; per un caching più aggressivo occorrono invalidazione e test specifici. Non sono presenti intestazioni CORS permissive.
 - Il DB assente, una query fallita o un risultato fuori contratto producono `503 service_unavailable`, **non** un catalogo artificiosamente vuoto. Dettagli SQL e dati interni non compaiono nella risposta.
 - La paginazione keyset è deterministica su dataset invariato; inserimenti o ritiri durante la navigazione possono variare le pagine. Il futuro backend di pubblicazione dovrà scrivere `published_at` in formato UTC ISO uniforme (es. `new Date().toISOString()`) per conservare l'ordinamento testuale atteso.
-- **Nessuna scrittura è possibile:** perfino header Cloudflare Access falsificati e cookie non sbloccano l'admin. Non interpretare questa negazione iniziale come autenticazione implementata: CF-03 dovrà validare JWT/identità owner e affrontare logout, recupero, CSRF e URL alternativi.
+- **Nessuna scrittura è possibile:** header Access falsificati e cookie non sbloccano l'admin. La PR #50 aggiunge solo un controllo JWT su `/admin/session`; login effettivo, logout, recupero, CSRF, verifica URL alternativi e CRUD rimangono pendenti.
 - `cloudflare/worker/index.js` è codice server. La directory non viene inclusa nel build legacy `dist/`; la [PR #43 integrata](https://github.com/gernotfound/piante/pull/43) rafforza l'allowlist dei moduli pubblici.
-- Quando verrà preparata la configurazione reale Static Assets, usare instradamento **Worker-first selettivo per `/api/*`**, mantenendo gli asset statici fuori dal consumo Worker quando possibile. Non è stato aggiunto un file `wrangler.toml/jsonc` né un binding remoto: la CLI del progetto va scelta secondo la configurazione effettiva; per un nuovo progetto Cloudflare la preferenza attuale è `cf`.
+- `cloudflare.config.ts` già definisce **Worker-first per `/api` e `/api/*`**; gli asset restano fuori dalle invocazioni Worker quando possibile. `cf`/Vite è verificato in CI, ma non esiste binding D1 remoto, deployment o file Wrangler.
 
 ## Frontend pubblico indipendente da Firebase (candidato CF-04)
 

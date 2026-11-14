@@ -33,9 +33,9 @@ Aprire esplicitamente i file pertinenti: un rimando non equivale alla loro lettu
 - I dati della configurazione Web Firebase sono pubblici; password, UID reali, chiavi di servizio, token, cookie e JSON di autenticazione non vanno committati né riprodotti in documenti pubblici.
 - Le foto usano URL HTTPS esterni nella baseline corrente. Non introdurre Firebase Storage, Cloud Functions, billing Blaze o altri servizi a pagamento senza decisione esplicita.
 
-## Migrazione Cloudflare Fresh Start (pianificazione, non produzione)
+## Migrazione Cloudflare Fresh Start (implementazione isolata, non produzione)
 
-- Indice operativo [EPIC #32](https://github.com/gernotfound/piante/issues/32) e fasi CF-00–CF-09. Il nuovo Cloudflare partirà con D1 **vuoto** e admin nuovo: nessun dato/account Firebase viene migrato, copiato o reso retrocompatibile. La versione corrente Firebase resta la fonte reale finché il proprietario non autorizza il cutover.
+- Indice operativo [EPIC #32](https://github.com/gernotfound/piante/issues/32) e fasi CF-00–CF-09. Il nuovo Cloudflare partirà con D1 **vuoto** e admin nuovo: nessun dato/account Firebase viene migrato, copiato o reso retrocompatibile. API pubbliche, packaging cf/Vite e guardia JWT owner sono in sviluppo: non confondere CI con provider live. Cloudflare Access non risultava abilitato nella lettura provider del 14/11/2026: riverificarlo prima del login. Firebase resta la produzione precedente fino al cutover autorizzato.
 - Durante lo sviluppo Cloudflare, collocare nuovo runtime e frontend **fuori da `src/` e `styles/` legacy**, preferibilmente sotto `cloudflare/`, evitando modifiche congiunte alle sorgenti Firebase nello stesso commit. Non pubblicare nuove API o risorse private in `dist/`.
 - `scripts/build-site.mjs` usa l'elenco chiuso dei soli asset client esaminati. Ogni nuovo file client richiede modifica deliberata dell'elenco e test delle dipendenze; nuovi file Worker/server non possono entrarvi.
 - La catena automatica GitHub CI→Firestore Rules→Firebase Hosting applica `scripts/firebase-release-scope.mjs` in **entrambi i workflow**: modifiche Cloudflare-only o miste non autorizzano deploy Firebase. Il blocco non è un errore da aggirare, ma un confine tra i sistemi. Il passaggio finale a Cloudflare ha workflow, QA, dominio e GO separati.
