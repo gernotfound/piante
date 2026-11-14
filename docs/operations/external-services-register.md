@@ -1,5 +1,12 @@
 # Registro dei servizi esterni — Piante
 
+## 14/11/2026 — decisione single-owner e incremento privato CF-05 (USER-APPROVED / VERIFIED-PROVIDER READ-ONLY / REPO CANDIDATE)
+
+- Il product owner ha confermato che il nuovo Piantee avrà **permanentemente un solo account amministrativo**. Non occorrono registrazioni, inviti, ruoli o tabella utenti D1. L'account sarà identificato da Cloudflare Access JWT valido con subject dell'unico owner configurato lato server; eventuale recovery/sostituzione deve rimanere operazione autenticata distinta, non self-signup. Visitatori anonimi consultano soltanto il catalogo pubblico.
+- Preparato un nuovo incremento su branch `cf-05-single-owner-private-read-20261114` da `main` `c2b9755fe314675f95009a989d40cd680baabded`: endpoint GET per specie e inventario privato con test JWT RSA sintetici e SQL D1 locale, senza scrittura/CRUD, dati legacy o aggiornamenti al provider. L'esito CI, merge e post-merge deve essere verificato sui rispettivi SHA prima di dichiararli riusciti.
+- Verifica diretta Cloudflare **GET**, stesso giorno: un Worker `thelogbook-frontend`, un database D1 `thelogbook-cf02-eu-isolated-20261113` EU, nessuna risorsa Piantee. `GET /accounts/{account_id}/access/apps` restituisce HTTP 403 codice `access.api.error.not_enabled`: Access **non abilitato**. Nessuna configurazione o lettura di dati account Firebase, né modifica a TheLogBook, IAM, domini, billing, D1 o Workers.
+- PENDENTI: decisione/abilitazione esplicita del servizio Access e verifica Free su account condiviso; creazione separata del D1 EU Piantee vuoto, binding e release; login/recovery reale; CRUD/atomicità, protezioni antiabuso, backup e QA. Non interpretare la presenza del modulo auth come login live.
+
 ## Ricognizione 14/11/2026 — Cloudflare e CI (PROVIDER READ-ONLY, GITHUB VERIFIED)
 
 - **Cloudflare:** sottodominio account `califano-ger`; unico Worker `thelogbook-frontend` e unico D1 `thelogbook-cf02-eu-isolated-20261113` (jurisdiction `eu`), appartenenti all'altro progetto TheLogBook. **Nessun Worker/D1 Piantee creato, nessuna operazione live effettuata da questo audit.** Il nome `piantee-db` nel codice non prova il provisioning.

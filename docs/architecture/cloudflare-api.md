@@ -10,7 +10,11 @@
 | `GET /api/v1/catalog/categories` | Elenco ordinato delle categorie distinte **solo dalle piante già pubblicate**, fino a 200; un errore D1 o elenco troppo grande non è spacciato per elenco vuoto |
 | `GET /api/v1/catalog/:id` | Solo record pubblicato, altrimenti HTTP 404; ID ASCII `A-Za-z0-9_-`, max 96 |
 | `GET /api/v1/admin/session` | Dopo firma JWT RS256 e nuova identità owner verificate: `200 {"authenticated":true}` e `Cache-Control: no-store`. Altrimenti `403`. Nessun dato privato restituito. |
-| Altri `/api/v1/admin` e `/api/v1/admin/*` | Sempre `403`, anche per un proprietario autenticato: nessun CRUD attivo |
+| `GET /api/v1/admin/specimens` | Solo owner verificato: lista **privata** di esemplari, 20 per pagina (max 40), `cursor` keyset; per ogni riga solo metadati gestionali selezionati, senza note interne. |
+| `GET /api/v1/admin/specimens/:id` | Solo owner: dettaglio privato, incluse note, provenienza, posizione e lotto; ID ASCII di massimo 96 caratteri. 404 se inesistente. |
+| `GET /api/v1/admin/taxa` | Solo owner: lista privata di specie/ibridi/profili non verificati, paginata; include i profili mai pubblicati. |
+| `GET /api/v1/admin/taxa/:id` | Solo owner: dettaglio profilo completo, inclusi attributi e note documentali registrate. |
+| Altri `/api/v1/admin` e `/api/v1/admin/*` | Sempre `403`, anche per owner autenticato: scritture, diario e altre API non sono aperte. |
 | Altre route `/api/*` | HTTP 404, mai una pagina SPA/asset restituito con HTTP 200 |
 | Metodi diversi da `GET` sulle route catalogo | HTTP 405 e `Allow: GET` |
 
@@ -84,3 +88,13 @@ Nuovo endpoint **solamente preparatorio**: `GET /api/v1/admin/session` può rest
 **Limiti del candidato:** l'applicazione Access, nuova identità owner, registrazione/recupero, logout, sessione reale, protezione delle API write e D1 EU restano **PENDING**. Test RSA con identità fittizie e workerd locale non dimostrano login/accesso su Cloudflare. Un JWT valido può rimanere utilizzabile fino alla scadenza anche dopo un logout esterno: protezione del provider, durata breve, revoca e QA di recupero vanno testati prima dell'attivazione CRUD.
 
 Fonti di progettazione: [Cloudflare Access per Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/), [JWT e keys](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [application token](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/).
+
+## CF-05 — Prima lettura privata del gestionale (candidato 14/11/2026)
+
+**Vincolo di prodotto irrevocabile nel perimetro attuale:** Piantee avrà **un unico account**, il proprietario amministratore. Il catalogo non registra utenti né richiede login; non esistono tabelle `users`, ruoli, registrazioni, inviti o profili per visitatori in D1. Sessioni su più dispositivi appartengono allo stesso account. Il subject di Access è definito dal binding server-side `ACCESS_OWNER_SUB`; un nuovo proprietario dopo recovery richiede sostituzione amministrativa e revoca sicura, non registrazione aperta.
+
+Il modulo `cloudflare/worker/admin-inventory.js` legge da D1 **soltanto dopo** il controllo JWT/owner della guardia `access-auth.js` nel router `index.js`. Implementa i quattro endpoint GET indicati sopra, senza scritture. Le liste usano SQL parametrizzato, ordinamento `updated_at DESC, id DESC`, cursore Base64URL **non firmato e non utilizzabile come credenziale**, limite 20–40 e allowlist esplicite di colonne in SQL e JSON. I dettagli includono i soli campi privati previsti dal contratto del nuovo DB. Le liste degli esemplari espongono il timestamp di pubblicazione soltanto al proprietario e **non** fanno riapparire record privati nel catalogo anonimo. Nessuna query arbitraria o `SELECT *`.
+
+In assenza di JWT valido o identità autorizzata, anche le nuove route negano con 403 **prima di qualsiasi query D1**. Mancanza di binding D1, SQL fallito o record inatteso generano 503 opaco; ID sconosciuti 404, parametri invalidi o ripetuti 400, metodi non GET 405 dopo autenticazione. Tutte le risposte restano `Cache-Control: no-store, max-age=0`, nessun CORS permissivo. Chiunque non sia owner non può leggere neppure le liste di specie non pubblicate.
+
+**Verifiche:** `tests/unit/cloudflare-owner-inventory.test.js` usa schema SQL reale in memoria, JWT **RSA firmati sinteticamente** con chiavi JWKS di test, più fixture di esemplari privati e pubblici; testa paginazione, note private, owner differente, input malevoli, errori e assenza di account D1. `tests/native/cloudflare-runtime.test.js` usa workerd/D1 locale e prova il rifiuto delle route senza identità; **non** prova un login Access reale. CF-05 rimane **in corso**: mancano scritture atomiche, CRUD completo, diario, lotti, UI admin e test live. Cloudflare Access, il nuovo database EU e il Worker Piantee non sono ancora risorse pubblicate.
