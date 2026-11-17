@@ -270,3 +270,44 @@ test("link con categoria in maiuscole diverse non duplica il selettore; Unicode 
     assert.equal(new URL(page.url()).searchParams.get("category"), "fruttifere");
   } finally { await page.close(); }
 });
+
+
+test("area privata: guest bloccato, owner legge solo dati protetti anche su 320px", async () => {
+  const page = await browser.newPage({ viewport: { width: 320, height: 700 } });
+  const pageErrors = [];
+  page.on("pageerror", error => pageErrors.push(error.message));
+  try {
+    await page.route("**/api/v1/admin/session", route =>
+      route.fulfill(json({ error: { code: "forbidden" } }, 403)));
+    await page.goto(url + "/admin.html");
+    await page.getByRole("link", { name: "Accedi con Kinde" }).waitFor();
+    assert.equal(await page.locator("#admin-owner").isVisible(), false);
+    assert.equal(await page.getByRole("link", { name: "Accedi con Kinde" }).getAttribute("href"),
+      "/api/auth/login");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+    await page.unroute("**/api/v1/admin/session");
+    await page.route("**/api/v1/admin/session", route =>
+      route.fulfill(json({ authenticated: true })));
+    await page.route("**/api/v1/admin/specimens?*", route => route.fulfill(json({
+      items: [{ id: "plant-1", display_label: "Avocado innestato", code: "A00001" }],
+      nextCursor: null
+    })));
+    await page.route("**/api/v1/admin/specimens/plant-1", route => route.fulfill(json({
+      id: "plant-1", display_label: "Avocado innestato",
+      internal_notes: "<script>private</script>", private_location: "Balcone"
+    })));
+    await page.route("**/api/v1/admin/taxa?*", route => route.fulfill(json({
+      items: [{ id: "tax-1", name: "Persea americana" }], nextCursor: null
+    })));
+    await page.reload();
+    await page.getByRole("button", { name: "Avocado innestato" }).waitFor();
+    await page.getByRole("button", { name: "Avocado innestato" }).click();
+    await page.getByText("<script>private</script>").waitFor();
+    assert.equal(await page.locator("script").count(), 1, "Private values must remain text");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.getByRole("button", { name: "Specie e cultivar" }).click();
+    await page.getByRole("button", { name: "Persea americana" }).waitFor();
+    assert.deepEqual(pageErrors, []);
+  } finally { await page.close(); }
+});
