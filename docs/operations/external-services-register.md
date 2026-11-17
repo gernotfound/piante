@@ -1,5 +1,13 @@
 # Registro dei servizi esterni — Piante
 
+## 17/11/2026 — Decisione Kinde, account Cloudflare condiviso (OWNER-APPROVED; GITHUB VERIFIED; CLOUDFLARE READ-ONLY)
+
+- Piantee e TheLogBook restano nello **stesso account Cloudflare**, con Worker, D1, sessioni, segreti, configurazioni e applicazione/tenant Kinde **separati**. Le quote Free di Workers e D1 sono condivise: le risorse software isolate non comportano quote indipendenti.
+- Piantee userà **Kinde con email/password indipendenti da Cloudflare**, un unico account amministratore creato manualmente e self-sign-up disabilitato. L'unico subject Kinde è autorizzato lato Worker; Cloudflare Access non è più il provider di login previsto. L'app Kinde di Piantee va tenuta separata da TheLogBook.
+- Repository: [PR draft #52](https://github.com/gernotfound/piante/pull/52), branch `feat/cf03-kinde-single-owner-20261117`. Implementazione Code+PKCE, validazione ID token RS256, sessione HTTP-only firmata e area privata di sola lettura. La CI finale, il login live e le scritture del gestionale sono ancora PENDING; non considerare la PR completata sulla base di test precedenti.
+- Provider Cloudflare: lettura 17/11 con quattro Worker e due D1, tutti TheLogBook. Nessun Worker, D1 o deploy Piantee; Access non abilitato. Nessuna operazione di scrittura su Cloudflare, Kinde, Firebase o TheLogBook. Il nuovo dominio resta `https://piantee.califano-ger.workers.dev`, senza pubblicazione provvisoria Hello World.
+- Necessari per il futuro provisioning Piantee: applicazione e account Kinde propri (signup OFF), callback `/api/auth/callback`, logout redirect `/`, bindings `KINDE_ISSUER`, `KINDE_SITE_ORIGIN`, `KINDE_CLIENT_ID`, `KINDE_CLIENT_SECRET`, `KINDE_OWNER_SUB`, `KINDE_SESSION_KEY` (32 byte casuali base64url). Nessun valore sensibile va committato. Database D1 UE **nuovo e vuoto** e Worker reali ancora da creare dopo i gate pertinenti; nessun import di record Firebase.
+
 ## 14/11/2026 — decisione single-owner e incremento privato CF-05 (USER-APPROVED / VERIFIED-PROVIDER READ-ONLY / REPO CANDIDATE)
 
 - Il product owner ha confermato che il nuovo Piantee avrà **permanentemente un solo account amministrativo**. Non occorrono registrazioni, inviti, ruoli o tabella utenti D1. L'account sarà identificato da Cloudflare Access JWT valido con subject dell'unico owner configurato lato server; eventuale recovery/sostituzione deve rimanere operazione autenticata distinta, non self-signup. Visitatori anonimi consultano soltanto il catalogo pubblico.
