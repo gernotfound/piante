@@ -23,8 +23,8 @@ async function fixture(t) {
   async function signedId() {
     const now = Math.floor(Date.now() / 1000);
     const header = b64({ alg: "RS256", typ: "JWT", kid: "piantee-test-key" });
-    const payload = b64({ iss: ISSUER, aud: CLIENT, sub: OWNER,
-      iat: now - 2, exp: now + 600, email_verified: true,
+    const payload = b64({ iss: ISSUER, aud: [ISSUER], azp: CLIENT, sub: OWNER,
+      iat: now - 2, exp: now + 600,
       nonce: authorizeUrl.searchParams.get("nonce"), ...claims });
     const value = header + "." + payload;
     const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", pair.privateKey,
@@ -113,6 +113,7 @@ test("Kinde: sub diverso, email non verificata e nonce errato non creano session
   for (const wrong of [
     { sub: "kp_different_owner_2" }, { email_verified: false },
     { nonce: "forged-nonce" }, { aud: "another-application" },
+    { azp: "another_application" },
     { iss: "https://another-tenant.kinde.com" }, { exp: 1 }
   ]) {
     const pending = await f.start();

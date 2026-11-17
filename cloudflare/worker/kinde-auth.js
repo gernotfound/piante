@@ -69,12 +69,14 @@ function redirect(location, cookies = []) {
   return new Response(null, { status: 303, headers });
 }
 function validClaims(c, cfg, nonce, now) {
-  const aud = c?.aud;
+  const audiences = Array.isArray(c?.aud) ? c.aud : [c?.aud];
   return c && typeof c === "object" && !Array.isArray(c) &&
     c.iss === cfg.issuer && c.sub === cfg.owner && c.nonce === nonce &&
-    c.email_verified === true &&
-    (aud === cfg.clientId || (Array.isArray(aud) && aud.includes(cfg.clientId) &&
-      c.azp === cfg.clientId)) &&
+    // Kinde ID tokens normally use the issuer URL as aud and the app ID as azp.
+    // email_verified is not a guaranteed Kinde claim; reject an explicit false.
+    c.azp === cfg.clientId &&
+    (audiences.includes(cfg.issuer) || audiences.includes(cfg.clientId)) &&
+    c.email_verified !== false &&
     Number.isSafeInteger(c.iat) && c.iat <= now + 30 &&
     Number.isSafeInteger(c.exp) && c.exp > now &&
     (!Object.hasOwn(c, "nbf") || (Number.isSafeInteger(c.nbf) && c.nbf <= now + 30));
