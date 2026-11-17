@@ -43,7 +43,7 @@ assert.ok(assetFiles.some(file => /^assets\/admin-[A-Za-z0-9_-]+\.js$/.test(file
   "Bundle JS admin mancante.");
 assert.ok(assetFiles.some(file => /^assets\/index-[A-Za-z0-9_-]+\.js$/.test(file)),
   "Bundle JavaScript client mancante.");
-assert.ok(assetFiles.some(file => /^assets\/index-[A-Za-z0-9_-]+\.css$/.test(file)),
+assert.ok(assetFiles.some(file => /^assets\/styles-[A-Za-z0-9_-]+\.css$/.test(file)),
   "Bundle CSS client mancante.");
 for (const file of assetFiles) {
   if (!["favicon.svg", "index.html", "admin.html"].includes(file) &&

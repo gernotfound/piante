@@ -46,7 +46,7 @@ function buildFixture() {
     ["workers/default/assets/assets/admin-123abc.js", "export {};"],
     ["workers/default/assets/favicon.svg", "<svg></svg>"],
     ["workers/default/assets/assets/index-123abc.js", "export {};"],
-    ["workers/default/assets/assets/index-123abc.css", "body {}"]
+    ["workers/default/assets/assets/styles-123abc.css", "body {}"]
   ];
   for (const [path, content] of files) {
     const target = join(base, path);
