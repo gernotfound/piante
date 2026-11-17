@@ -6,6 +6,8 @@ const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const DEFAULT_OUTPUT = join(ROOT, "cloudflare", "dist");
 const PUBLIC_ASSETS = Object.freeze({
   "cloudflare/site/index.html": "index.html",
+  "cloudflare/site/admin.html": "admin.html",
+  "cloudflare/site/admin.js": "admin.js",
   "cloudflare/site/app.js": "app.js",
   "cloudflare/site/styles.css": "styles.css",
   "favicon.svg": "favicon.svg"

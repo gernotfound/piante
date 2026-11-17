@@ -9,6 +9,8 @@ import { buildCloudflareSite } from "../../scripts/build-cloudflare-site.mjs";
 const ROOT = new URL("../../", import.meta.url);
 const SOURCES = {
   "index.html": "cloudflare/site/index.html",
+  "admin.html": "cloudflare/site/admin.html",
+  "admin.js": "cloudflare/site/admin.js",
   "app.js": "cloudflare/site/app.js",
   "styles.css": "cloudflare/site/styles.css",
   "favicon.svg": "favicon.svg"

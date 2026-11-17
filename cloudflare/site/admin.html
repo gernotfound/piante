@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173B2D">
+  <meta name="color-scheme" content="light">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Piantee — Area riservata</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/admin.js" type="module"></script>
+</head>
+<body>
+  <a class="skip-link" href="#admin-content">Vai ai contenuti</a>
+  <header class="site-header">
+    <div class="container brand-row">
+      <a class="brand" href="/" aria-label="Piantee, catalogo pubblico">
+        <img src="/favicon.svg" width="44" height="44" alt="">
+        <span>Piantee</span>
+      </a>
+      <nav aria-label="Navigazione">
+        <a href="/">Catalogo</a>
+      </nav>
+    </div>
+  </header>
+  <main id="admin-content" class="container admin-shell">
+    <p class="eyebrow">Area privata</p>
+    <h1>Gestionale Piantee</h1>
+    <p id="auth-status" class="admin-status" role="status" aria-live="polite">Verifica accesso…</p>
+    <section id="admin-guest" hidden aria-label="Accedi">
+      <p>Questa area è riservata all'unico amministratore.</p>
+      <a class="button button-primary" href="/api/auth/login">Accedi con Kinde</a>
+    </section>
+    <section id="admin-owner" hidden aria-label="Inventario privato">
+      <div class="admin-actions">
+        <button type="button" id="show-specimens" class="button button-primary">Le mie piante</button>
+        <button type="button" id="show-taxa" class="button button-secondary">Specie e cultivar</button>
+        <button type="button" id="logout" class="button button-secondary">Esci</button>
+      </div>
+      <h2 id="admin-list-title">Le mie piante</h2>
+      <p id="admin-list-status" role="status" aria-live="polite"></p>
+      <ul id="admin-list" class="admin-list"></ul>
+      <button type="button" id="load-more" class="button button-secondary" hidden>Carica altre</button>
+      <section id="admin-detail" class="admin-detail" hidden aria-labelledby="admin-detail-title">
+        <h2 id="admin-detail-title">Dettaglio</h2>
+        <dl id="admin-detail-fields"></dl>
+        <button type="button" id="close-detail" class="button button-secondary">Chiudi dettaglio</button>
+      </section>
+      <p class="admin-status">Le modifiche alle piante saranno disponibili quando il nuovo gestionale sarà completato.</p>
+    </section>
+  </main>
+</body>
+</html>

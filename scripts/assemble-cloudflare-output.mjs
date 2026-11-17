@@ -36,16 +36,18 @@ function assetPaths(directory, prefix = "") {
   });
 }
 const assetFiles = assetPaths(staticDir).sort();
-for (const required of ["favicon.svg", "index.html"]) {
+for (const required of ["favicon.svg", "index.html", "admin.html"]) {
   assert.ok(assetFiles.includes(required), "Asset obbligatorio assente: " + required);
 }
+assert.ok(assetFiles.some(file => /^assets\/admin-[A-Za-z0-9_-]+\.js$/.test(file)),
+  "Bundle JS admin mancante.");
 assert.ok(assetFiles.some(file => /^assets\/index-[A-Za-z0-9_-]+\.js$/.test(file)),
   "Bundle JavaScript client mancante.");
 assert.ok(assetFiles.some(file => /^assets\/index-[A-Za-z0-9_-]+\.css$/.test(file)),
   "Bundle CSS client mancante.");
 for (const file of assetFiles) {
-  if (!["favicon.svg", "index.html"].includes(file) &&
-      !/^assets\/index-[A-Za-z0-9_-]+\.(?:js|css)$/.test(file)) {
+  if (!["favicon.svg", "index.html", "admin.html"].includes(file) &&
+      !/^assets\/(?:index|admin|styles)-[A-Za-z0-9_-]+\.(?:js|css)$/.test(file)) {
     throw new Error("Asset inatteso nell'output pubblico: " + file);
   }
 }
