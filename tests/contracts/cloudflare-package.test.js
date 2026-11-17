@@ -16,7 +16,7 @@ test("cf: worker Piantee, D1 separato e API sempre worker-first", () => {
   assert.match(cf, /runWorkerFirst: \["\/api", "\/api\/\*"\]/);
   assert.match(cf, /notFoundHandling: "none"/);
   assert.match(cf, /DB: bindings\.d1\(\{ name: "piantee-db" \}\)/);
-  for (const name of ["ACCESS_TEAM_DOMAIN", "ACCESS_AUD", "ACCESS_OWNER_SUB"]) {
+  for (const name of ["KINDE_ISSUER", "KINDE_SITE_ORIGIN", "KINDE_CLIENT_ID", "KINDE_CLIENT_SECRET", "KINDE_OWNER_SUB", "KINDE_SESSION_KEY"]) {
     assert.match(cf, new RegExp(name + ": bindings\\.secret\\(\\)"));
   }
   assert.doesNotMatch(cf, /firebase|thelogbook|service[_-]?account/i);

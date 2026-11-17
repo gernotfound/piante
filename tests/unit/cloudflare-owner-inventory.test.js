@@ -5,10 +5,10 @@ import { readFileSync } from "node:fs";
 import worker from "../../cloudflare/worker/index.js";
 
 const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8");
-const ISSUER = "https://piantee-owner-tests.cloudflareaccess.com";
-const AUDIENCE = "a".repeat(64);
-const OWNER = "7335d417-61da-459d-899c-0a01c76a2f94";
-const KID = "synthetic-admin-inventory-key";
+const ISSUER = "https://piantee-owner-tests.kinde.com";
+const OWNER = "kp_owner_7335d41761da459d899c0a01c76a2f94";
+const SITE = "https://piantee.example.test";
+const SECRET = Buffer.alloc(32, 17).toString("base64url");
 
 function newDatabase() {
   const sql = new DatabaseSync(":memory:");
@@ -61,50 +61,33 @@ function seed(sql) {
   }
 }
 
-async function accessFixture(t) {
-  const keyPair = await crypto.subtle.generateKey({
-    name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
-    publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
-  }, true, ["sign", "verify"]);
-  const jwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
-  const previousFetch = globalThis.fetch;
-  let fetched = 0;
-  globalThis.fetch = async url => {
-    fetched++;
-    assert.equal(url, ISSUER + "/cdn-cgi/access/certs");
-    return Response.json({ keys: [{
-      kty: "RSA", n: jwk.n, e: jwk.e, alg: "RS256", use: "sig", kid: KID
-    }] });
-  };
-  t.after(() => { globalThis.fetch = previousFetch; });
-  const env = { ACCESS_TEAM_DOMAIN: ISSUER, ACCESS_AUD: AUDIENCE, ACCESS_OWNER_SUB: OWNER };
-  const encode = value => Buffer.from(JSON.stringify(value)).toString("base64url");
+async function accessFixture() {
+  const env = { KINDE_ISSUER: ISSUER, KINDE_SITE_ORIGIN: SITE,
+    KINDE_CLIENT_ID: "piantee_owner_client", KINDE_CLIENT_SECRET: "synthetic-client-secret",
+    KINDE_OWNER_SUB: OWNER, KINDE_SESSION_KEY: SECRET };
   async function jwt(changes = {}) {
     const now = Math.floor(Date.now() / 1000);
-    const prefix = encode({ alg: "RS256", kid: KID, typ: "JWT" }) + "." + encode({
-      iss: ISSUER, aud: [AUDIENCE], type: "app", sub: OWNER,
-      iat: now - 10, nbf: now - 10, exp: now + 600, ...changes
-    });
-    const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", keyPair.privateKey,
-      new TextEncoder().encode(prefix));
-    return prefix + "." + Buffer.from(signature).toString("base64url");
+    const payload = { purpose: "session", sub: OWNER, iat: now - 1, exp: now + 600, ...changes };
+    const value = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    const key = await crypto.subtle.importKey("raw", Buffer.from(SECRET, "base64url"),
+      { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const tag = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
+    return value + "." + Buffer.from(tag).toString("base64url");
   }
-  return { env, jwt, fetchCount: () => fetched };
+  return { env, jwt, fetchCount: () => 0 };
 }
-
 async function call(path, env, token = null, method = "GET") {
-  const response = await worker.fetch(new Request("https://piantee.example.test" + path, {
-    method,
-    ...(token ? { headers: { "Cf-Access-Jwt-Assertion": token } } : {})
+  const response = await worker.fetch(new Request(SITE + path, {
+    method, ...(token ? { headers: { Cookie: "__Host-piantee_session=" + token } } : {})
   }), env);
   return { status: response.status, headers: response.headers, body: await response.json() };
 }
 
-test("proprietario unico: inventario privato e profili restano chiusi senza JWT", async t => {
+test("proprietario unico: inventario privato e profili restano chiusi senza sessione", async t => {
   const { sql, db, close } = newDatabase();
   t.after(close);
   seed(sql);
-  const f = await accessFixture(t);
+  const f = await accessFixture();
   for (const path of [
     "/api/v1/admin/specimens", "/api/v1/admin/specimens/plant-0",
     "/api/v1/admin/taxa", "/api/v1/admin/taxa/tax-1"
@@ -120,11 +103,11 @@ test("proprietario unico: inventario privato e profili restano chiusi senza JWT"
   assert.equal(JSON.stringify(publicCatalog.body).includes("LOTTO_PRIVATO"), false);
 });
 
-test("JWT firmato del solo owner abilita lettura privata senza account D1", async t => {
+test("sessione firmata del solo owner abilita lettura privata senza account D1", async t => {
   const { sql, db, close } = newDatabase();
   t.after(close);
   seed(sql);
-  const f = await accessFixture(t);
+  const f = await accessFixture();
   const token = await f.jwt();
   const list = await call("/api/v1/admin/specimens?limit=2", { DB: db, ...f.env }, token);
   assert.equal(list.status, 200);
@@ -172,12 +155,12 @@ test("solo il proprietario configurato: altra identità, servizio assente e bypa
   const { sql, db, close } = newDatabase();
   t.after(close);
   seed(sql);
-  const f = await accessFixture(t);
+  const f = await accessFixture();
   const token = await f.jwt();
   assert.equal((await call("/api/v1/admin/specimens", { DB: db, ...f.env,
-    ACCESS_OWNER_SUB: "7335d417-61da-459d-899c-0a01c76a2f95" }, token)).status, 403);
+    KINDE_OWNER_SUB: "kp_different_owner_7335d417" }, token)).status, 403);
   assert.equal((await call("/api/v1/admin/specimens", { DB: db, ...f.env },
-    await f.jwt({ sub: "7335d417-61da-459d-899c-0a01c76a2f95" }))).status, 403);
+    await f.jwt({ sub: "kp_different_owner_7335d417" }))).status, 403);
   assert.equal((await call("/api/v1/admin/specimens", { DB: db }, token)).status, 403);
   assert.equal((await call("/api/v1/admin/specimens", { ...f.env }, token)).status, 503);
   assert.equal((await call("/api/v1/admin/specimens", { DB: db, ...f.env }, token, "POST")).status, 405);
@@ -190,7 +173,7 @@ test("endpoint privati: parametri doppi, cursori malevoli, path e metodi respint
   const { sql, db, close } = newDatabase();
   t.after(close);
   seed(sql);
-  const f = await accessFixture(t);
+  const f = await accessFixture();
   const token = await f.jwt();
   const invalid = [
     "/api/v1/admin/specimens?limit=0",
@@ -216,7 +199,7 @@ test("endpoint privati: parametri doppi, cursori malevoli, path e metodi respint
 });
 
 test("query D1 rotta: risposta opaca senza esporre errori o dati", async t => {
-  const f = await accessFixture(t);
+  const f = await accessFixture();
   const token = await f.jwt();
   const failing = { prepare() { throw new Error("SECRETS_ARE_PRIVATE"); } };
   const response = await call("/api/v1/admin/specimens", { DB: failing, ...f.env }, token);

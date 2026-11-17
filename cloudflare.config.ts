@@ -11,9 +11,12 @@ export default defineConfig({
     },
     env: {
       DB: bindings.d1({ name: "piantee-db" }),
-      ACCESS_TEAM_DOMAIN: bindings.secret(),
-      ACCESS_AUD: bindings.secret(),
-      ACCESS_OWNER_SUB: bindings.secret()
+      KINDE_ISSUER: bindings.secret(),
+      KINDE_SITE_ORIGIN: bindings.secret(),
+      KINDE_CLIENT_ID: bindings.secret(),
+      KINDE_CLIENT_SECRET: bindings.secret(),
+      KINDE_OWNER_SUB: bindings.secret(),
+      KINDE_SESSION_KEY: bindings.secret()
     }
   }
 });

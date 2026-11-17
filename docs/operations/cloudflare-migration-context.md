@@ -1,3 +1,8 @@
+
+## Aggiornamento 17/11/2026 — Kinde e isolamento
+
+Decisione owner: Piantee usa Kinde per email/password dedicate, un solo amministratore con subject Kinde verificato sul Worker; niente Cloudflare Access, signup pubblico o Firebase Auth. Stesso account Cloudflare di TheLogBook, ma Worker `piantee`, D1 `piantee-db`, tenant/app Kinde, credenziali e sessioni **separati**; quote gratuite Cloudflare condivise. Il candidato CF-03 implementa Code+PKCE, state/nonce, verifica JWT RS256, cookie di sessione firmato host-only, logout Kinde. Le scritture CRUD restano bloccate e il login non è ancora collaudato su provider live. Configurazione necessaria: `KINDE_ISSUER`, `KINDE_SITE_ORIGIN`, `KINDE_CLIENT_ID`, `KINDE_CLIENT_SECRET`, `KINDE_OWNER_SUB`, `KINDE_SESSION_KEY` (chiave random base64url 32 byte). Callback da registrare su Kinde: `https://piantee.califano-ger.workers.dev/api/auth/callback`; logout redirect: `https://piantee.califano-ger.workers.dev/`. Disabilitare self-sign-up nel tenant Piantee e scegliere email+password. Non riutilizzare segreti, utenti o tenant di TheLogBook.
+
 # Piantee → Cloudflare: contesto operativo e indirizzo gratuito
 
 **Ultimo read-back provider: 14/11/2026.** Implementazione isolata GitHub; nessun Worker né D1 Piantee. Cloudflare Access risulta non abilitato. Gli SHA e gli stati delle PR menzionati nei checkpoint precedenti sono storici, non sostituiscono nuove letture GitHub/provider.
