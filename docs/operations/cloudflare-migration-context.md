@@ -5,7 +5,7 @@ Decisione owner: Piantee usa Kinde per email/password dedicate, un solo amminist
 
 # Piantee → Cloudflare: contesto operativo e indirizzo gratuito
 
-**Ultimo read-back provider: 14/11/2026.** Implementazione isolata GitHub; nessun Worker né D1 Piantee. Cloudflare Access risulta non abilitato. Gli SHA e gli stati delle PR menzionati nei checkpoint precedenti sono storici, non sostituiscono nuove letture GitHub/provider.
+**Ultimo read-back provider: 17/11/2026.** Nell'account condiviso risultano solo Worker e D1 TheLogBook; nessuna risorsa Piantee. Cloudflare Access non abilitato e non più scelto per Piantee: login Kinde indipendente. Gli SHA e gli stati delle PR menzionati nei checkpoint precedenti sono storici, non sostituiscono nuove letture GitHub/provider.
 
 ## Decisione vincolante e avanzamento — 14/11/2026
 
