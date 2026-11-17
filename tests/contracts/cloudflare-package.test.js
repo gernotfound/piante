@@ -42,6 +42,8 @@ function buildFixture() {
     ["config.json", "{}"],
     ["workers/default/bundle/index.js", "export default { fetch() {} };"],
     ["workers/default/assets/index.html", "<html></html>"],
+    ["workers/default/assets/admin.html", "<html>admin</html>"],
+    ["workers/default/assets/assets/admin-123abc.js", "export {};"],
     ["workers/default/assets/favicon.svg", "<svg></svg>"],
     ["workers/default/assets/assets/index-123abc.js", "export {};"],
     ["workers/default/assets/assets/index-123abc.css", "body {}"]
