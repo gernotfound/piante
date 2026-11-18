@@ -311,3 +311,48 @@ test("area privata: guest bloccato, owner legge solo dati protetti anche su 320p
     assert.deepEqual(pageErrors, []);
   } finally { await page.close(); }
 });
+
+
+test("admin mobile: aggiunta specie e pianta, reazione a conflitto senza perdere input", async () => {
+  const page = await browser.newPage({ viewport: { width: 320, height: 690 } });
+  let species = [], plants = [], conflict = false;
+  try {
+    await page.route("**/api/v1/admin/session", route =>
+      route.fulfill(json({authenticated:true})));
+    await page.route("**/api/v1/admin/taxa?*", route =>
+      route.fulfill(json({items:species,nextCursor:null})));
+    await page.route("**/api/v1/admin/specimens?*", route =>
+      route.fulfill(json({items:plants,nextCursor:null})));
+    await page.route("**/api/v1/admin/taxa", async route => {
+      assert.equal(route.request().method(),"POST");
+      if(conflict) { await route.fulfill(json({error:{code:"conflict"}},409));return; }
+      const data=route.request().postDataJSON();
+      assert.equal(data.name,"Avocado");
+      species=[{id:"tax-123",name:data.name,version:1}];
+      await route.fulfill(json({id:"tax-123",version:1},201));
+    });
+    await page.route("**/api/v1/admin/cultivars?*", route =>
+      route.fulfill(json({items:[]})));
+    await page.route("**/api/v1/admin/specimens", async route => {
+      const data=route.request().postDataJSON();
+      assert.equal(data.taxon_id,"tax-123");
+      assert.equal(data.display_label,"Avocado balcone");
+      plants=[{id:"plant-123",taxon_name:"Avocado",display_label:data.display_label,version:1}];
+      await route.fulfill(json({id:"plant-123",code:"ABC123",version:1},201));
+    });
+    await page.goto(url+"/admin.html");
+    await page.getByLabel("Nome comune").fill("Avocado");
+    await page.getByRole("button",{name:"Salva specie"}).click();
+    await page.waitForFunction(()=>document.querySelector("#new-specimen-taxon").options.length===2);
+    await page.getByLabel("Specie",{exact:true}).selectOption("tax-123");
+    await page.getByLabel("Etichetta (facoltativa)").fill("Avocado balcone");
+    await page.getByRole("button",{name:"Salva pianta"}).click();
+    await page.getByRole("button",{name:"Avocado balcone"}).waitFor();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    conflict=true;
+    await page.getByLabel("Nome comune").fill("Avocado");
+    await page.getByRole("button",{name:"Salva specie"}).click();
+    await page.getByText(/Conflitto: il record/).waitFor();
+    assert.equal(await page.getByLabel("Nome comune").inputValue(),"Avocado");
+  } finally {await page.close();}
+});
