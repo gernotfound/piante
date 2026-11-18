@@ -198,8 +198,13 @@ async function publish(db,method,id,data,now) {
       "EXISTS (SELECT 1 FROM specimens WHERE id=? AND version=?)",
       [id,id,expected]);
   }
-  if(rows!==1)await versionAfterMiss(db,"specimens",id,expected);
-  return respond({id,published:method==="PUT",version:expected+1});
+  // D1 counts the version-bump trigger in meta.changes. Only zero changes
+  // can be treated as a missed write; confirm the postcondition explicitly.
+  if(rows===0)await versionAfterMiss(db,"specimens",id,expected);
+  if(rows<0 || !Number.isSafeInteger(rows))throw Error("Unexpected write count");
+  const updated=await db.prepare("SELECT version FROM specimens WHERE id=?").bind(id).first();
+  if(updated?.version!==expected+1)throw Error("Publication version mismatch");
+  return respond({id,published:method==="PUT",version:updated.version});
 }
 async function cultivars(db,search){
   const keys=[...search.keys()];
