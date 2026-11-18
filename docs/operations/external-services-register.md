@@ -1,5 +1,55 @@
 # Registro dei servizi esterni — Piante
 
+## Kinde Piantee — unico utente applicativo creato (18/11/2026)
+
+**Evidenza:** screenshot del profilo utente nella console `piantee.kinde.com`, accompagnato dalla conferma del proprietario di aver creato e salvato l'account da `Users`. La schermata mostra un ID Kinde assegnato, un'identità email primaria contrassegnata **unverified**, `Sign ins: 0` e nessun accesso precedente. Si tratta di un **utente finale dell'app**, non di un membro del team Kinde. L'identificativo utente e l'email, essendo dati personali/identificativi, **non sono riportati in documentazione o issue pubbliche**; non usare l'email come prova sufficiente per autorizzare l'owner.
+
+**Stato certo:** account creato, identità email non ancora verificata nell'ultima schermata, nessun login riuscito. Restano da completare la verifica tramite flusso Kinde e l'impostazione della password personale. Kinde documenta che anche con Email+Password attivo la verifica iniziale può richiedere **un codice email una tantum**: questo non equivale a riabilitare il metodo permanente Email+Code (https://docs.kinde.com/authenticate/authentication-methods/email-authentication/ e https://docs.kinde.com/authenticate/about-auth/authentication-methods/). Non impostare artificialmente l'email come verified né inserirne la password nei file.
+
+**Passaggi ancora pendenti:** rileggere i quattro URI OAuth salvati, verificare che nell'ambiente Kinde siano presenti soltanto il singolo utente finale e il login Email+Password, completare verifica email/password con il provider e inserire il subject esatto di quell'utente nel secret binding `KINDE_OWNER_SUB` del solo Worker Piantee, insieme agli altri secret Kinde. Non condividere subject/email o secret con TheLogBook. Il sito Cloudflare non è stato collaudato in questa operazione.
+
+## Kinde Piantee — policy di accesso salvate (18/11/2026, conferma proprietario)
+
+**Confermato dall'owner:** nella Business dedicata `piantee.kinde.com` sono state eseguite e salvate entrambe le modifiche:
+- Scheda applicazione **Authentication**: `Email → Code` disabilitato; `Email → Password` già attivo nell'ultimo screenshot e non indicato come modificato.
+- **Settings → Environment → Policies**: `Allow self sign-up` disabilitato e salvato per l'ambiente.
+
+Queste modifiche sono **conferme operative del proprietario**, non una lettura diretta successiva al salvataggio; non attestano da sole un login riuscito. L'assenza di self-sign-up non impedisce di creare manualmente utenti da `Users → Add user` (documentazione Kinde: https://docs.kinde.com/manage-users/add-and-edit/add-and-edit-users/). Il prossimo passaggio è creare **un solo utente finale** nella Business Piantee, evitando di usare `Settings → Team` per aggiungere amministratori Kinde. Dopo averlo creato, verificare l'email e acquisire in modo sicuro il subject Kinde, senza riportare email, password, secret o token in GitHub. Da verificare inoltre il read-back dei quattro URI OAuth, l'esistenza di eventuali connessioni social attive e il login live Cloudflare Worker. Nessuna modifica o condivisione con TheLogBook.
+
+## Kinde Piantee — screenshot Authentication e conferma salvataggio Details (18/11/2026)
+
+**Evidenza:** l'owner ha riferito di aver premuto **Save** sui campi Details e ha inviato screenshot della scheda **Authentication** dell'app Piantee nella Business `piantee.kinde.com`. Il salvataggio dei quattro URI è **riferito dall'owner, non ancora verificato tramite ricarica e lettura dei campi**.
+
+**Stato visibile dei toggle prima di ulteriori modifiche:** `Email connections → Code = ON`, `Email connections → Password = ON`. Quindi entrambi possono apparire contemporaneamente abilitati nell'interfaccia attuale (la precedente affermazione di esclusività è smentita dallo screenshot). `Phone → Code = OFF` (opzione Paid), `Username → Code = OFF`, `Username → Password = OFF`. L'attivazione di connessioni social non è determinabile da questa schermata: il pulsante `Manage connections` non mostra lo stato delle singole connessioni.
+
+**Istruzioni al proprietario, ancora da confermare come salvate:** disabilitare `Email → Code`, mantenere `Email → Password` ON, lasciare gli altri metodi OFF e premere **Save**. In `Settings → Environment → Policies` disattivare **Allow self sign-up** separatamente; nascondere `No account? Create one` nei Details non costituisce una regola di sicurezza. Verificare le impostazioni dopo il salvataggio, creare manualmente un solo utente finale e testare l'accesso reale. Non condividere password, Client Secret, OTP o token. TheLogBook rimane indipendente.
+
+## Kinde Piantee — verifica applicazione Details (18/11/2026)
+
+**Evidenza:** tre screenshot dell'owner, console `https://piantee.kinde.com/admin/`, applicazione denominata **Piantee**. Confermati **Type = Back-end web**, **Language/framework = Other back end**, issuer Kinde `https://piantee.kinde.com`; Client ID e Client Secret presenti, quest'ultimo mascherato. Nessun valore di credenziale è riprodotto nel repository. L'applicazione esiste quindi nella **Business corretta**: l'annotazione precedente che ne indicava l'esistenza come non verificata è superata.
+
+**Valori osservati, non ancora salvati:**
+- `Application homepage URI`: vuoto → impostare `https://piantee.califano-ger.workers.dev/`.
+- `Application login URI`: vuoto → impostare `https://piantee.califano-ger.workers.dev/api/auth/login`. L'endpoint GET è già presente nel Worker.
+- `Allowed callback URLs`: vuoto → impostare `https://piantee.califano-ger.workers.dev/api/auth/callback`.
+- `Allowed logout redirect URLs`: vuoto → impostare `https://piantee.califano-ger.workers.dev/`.
+- Opzioni `Authentication experience` osservate: **ON** `Show 'Already have an account? Sign in'`, **ON** `Show 'No account? Create one'`, **ON** `Use Gravatar fallback`; **OFF** schermi di accesso personalizzati, raccolta nome/cognome, consenso marketing, pulsante SSO, portale self-service e Device Authorization. Consigliato porre su **OFF** almeno link `No account? Create one` e fallback Gravatar; lasciare le altre disattivate. Questi interruttori sono preferenze UI, **non** sostituiscono il blocco self-sign-up.
+
+**Azioni ancora pendenti:** l'owner deve inserire i quattro URI, controllare le opzioni e premere **Save**, poi rileggere i campi salvati. Successivamente verificare in `Authentication` **Email + password** invece di Email + code, e in `Settings → Environment → Policies` **Allow self sign-up = OFF** (documentazione: https://docs.kinde.com/authenticate/custom-configurations/disable-sign-up/). Creare manualmente **un solo utente** Kinde e verificare il suo subject senza includere identificativi personali o segreti nei file. Client secret e chiave sessione vanno configurati nei secret binding del Worker, non nel repository. Non sono stati verificati salvataggio URL, credenziali, autenticazione reale o deploy; non segnare l'integrazione Kinde completata. TheLogBook non modificato.
+
+## Kinde Piantee — onboarding del proprietario (18/11/2026)
+
+**Evidenza:** screenshot della console Kinde forniti dal proprietario e conferma testuale dell'azione. La schermata finale mostra `piantee.kinde.com/admin/...` e la dashboard di benvenuto: Business **Piantee** distinta da `thelogbook.kinde.com`, con selezione iniziale **Europe – Ireland**, `1–10` dipendenti. L'owner ha scelto **Use Kinde with my existing code base**, poi **Other back end**, ha indicato un accesso «solo con mail» nel wizard e ha chiuso il popup **Almost there** scegliendo di esplorare autonomamente. Non sono stati mostrati i dettagli persistiti di **Applications**, né un login effettivamente riuscito.
+
+**Da verificare e configurare in Kinde (NON dichiarare completato):**
+1. In `Settings → Applications → Customer identity` verificare che esista **un'unica applicazione Piantee** di tipo **Back-end web** nella Business `piantee.kinde.com`. Se manca, crearla lì, non in TheLogBook.
+2. Nella scheda `Authentication` dell'app abilitare **Email + password**, disattivare **Email + code** per l'app e non abilitare connessioni social. Separatamente, in `Settings → Environment → Policies` disattivare **Allow self sign-up** (policy dell'intera Business Piantee), poi creare manualmente l'unico account. La selezione «solo mail» nel wizard **non prova** che sia attivo l'accesso con password: Email + code è il default delle nuove Business. Riferimenti Kinde: https://docs.kinde.com/authenticate/authentication-methods/set-up-user-authentication/ e https://docs.kinde.com/authenticate/authentication-methods/password-authentication/.
+3. In `Details` registrare `Application homepage URI=https://piantee.califano-ger.workers.dev/`, `Allowed callback URLs=https://piantee.califano-ger.workers.dev/api/auth/callback`, `Allowed logout redirect URLs=https://piantee.califano-ger.workers.dev/`. Verificare prima dello stato live, senza inventare altri redirect.
+4. Creare **un solo utente finale** Kinde, distinguendolo dai membri della Business, verificare l'indirizzo email e individuare il suo `sub` per il secret `KINDE_OWNER_SUB` del Worker. Password, client secret, session key, OTP e token **non devono essere inviati in chat, issue o GitHub**.
+5. Uno screenshot precedente mostrava una possibile **app Piantee nella Business TheLogBook** su `thelogbook.kinde.com`. Presenza/uso attuali non verificati: non cancellare nulla prima di un controllo separato, né riutilizzare identificativi/secret fra le Business.
+
+**Stato software:** GitHub `gernotfound/piante` `main` `652599776c96eb057ee0eb294935241ab14f476b`, CI post-merge del run `44274438225` completata con successo; API e UI D1, catalogo e diario integrate. Database `piantee-db` EU con schema v1+v2 e zero specie/piante/pubblicazioni all'ultima lettura provider; nessun deploy Worker Piantee o test login Kinde live dimostrato. Firebase legacy rimosso **dal repository**, non cancellato nei provider Google. Cloudflare e TheLogBook condividono solo l'account Cloudflare e le quote Free, non risorse applicative.
+
 ## CF-05 — lotti e diario (candidato PR #55, 18/11/2026)
 
 - API private solo owner Kinde: lotti di semina `GET/POST /api/v1/admin/seed-lots`, `GET/PATCH /api/v1/admin/seed-lots/:id` con controlli di versione/CAS; diario `GET/POST /api/v1/admin/specimens/:id/journal`, eventi append-only con origine server `manual`. Entrambe le letture paginabili e accessibili esclusivamente all'owner. `seed_lot_id` di un esemplare deve riferirsi alla stessa specie (FK composita).
