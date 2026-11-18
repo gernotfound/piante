@@ -1,5 +1,18 @@
 # Registro dei servizi esterni — Piante
 
+## Kinde Piantee — verifica applicazione Details (18/11/2026)
+
+**Evidenza:** tre screenshot dell'owner, console `https://piantee.kinde.com/admin/`, applicazione denominata **Piantee**. Confermati **Type = Back-end web**, **Language/framework = Other back end**, issuer Kinde `https://piantee.kinde.com`; Client ID e Client Secret presenti, quest'ultimo mascherato. Nessun valore di credenziale è riprodotto nel repository. L'applicazione esiste quindi nella **Business corretta**: l'annotazione precedente che ne indicava l'esistenza come non verificata è superata.
+
+**Valori osservati, non ancora salvati:**
+- `Application homepage URI`: vuoto → impostare `https://piantee.califano-ger.workers.dev/`.
+- `Application login URI`: vuoto → impostare `https://piantee.califano-ger.workers.dev/api/auth/login`. L'endpoint GET è già presente nel Worker.
+- `Allowed callback URLs`: vuoto → impostare `https://piantee.califano-ger.workers.dev/api/auth/callback`.
+- `Allowed logout redirect URLs`: vuoto → impostare `https://piantee.califano-ger.workers.dev/`.
+- Opzioni `Authentication experience` osservate: **ON** `Show 'Already have an account? Sign in'`, **ON** `Show 'No account? Create one'`, **ON** `Use Gravatar fallback`; **OFF** schermi di accesso personalizzati, raccolta nome/cognome, consenso marketing, pulsante SSO, portale self-service e Device Authorization. Consigliato porre su **OFF** almeno link `No account? Create one` e fallback Gravatar; lasciare le altre disattivate. Questi interruttori sono preferenze UI, **non** sostituiscono il blocco self-sign-up.
+
+**Azioni ancora pendenti:** l'owner deve inserire i quattro URI, controllare le opzioni e premere **Save**, poi rileggere i campi salvati. Successivamente verificare in `Authentication` **Email + password** invece di Email + code, e in `Settings → Environment → Policies` **Allow self sign-up = OFF** (documentazione: https://docs.kinde.com/authenticate/custom-configurations/disable-sign-up/). Creare manualmente **un solo utente** Kinde e verificare il suo subject senza includere identificativi personali o segreti nei file. Client secret e chiave sessione vanno configurati nei secret binding del Worker, non nel repository. Non sono stati verificati salvataggio URL, credenziali, autenticazione reale o deploy; non segnare l'integrazione Kinde completata. TheLogBook non modificato.
+
 ## Kinde Piantee — onboarding del proprietario (18/11/2026)
 
 **Evidenza:** screenshot della console Kinde forniti dal proprietario e conferma testuale dell'azione. La schermata finale mostra `piantee.kinde.com/admin/...` e la dashboard di benvenuto: Business **Piantee** distinta da `thelogbook.kinde.com`, con selezione iniziale **Europe – Ireland**, `1–10` dipendenti. L'owner ha scelto **Use Kinde with my existing code base**, poi **Other back end**, ha indicato un accesso «solo con mail» nel wizard e ha chiuso il popup **Almost there** scegliendo di esplorare autonomamente. Non sono stati mostrati i dettagli persistiti di **Applications**, né un login effettivamente riuscito.
