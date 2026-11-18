@@ -1,3 +1,19 @@
+## Kinde Piantee — onboarding del proprietario (18/11/2026)
+
+**Evidenza:** screenshot della console Kinde forniti dal proprietario e conferma testuale dell'azione. La schermata finale mostra `piantee.kinde.com/admin/...` e la dashboard di benvenuto: Business **Piantee** distinta da `thelogbook.kinde.com`, con selezione iniziale **Europe – Ireland**, `1–10` dipendenti. L'owner ha scelto **Use Kinde with my existing code base**, poi **Other back end**, ha indicato un accesso «solo con mail» nel wizard e ha chiuso il popup **Almost there** scegliendo di esplorare autonomamente. Non sono stati mostrati i dettagli persistiti di **Applications**, né un login effettivamente riuscito.
+
+**Da verificare e configurare in Kinde (NON dichiarare completato):**
+1. In `Settings → Applications → Customer identity` verificare che esista **un'unica applicazione Piantee** di tipo **Back-end web** nella Business `piantee.kinde.com`. Se manca, crearla lì, non in TheLogBook.
+2. In `Authentication` abilitare **Email + password**, disattivare **Email + code** per l'app, disabilitare connessioni social e **self-sign-up pubblico** (invito/provisioning manuale dell'unico account). La selezione «solo mail» nel wizard **non prova** che sia attivo l'accesso con password: Email + code è il default delle nuove Business. Riferimenti Kinde: https://docs.kinde.com/authenticate/authentication-methods/set-up-user-authentication/ e https://docs.kinde.com/authenticate/authentication-methods/password-authentication/.
+3. In `Details` registrare `Application homepage URI=https://piantee.califano-ger.workers.dev/`, `Allowed callback URLs=https://piantee.califano-ger.workers.dev/api/auth/callback`, `Allowed logout redirect URLs=https://piantee.califano-ger.workers.dev/`. Verificare prima dello stato live, senza inventare altri redirect.
+4. Creare **un solo utente finale** Kinde, distinguendolo dai membri della Business, verificare l'indirizzo email e individuare il suo `sub` per il secret `KINDE_OWNER_SUB` del Worker. Password, client secret, session key, OTP e token **non devono essere inviati in chat, issue o GitHub**.
+5. Uno screenshot precedente mostrava una possibile **app Piantee nella Business TheLogBook** su `thelogbook.kinde.com`. Presenza/uso attuali non verificati: non cancellare nulla prima di un controllo separato, né riutilizzare identificativi/secret fra le Business.
+
+**Stato software:** GitHub `gernotfound/piante` `main` `652599776c96eb057ee0eb294935241ab14f476b`, CI post-merge del run `44274438225` completata con successo; API e UI D1, catalogo e diario integrate. Database `piantee-db` EU con schema v1+v2 e zero specie/piante/pubblicazioni all'ultima lettura provider; nessun deploy Worker Piantee o test login Kinde live dimostrato. Firebase legacy rimosso **dal repository**, non cancellato nei provider Google. Cloudflare e TheLogBook condividono solo l'account Cloudflare e le quote Free, non risorse applicative.
+
+
+---
+
 ## CF-05 — lotti e diario (candidato PR #55, 18/11/2026)
 
 - API private solo owner Kinde: lotti di semina `GET/POST /api/v1/admin/seed-lots`, `GET/PATCH /api/v1/admin/seed-lots/:id` con controlli di versione/CAS; diario `GET/POST /api/v1/admin/specimens/:id/journal`, eventi append-only con origine server `manual`. Entrambe le letture paginabili e accessibili esclusivamente all'owner. `seed_lot_id` di un esemplare deve riferirsi alla stessa specie (FK composita).
