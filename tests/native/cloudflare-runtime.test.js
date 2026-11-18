@@ -188,4 +188,21 @@ test("workerd + D1: API scrittura owner, CAS, trigger pubblicazione, rollback su
     {version:1,display_label:"Tentativo obsoleto"})).status,409);
   const current=await db.prepare("SELECT version FROM specimens WHERE id=?").bind(plant.body.id).first();
   assert.equal(current.version,2);
+  const lot=await post("POST",prefix+"seed-lots",{
+    taxon_id:taxon.body.id,label:"Lotto Mango",private_notes:"LOTTO NON PUBBLICO"});
+  assert.equal(lot.status,201);
+  const record=await post("PATCH",prefix+"specimens/"+plant.body.id,{
+    version:2,seed_lot_id:lot.body.id});
+  assert.equal(record.status,200);
+  const journal=await post("POST",prefix+"specimens/"+plant.body.id+"/journal",{
+    kind:"Irrigazione",event_on:"2026-11-18",note:"NOTA PRIVATA GIORNALE"});
+  assert.equal(journal.status,201);
+  const journalRes=await get(worker,prefix+"specimens/"+plant.body.id+"/journal",{
+    headers:{Cookie:cookie}});
+  assert.equal(journalRes.status,200);
+  assert.equal(journalRes.body.items.length,1);
+  assert.equal(journalRes.body.items[0].note,"NOTA PRIVATA GIORNALE");
+  const publicCatalog=await get(worker,"/api/v1/catalog");
+  assert.equal(JSON.stringify(publicCatalog.body).includes("LOTTO NON PUBBLICO"),false);
+  assert.equal(JSON.stringify(publicCatalog.body).includes("NOTA PRIVATA GIORNALE"),false);
 });

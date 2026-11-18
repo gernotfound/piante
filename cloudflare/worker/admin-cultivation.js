@@ -121,8 +121,10 @@ export async function adminCultivation(request,db,url,now=new Date().toISOString
   try {
     if(isRead) {
       if(lot)return await listLots(db,url.searchParams);
-      if(url.search)return respond({error:{code:"invalid_request"}},400);
-      if(lotId)return await detailLot(db,lotId);
+      if(lotId) {
+        if(url.search)return respond({error:{code:"invalid_request"}},400);
+        return await detailLot(db,lotId);
+      }
       return await listJournal(db,journalId,url.searchParams);
     }
     const body=await parseBody(request);
