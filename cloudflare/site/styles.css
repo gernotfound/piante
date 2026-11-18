@@ -117,3 +117,25 @@ h3 { font-size: 1.38rem; line-height: 1.22; margin: 0; }
 }
 @media (min-width: 1000px) { .plant-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 25px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* The private client is a separate static entrypoint; it never embeds private data. */
+.admin-shell { padding-block: 42px 90px; max-width: 930px; }
+.admin-shell h1 { font-size: clamp(2rem, 8vw, 3.4rem); line-height: 1.12; margin: 0 0 22px; }
+.admin-shell h2 { font-size: clamp(1.4rem, 4vw, 1.9rem); }
+.admin-status { margin-block: 18px; color: #48644e; line-height: 1.5; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 30px; }
+.admin-actions .button { flex: 1 1 150px; }
+.admin-list { list-style: none; padding: 0; display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
+.admin-list li { min-width: 0; }
+.admin-row { width: 100%; min-height: 52px; padding: 14px; text-align: left; background: white;
+  border: 1px solid var(--sage); border-radius: 12px; color: var(--forest); font-weight: 650;
+  overflow-wrap: anywhere; }
+.admin-row:focus-visible, .admin-row:hover { border-color: var(--leaf); background: var(--sage); }
+.admin-detail { background: white; border: 1px solid var(--sage); border-radius: 15px;
+  padding: clamp(18px, 4vw, 28px); margin-top: 28px; overflow-wrap: anywhere; }
+.admin-detail dl { display: grid; grid-template-columns: minmax(0,1fr); gap: 5px; }
+.admin-detail dt { font-weight: 700; color: var(--leaf); margin-top: 14px; }
+.admin-detail dd { margin: 0; white-space: pre-wrap; }
+@media (min-width: 600px) {
+  .admin-list { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}

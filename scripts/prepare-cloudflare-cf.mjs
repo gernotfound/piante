@@ -6,7 +6,7 @@ import { buildCloudflareSite } from "./build-cloudflare-site.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const generated = join(root, "cloudflare", "dist");
 const publicDir = join(root, "cloudflare", "public");
-const expected = ["app.js", "favicon.svg", "index.html", "styles.css"];
+const expected = ["admin.html", "admin.js", "app.js", "favicon.svg", "index.html", "styles.css"];
 
 const files = buildCloudflareSite();
 if (JSON.stringify(files) !== JSON.stringify(expected)) {

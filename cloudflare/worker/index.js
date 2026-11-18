@@ -1,5 +1,5 @@
 // Worker-side API only. This module must never be copied into public static assets.
-import { verifyAccessOwner } from "./access-auth.js";
+import { verifyKindeOwner, handleKindeAuth } from "./kinde-auth.js";
 import { InvalidAdminQuery, isAdminInventoryPath, readAdminInventory } from "./admin-inventory.js";
 
 const OWNER_SESSION_PATH = "/api/v1/admin/session";
@@ -192,12 +192,15 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    const authResponse = await handleKindeAuth(request, env);
+    if (authResponse) return authResponse;
+
     // Nothing under /api can ever fall through to an SPA or static-asset 200.
     if (path === "/api" || path.startsWith("/api/")) {
       if (path === "/api/v1/admin" || path.startsWith("/api/v1/admin/")) {
-        // Access rules can be bypassed by alternate routes: verify at the origin.
+        // The origin validates the Kinde owner even on alternate routes.
         // Private CRUD remains closed until the authenticated D1 API exists.
-        if (!(await verifyAccessOwner(request, env))) {
+        if (!(await verifyKindeOwner(request, env))) {
           return failure(403, "forbidden");
         }
         const inventory = isAdminInventoryPath(path);
