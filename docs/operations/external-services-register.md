@@ -1,5 +1,13 @@
 # Registro dei servizi esterni — Piante
 
+## CF-05 gestione dati — candidato PR #54, 18/11/2026
+
+- API owner Kinde: creazione e modifica **taxa**, cultivar ed esemplari; lettura cultivar per specie; pubblicazione e ritiro da catalogo. Solo JSON con validazione, same-origin e sessione owner Kinde. Conflitti con versioni rilevati con compare-and-swap (CAS); i codici esemplare sono prenotati atomicamente con il record tramite D1 batch.
+- Nuova migration `0002_publication_version.sql`: trigger D1 incrementano versione dell'esemplare insieme alla pubblicazione/ritiro. **Al 18/11/2026 lo schema live D1 è v1; migration v2 non applicata.** Il codice candidato richiede v2 prima di essere pubblicato.
+- UI `admin.html` Mobile First: moduli di aggiunta specie, cultivar, piante, modifica di scheda, pubblicazione e ritiro; i campi non compilati non sono inferiti, la modifica concorrente restituisce conflitto senza cancellare i campi compilati.
+- Restano da fare lotto/diario CRUD, ricerca botanica avanzata, UI e dati reali, backup/ripristino, test provider Kinde e Worker. Nessuna registrazione pubblica né utenti D1. Nessun Worker Piantee creato, nessuna credenziale Kinde live disponibile in questa sessione.
+- Evidenza: [PR #54](https://github.com/gernotfound/piante/pull/54) in draft, verifiche CI sullo SHA candidato da controllare prima di un eventuale merge. Nessun dato esemplare caricato nel D1 produttivo.
+
 ## 18/11/2026 — Cloudflare D1 inizializzato / Firebase legacy abbandonato nel codice
 
 - GitHub: PR #52 squash merge su `main` `edfcf680f016eedfec26ed44519373c7adb21d64`; run CI post-merge `44268668704` SUCCESS; i workflow Firebase della versione precedente hanno eseguito solo gli step consentiti dal loro controllo di scope. Nuovo branch CF06 per rimuovere interamente il codice/auth/database Firebase dal repository; il deployment del nuovo Worker non è ancora avvenuto.

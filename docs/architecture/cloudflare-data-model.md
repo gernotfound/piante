@@ -1,3 +1,12 @@
+## CF-05 gestione dati — candidato PR #54, 18/11/2026
+
+- API owner Kinde: creazione e modifica **taxa**, cultivar ed esemplari; lettura cultivar per specie; pubblicazione e ritiro da catalogo. Solo JSON con validazione, same-origin e sessione owner Kinde. Conflitti con versioni rilevati con compare-and-swap (CAS); i codici esemplare sono prenotati atomicamente con il record tramite D1 batch.
+- Nuova migration `0002_publication_version.sql`: trigger D1 incrementano versione dell'esemplare insieme alla pubblicazione/ritiro. **Al 18/11/2026 lo schema live D1 è v1; migration v2 non applicata.** Il codice candidato richiede v2 prima di essere pubblicato.
+- UI `admin.html` Mobile First: moduli di aggiunta specie, cultivar, piante, modifica di scheda, pubblicazione e ritiro; i campi non compilati non sono inferiti, la modifica concorrente restituisce conflitto senza cancellare i campi compilati.
+- Restano da fare lotto/diario CRUD, ricerca botanica avanzata, UI e dati reali, backup/ripristino, test provider Kinde e Worker. Nessuna registrazione pubblica né utenti D1. Nessun Worker Piantee creato, nessuna credenziale Kinde live disponibile in questa sessione.
+- Evidenza: [PR #54](https://github.com/gernotfound/piante/pull/54) in draft, verifiche CI sullo SHA candidato da controllare prima di un eventuale merge. Nessun dato esemplare caricato nel D1 produttivo.
+
+
 # Piantee — modello dati Cloudflare D1 (candidato CF-01)
 
 **Stato verificato 18/11/2026:** D1 `piantee-db` creato in giurisdizione UE e schema v1 applicato con 24 istruzioni riuscite; tabelle `taxa`, `specimens`, `public_listings` controllate a 0 righe. Nessun test CRUD o login live effettuato. Questa pagina descrive il nuovo modello SQL contenuto in `cloudflare/migrations/0001_initial.sql`. La fonte di verità per l'implementazione candidata è il file SQL e i test `tests/contracts/cloudflare-schema.test.js`; i provider determinano ciò che è stato realmente distribuito. Riferimento operativo: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35).

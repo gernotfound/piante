@@ -1,3 +1,12 @@
+## CF-05 gestione dati — candidato PR #54, 18/11/2026
+
+- API owner Kinde: creazione e modifica **taxa**, cultivar ed esemplari; lettura cultivar per specie; pubblicazione e ritiro da catalogo. Solo JSON con validazione, same-origin e sessione owner Kinde. Conflitti con versioni rilevati con compare-and-swap (CAS); i codici esemplare sono prenotati atomicamente con il record tramite D1 batch.
+- Nuova migration `0002_publication_version.sql`: trigger D1 incrementano versione dell'esemplare insieme alla pubblicazione/ritiro. **Al 18/11/2026 lo schema live D1 è v1; migration v2 non applicata.** Il codice candidato richiede v2 prima di essere pubblicato.
+- UI `admin.html` Mobile First: moduli di aggiunta specie, cultivar, piante, modifica di scheda, pubblicazione e ritiro; i campi non compilati non sono inferiti, la modifica concorrente restituisce conflitto senza cancellare i campi compilati.
+- Restano da fare lotto/diario CRUD, ricerca botanica avanzata, UI e dati reali, backup/ripristino, test provider Kinde e Worker. Nessuna registrazione pubblica né utenti D1. Nessun Worker Piantee creato, nessuna credenziale Kinde live disponibile in questa sessione.
+- Evidenza: [PR #54](https://github.com/gernotfound/piante/pull/54) in draft, verifiche CI sullo SHA candidato da controllare prima di un eventuale merge. Nessun dato esemplare caricato nel D1 produttivo.
+
+
 
 **Kinde ID token, compatibilità verificata 17/11/2026:** la [documentazione ufficiale](https://docs.kinde.com/build/tokens/about-id-tokens/) presenta `aud` come array contenente il dominio issuer e `azp` come client ID. La verifica del Worker impone `iss`/`aud`/`azp`/`sub`/`nonce`, firma RSA e scadenza; rifiuta `email_verified: false` se presente, ma non lo richiede quando Kinde lo omette. La verifica effettiva dell'email resta un requisito da applicare nel tenant Kinde, da collaudare in ambiente reale; nessuna sessione deve essere concessa a subject diversi dall'owner previsto. Le prove usano un ID token sintetico con audience/azp conformi alla documentazione Kinde, non un token reale.
 

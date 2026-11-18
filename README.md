@@ -4,7 +4,7 @@ Catalogo botanico pubblico e gestionale personale con una sola identità amminis
 
 ## Architettura
 
-- `cloudflare/site/`: sito pubblico e area privata Mobile First (320 px). Catalogo anonimo tramite API pubblica; gestione privata riservata all'owner.
+- `cloudflare/site/`: sito pubblico e area privata Mobile First (320 px). Catalogo anonimo tramite API pubblica; gestione privata riservata all'owner: sul candidato PR #54 aggiunta e modifica di specie, cultivar ed esemplari, pubblicazione e ritiro. Diario e lotti ancora non gestiti nell'interfaccia.
 - `cloudflare/worker/`: API isolate con controlli di sessione Kinde su tutte le route private.
 - `cloudflare/migrations/0001_initial.sql`: schema D1 per specie, cultivar, esemplari, codici riservati, lotti, diario e pubblicazioni. Nessun import Firebase.
 - `cloudflare.config.ts`: Worker `piantee`, D1 `piantee-db`, configurazione Kinde separata da TheLogBook.
