@@ -1,3 +1,14 @@
+## Kinde Piantee — screenshot Authentication e conferma salvataggio Details (18/11/2026)
+
+**Evidenza:** l'owner ha riferito di aver premuto **Save** sui campi Details e ha inviato screenshot della scheda **Authentication** dell'app Piantee nella Business `piantee.kinde.com`. Il salvataggio dei quattro URI è **riferito dall'owner, non ancora verificato tramite ricarica e lettura dei campi**.
+
+**Stato visibile dei toggle prima di ulteriori modifiche:** `Email connections → Code = ON`, `Email connections → Password = ON`. Quindi entrambi possono apparire contemporaneamente abilitati nell'interfaccia attuale (la precedente affermazione di esclusività è smentita dallo screenshot). `Phone → Code = OFF` (opzione Paid), `Username → Code = OFF`, `Username → Password = OFF`. L'attivazione di connessioni social non è determinabile da questa schermata: il pulsante `Manage connections` non mostra lo stato delle singole connessioni.
+
+**Istruzioni al proprietario, ancora da confermare come salvate:** disabilitare `Email → Code`, mantenere `Email → Password` ON, lasciare gli altri metodi OFF e premere **Save**. In `Settings → Environment → Policies` disattivare **Allow self sign-up** separatamente; nascondere `No account? Create one` nei Details non costituisce una regola di sicurezza. Verificare le impostazioni dopo il salvataggio, creare manualmente un solo utente finale e testare l'accesso reale. Non condividere password, Client Secret, OTP o token. TheLogBook rimane indipendente.
+
+
+---
+
 ## Kinde Piantee — verifica applicazione Details (18/11/2026)
 
 **Evidenza:** tre screenshot dell'owner, console `https://piantee.kinde.com/admin/`, applicazione denominata **Piantee**. Confermati **Type = Back-end web**, **Language/framework = Other back end**, issuer Kinde `https://piantee.kinde.com`; Client ID e Client Secret presenti, quest'ultimo mascherato. Nessun valore di credenziale è riprodotto nel repository. L'applicazione esiste quindi nella **Business corretta**: l'annotazione precedente che ne indicava l'esistenza come non verificata è superata.
