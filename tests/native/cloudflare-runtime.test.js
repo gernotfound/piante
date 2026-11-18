@@ -9,19 +9,27 @@ const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sq
   readFileSync(new URL("../../cloudflare/migrations/0002_publication_version.sql", import.meta.url), "utf8");
 const NOW = "2026-11-13T10:00:00.000Z";
 
-function simulator({ withDb = true } = {}) {
+function simulator({ withDb = true, owner = false } = {}) {
   return new Miniflare({
     scriptPath: workerPath,
     modules: true,
     modulesRules: [{ type: "ESModule", include: ["**/*.js"] }],
     // The pinned stable workerd build supports dates up to 2026-08-06.
     compatibilityDate: "2026-08-06",
-    ...(withDb ? { d1Databases: { DB: "00000000-0000-4000-8000-000000000047" } } : {})
+    ...(withDb ? { d1Databases: { DB: "00000000-0000-4000-8000-000000000047" } } : {}),
+    ...(owner ? { bindings: {
+      KINDE_ISSUER: "https://piantee-native.kinde.com",
+      KINDE_SITE_ORIGIN: "https://piantee.example.test",
+      KINDE_CLIENT_ID: "piantee-native",
+      KINDE_CLIENT_SECRET: "synthetic-client-secret",
+      KINDE_OWNER_SUB: "kp_native_owner12345",
+      KINDE_SESSION_KEY: Buffer.alloc(32, 13).toString("base64url")
+    } } : {})
   });
 }
 
-async function setup(t, { withDb = true } = {}) {
-  const worker = simulator({ withDb });
+async function setup(t, { withDb = true, owner = false } = {}) {
+  const worker = simulator({ withDb, owner });
   t.after(() => worker.dispose());
   if (!withDb) return { worker };
   const db = await worker.getD1Database("DB");
@@ -139,4 +147,45 @@ test("workerd: un binding D1 mancante restituisce 503 e non catalogo vuoto", asy
   assert.equal((await get(worker, "/api/v1/catalog")).status, 503);
   assert.equal((await get(worker, "/api/v1/catalog/categories")).status, 503);
   assert.equal((await get(worker, "/api/v1/admin")).status, 403);
+});
+
+
+test("workerd + D1: API scrittura owner, CAS, trigger pubblicazione, rollback su FK",async t=>{
+  const {worker,db}=await setup(t,{owner:true});
+  const now=Math.floor(Date.now()/1000);
+  const payload=Buffer.from(JSON.stringify({purpose:"session",
+    sub:"kp_native_owner12345",iat:now-2,exp:now+600})).toString("base64url");
+  const key=await crypto.subtle.importKey("raw",Buffer.alloc(32,13),
+    {name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const sig=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(payload));
+  const cookie="__Host-piantee_session="+payload+"."+Buffer.from(sig).toString("base64url");
+  const post=async(method,path,data,withSession=true)=>{
+    const response=await worker.dispatchFetch("https://piantee.example.test"+path,{
+      method,headers:{"Content-Type":"application/json",Origin:"https://piantee.example.test",
+        ...(withSession?{Cookie:cookie}:{})},body:JSON.stringify(data)
+    });
+    return {status:response.status,body:await response.json()};
+  };
+  const prefix="/api/v1/admin/";
+  assert.equal((await post("POST",prefix+"taxa",{name:"Mango"},false)).status,403);
+  const taxon=await post("POST",prefix+"taxa",{name:"Mango",category:"Fruttifere"});
+  assert.equal(taxon.status,201);
+  const bad=await post("POST",prefix+"specimens",{taxon_id:"not-found"});
+  assert.equal(bad.status,409);
+  const reservationCount=await db.prepare("SELECT count(*) AS n FROM specimen_code_reservations").first();
+  assert.equal(reservationCount.n,0,"Failed transactional insert cannot reserve a code");
+  const plant=await post("POST",prefix+"specimens",{taxon_id:taxon.body.id,
+    display_label:"Mango vaso",internal_notes:"NON PUBBLICA"});
+  assert.equal(plant.status,201);
+  const published=await post("PUT",prefix+"specimens/"+plant.body.id+"/publication",
+    {version:1,summary:"Pianta fruttifera",photo_url:null});
+  assert.equal(published.status,200);
+  assert.equal(published.body.version,2);
+  const page=await get(worker,"/api/v1/catalog");
+  assert.equal(page.body.items.length,1);
+  assert.equal(JSON.stringify(page.body).includes("NON PUBBLICA"),false);
+  assert.equal((await post("PATCH",prefix+"specimens/"+plant.body.id,
+    {version:1,display_label:"Tentativo obsoleto"})).status,409);
+  const current=await db.prepare("SELECT version FROM specimens WHERE id=?").bind(plant.body.id).first();
+  assert.equal(current.version,2);
 });
