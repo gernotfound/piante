@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { Miniflare } from "miniflare";
 
 const workerPath = fileURLToPath(new URL("../../cloudflare/worker/index.js", import.meta.url));
-const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8") + "\n" +
+  readFileSync(new URL("../../cloudflare/migrations/0002_publication_version.sql", import.meta.url), "utf8");
 const NOW = "2026-11-13T10:00:00.000Z";
 
 function simulator({ withDb = true } = {}) {
@@ -31,7 +32,7 @@ async function setup(t, { withDb = true } = {}) {
     .filter(line => !line.trimStart().startsWith("--")).join("\n");
   const statements = executable.split(/(?=^CREATE (?:TABLE|INDEX|TRIGGER|VIEW)\b)/gm)
     .map(statement => statement.trim()).filter(Boolean);
-  assert.equal(statements.length, 24, "Review the loader when migration v1 changes");
+  assert.equal(statements.length, 27, "Review the loader when migration v1 changes");
   assert.ok(statements.every(statement => /^CREATE (?:TABLE|INDEX|TRIGGER|VIEW)\b/.test(statement)
     && statement.endsWith(";")), "Unexpected SQL in initial migration");
   const applied = await db.batch(statements.map(statement =>

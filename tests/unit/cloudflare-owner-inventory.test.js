@@ -4,7 +4,8 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import worker from "../../cloudflare/worker/index.js";
 
-const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8") + "\n" +
+  readFileSync(new URL("../../cloudflare/migrations/0002_publication_version.sql", import.meta.url), "utf8");
 const ISSUER = "https://piantee-owner-tests.kinde.com";
 const OWNER = "kp_owner_7335d41761da459d899c0a01c76a2f94";
 const SITE = "https://piantee.example.test";

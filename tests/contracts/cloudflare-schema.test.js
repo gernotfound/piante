@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
-const sql = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8");
+const sql = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8") + "\n" +
+  readFileSync(new URL("../../cloudflare/migrations/0002_publication_version.sql", import.meta.url), "utf8");
 const NOW = "2026-01-01T00:00:00Z";
 
 function newDatabase() {
