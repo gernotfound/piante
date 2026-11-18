@@ -1,6 +1,7 @@
 // Worker-side API only. This module must never be copied into public static assets.
 import { verifyKindeOwner, handleKindeAuth } from "./kinde-auth.js";
 import { InvalidAdminQuery, isAdminInventoryPath, readAdminInventory } from "./admin-inventory.js";
+import { adminMutation } from "./admin-writes.js";
 
 const OWNER_SESSION_PATH = "/api/v1/admin/session";
 const CATALOG_PATH = "/api/v1/catalog";
@@ -203,19 +204,18 @@ export default {
         if (!(await verifyKindeOwner(request, env))) {
           return failure(403, "forbidden");
         }
-        const inventory = isAdminInventoryPath(path);
-        if (path !== OWNER_SESSION_PATH && !inventory) {
-          return failure(403, "admin_unavailable");
-        }
-        if (request.method !== "GET") {
-          return failure(405, "method_not_allowed", { Allow: "GET" });
-        }
         if (path === OWNER_SESSION_PATH) {
-          if (url.search) return failure(400, "invalid_request");
-          return json({ authenticated: true });
+          if (request.method !== "GET") return failure(405, "method_not_allowed",{Allow:"GET"});
+          if (url.search) return failure(400,"invalid_request");
+          return json({authenticated:true});
         }
-        const db = dbFromEnv(env);
-        if (!db) return failure(503, "service_unavailable");
+        const db=dbFromEnv(env);
+        if(!db) return failure(503,"service_unavailable");
+        const mutation=await adminMutation(request,db,url);
+        if(mutation) return mutation;
+        const inventory=isAdminInventoryPath(path);
+        if(!inventory) return failure(403,"admin_unavailable");
+        if(request.method!=="GET") return failure(405,"method_not_allowed",{Allow:"GET"});
         try {
           const data = await readAdminInventory(db, path, url.searchParams);
           return data === null ? failure(404, "not_found") : json(data);
