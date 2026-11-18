@@ -7,7 +7,7 @@ Decisione owner: Piantee usa Kinde per email/password dedicate, un solo amminist
 
 # Piantee — API Workers candidata (CF-02 su schema CF-01)
 
-**Stato verificato 14/11/2026:** catalogo e packaging cf/Vite sono nel repository; la guardia JWT owner è nella PR #50. In Cloudflare non esistono ancora Worker/D1 Piantee e Access ha risposto `access.api.error.not_enabled`: nessun login live. La produzione precedente rimane Firebase. Lo stato di merge della PR va riletto su GitHub. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
+**Stato storico 14/11/2026 (sostituito dalle decisioni del 18/11):** catalogo e packaging cf/Vite sono nel repository; la guardia JWT owner è nella PR #50. In Cloudflare non esistono ancora Worker/D1 Piantee e Access ha risposto `access.api.error.not_enabled`: nessun login live. La produzione precedente rimane Firebase. Lo stato di merge della PR va riletto su GitHub. Riferimenti: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35), [CF-03 #36](https://github.com/gernotfound/piante/issues/36), [CF-04 #37](https://github.com/gernotfound/piante/issues/37).
 
 ## Contratto implementato
 
