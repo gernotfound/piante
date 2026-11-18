@@ -164,7 +164,8 @@ test("solo il proprietario configurato: altra identità, servizio assente e bypa
     await f.jwt({ sub: "kp_different_owner_7335d417" }))).status, 403);
   assert.equal((await call("/api/v1/admin/specimens", { DB: db }, token)).status, 403);
   assert.equal((await call("/api/v1/admin/specimens", { ...f.env }, token)).status, 503);
-  assert.equal((await call("/api/v1/admin/specimens", { DB: db, ...f.env }, token, "POST")).status, 405);
+  assert.equal((await call("/api/v1/admin/specimens", { DB: db, ...f.env }, token, "POST")).status, 403,
+    "POST with session but without CSRF Origin is forbidden before parsing payload");
   assert.equal((await call("/api/v1/admin/write", { DB: db, ...f.env }, token)).status, 403);
   assert.equal((await call("/api/v1/admin/specimens/plant-999", { DB: db, ...f.env }, token)).status, 404);
   assert.equal((await call("/api/v1/admin/taxa/tax-999", { DB: db, ...f.env }, token)).status, 404);
