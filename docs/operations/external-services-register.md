@@ -1,5 +1,13 @@
 # Registro dei servizi esterni — Piante
 
+## Kinde Piantee — unico utente applicativo creato (18/11/2026)
+
+**Evidenza:** screenshot del profilo utente nella console `piantee.kinde.com`, accompagnato dalla conferma del proprietario di aver creato e salvato l'account da `Users`. La schermata mostra un ID Kinde assegnato, un'identità email primaria contrassegnata **unverified**, `Sign ins: 0` e nessun accesso precedente. Si tratta di un **utente finale dell'app**, non di un membro del team Kinde. L'identificativo utente e l'email, essendo dati personali/identificativi, **non sono riportati in documentazione o issue pubbliche**; non usare l'email come prova sufficiente per autorizzare l'owner.
+
+**Stato certo:** account creato, identità email non ancora verificata nell'ultima schermata, nessun login riuscito. Restano da completare la verifica tramite flusso Kinde e l'impostazione della password personale. Kinde documenta che anche con Email+Password attivo la verifica iniziale può richiedere **un codice email una tantum**: questo non equivale a riabilitare il metodo permanente Email+Code (https://docs.kinde.com/authenticate/authentication-methods/email-authentication/ e https://docs.kinde.com/authenticate/about-auth/authentication-methods/). Non impostare artificialmente l'email come verified né inserirne la password nei file.
+
+**Passaggi ancora pendenti:** rileggere i quattro URI OAuth salvati, verificare che nell'ambiente Kinde siano presenti soltanto il singolo utente finale e il login Email+Password, completare verifica email/password con il provider e inserire il subject esatto di quell'utente nel secret binding `KINDE_OWNER_SUB` del solo Worker Piantee, insieme agli altri secret Kinde. Non condividere subject/email o secret con TheLogBook. Il sito Cloudflare non è stato collaudato in questa operazione.
+
 ## Kinde Piantee — policy di accesso salvate (18/11/2026, conferma proprietario)
 
 **Confermato dall'owner:** nella Business dedicata `piantee.kinde.com` sono state eseguite e salvate entrambe le modifiche:
