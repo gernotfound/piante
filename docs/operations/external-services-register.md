@@ -1,5 +1,13 @@
 # Registro dei servizi esterni — Piante
 
+## Kinde Piantee — policy di accesso salvate (18/11/2026, conferma proprietario)
+
+**Confermato dall'owner:** nella Business dedicata `piantee.kinde.com` sono state eseguite e salvate entrambe le modifiche:
+- Scheda applicazione **Authentication**: `Email → Code` disabilitato; `Email → Password` già attivo nell'ultimo screenshot e non indicato come modificato.
+- **Settings → Environment → Policies**: `Allow self sign-up` disabilitato e salvato per l'ambiente.
+
+Queste modifiche sono **conferme operative del proprietario**, non una lettura diretta successiva al salvataggio; non attestano da sole un login riuscito. L'assenza di self-sign-up non impedisce di creare manualmente utenti da `Users → Add user` (documentazione Kinde: https://docs.kinde.com/manage-users/add-and-edit/add-and-edit-users/). Il prossimo passaggio è creare **un solo utente finale** nella Business Piantee, evitando di usare `Settings → Team` per aggiungere amministratori Kinde. Dopo averlo creato, verificare l'email e acquisire in modo sicuro il subject Kinde, senza riportare email, password, secret o token in GitHub. Da verificare inoltre il read-back dei quattro URI OAuth, l'esistenza di eventuali connessioni social attive e il login live Cloudflare Worker. Nessuna modifica o condivisione con TheLogBook.
+
 ## Kinde Piantee — screenshot Authentication e conferma salvataggio Details (18/11/2026)
 
 **Evidenza:** l'owner ha riferito di aver premuto **Save** sui campi Details e ha inviato screenshot della scheda **Authentication** dell'app Piantee nella Business `piantee.kinde.com`. Il salvataggio dei quattro URI è **riferito dall'owner, non ancora verificato tramite ricarica e lettura dei campi**.
