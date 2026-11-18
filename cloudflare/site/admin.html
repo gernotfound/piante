@@ -38,6 +38,50 @@
         <button type="button" id="show-taxa" class="button button-secondary">Specie e cultivar</button>
         <button type="button" id="logout" class="button button-secondary">Esci</button>
       </div>
+      <section class="admin-create" aria-labelledby="admin-create-title">
+        <h2 id="admin-create-title">Aggiungi</h2>
+        <div class="admin-forms">
+          <form id="taxon-create" class="admin-form" autocomplete="off">
+            <h3>Specie o gruppo botanico</h3>
+            <label for="new-taxon-name">Nome comune</label>
+            <input id="new-taxon-name" name="name" maxlength="120" required placeholder="Es. Avocado">
+            <label for="new-taxon-scientific">Nome scientifico (facoltativo)</label>
+            <input id="new-taxon-scientific" name="scientific_name" maxlength="180">
+            <label for="new-taxon-category">Categoria (facoltativa)</label>
+            <input id="new-taxon-category" name="category" maxlength="120" placeholder="Es. Fruttifere">
+            <button class="button button-primary" type="submit">Salva specie</button>
+          </form>
+          <form id="cultivar-create" class="admin-form" autocomplete="off">
+            <h3>Cultivar</h3>
+            <label for="new-cultivar-taxon">Specie di appartenenza</label>
+            <select id="new-cultivar-taxon" name="taxon_id" required>
+              <option value="">Seleziona specie</option>
+            </select>
+            <label for="new-cultivar-name">Nome cultivar</label>
+            <input id="new-cultivar-name" name="name" maxlength="120" required placeholder="Es. Bacon">
+            <button class="button button-primary" type="submit">Salva cultivar</button>
+          </form>
+          <form id="specimen-create" class="admin-form" autocomplete="off">
+            <h3>Pianta</h3>
+            <label for="new-specimen-taxon">Specie</label>
+            <select id="new-specimen-taxon" name="taxon_id" required>
+              <option value="">Seleziona specie</option>
+            </select>
+            <label for="new-specimen-cultivar">Cultivar (facoltativa)</label>
+            <select id="new-specimen-cultivar" name="cultivar_id">
+              <option value="">Non specificata / pianta da seme</option>
+            </select>
+            <label for="new-specimen-label">Etichetta (facoltativa)</label>
+            <input id="new-specimen-label" name="display_label" maxlength="180" placeholder="Es. Avocado vaso 60 L">
+            <label for="new-specimen-location">Posizione privata (facoltativa)</label>
+            <input id="new-specimen-location" name="private_location" maxlength="500">
+            <label for="new-specimen-notes">Note interne (facoltative)</label>
+            <textarea id="new-specimen-notes" name="internal_notes" maxlength="10000" rows="3"></textarea>
+            <button class="button button-primary" type="submit">Salva pianta</button>
+          </form>
+        </div>
+        <p id="admin-write-status" role="status" aria-live="polite" class="admin-status"></p>
+      </section>
       <h2 id="admin-list-title">Le mie piante</h2>
       <p id="admin-list-status" role="status" aria-live="polite"></p>
       <ul id="admin-list" class="admin-list"></ul>
@@ -47,7 +91,7 @@
         <dl id="admin-detail-fields"></dl>
         <button type="button" id="close-detail" class="button button-secondary">Chiudi dettaglio</button>
       </section>
-      <p class="admin-status">Le modifiche alle piante saranno disponibili quando il nuovo gestionale sarà completato.</p>
+
     </section>
   </main>
 </body>

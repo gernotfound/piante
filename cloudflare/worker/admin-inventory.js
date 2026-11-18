@@ -15,7 +15,7 @@ const SPECIMEN_LIST_FIELDS = [
 const SPECIMEN_DETAIL_FIELDS = [
   ...SPECIMEN_LIST_FIELDS,
   "propagation_method", "source_details", "private_location", "internal_notes",
-  "sown_on", "created_at", "seed_lot_label"
+  "sown_on", "created_at", "seed_lot_label", "publication_summary", "publication_photo_url"
 ];
 const TAXON_LIST_FIELDS = [
   "id", "kind", "name", "scientific_name", "category", "updated_at", "version"
@@ -45,7 +45,8 @@ const SPECIMEN_DETAIL_SQL = `SELECT s.id AS id, s.code AS code, s.taxon_id AS ta
   l.published_at AS published_at, s.propagation_method AS propagation_method,
   s.source_details AS source_details, s.private_location AS private_location,
   s.internal_notes AS internal_notes, s.sown_on AS sown_on,
-  s.created_at AS created_at, b.label AS seed_lot_label
+  s.created_at AS created_at, b.label AS seed_lot_label,
+  l.summary AS publication_summary, l.photo_url AS publication_photo_url
   ${SPECIMEN_FROM}
   LEFT JOIN seed_lots AS b ON b.id = s.seed_lot_id
   WHERE s.id = ? LIMIT 1`;
