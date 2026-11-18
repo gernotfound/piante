@@ -3,7 +3,7 @@
 **Codice target:** Cloudflare Workers + Static Assets + D1 + Kinde. **Stato provider:** vedere [registro](../operations/external-services-register.md).
 
 - `cloudflare/site/index.html` e `app.js`: vetrina pubblica e ricerca su `GET /api/v1/catalog`/categorie/dettaglio. Nessuna autenticazione visitatori.
-- `cloudflare/site/admin.html` e `admin.js`: pannello owner in sola lettura finché non saranno pronte API CRUD e interfacce di scrittura.
+- `cloudflare/site/admin.html` e `admin.js`: pannello owner; nel candidato PR #54 comprende form per creare/modificare specie, cultivar e piante, pubblicare/ritirare. Lotti e diario sono ancora da completare.
 - `cloudflare/worker/index.js`: router; API pubbliche leggono esclusivamente la vista `public_catalog`. Tutte le route admin passano dal controllo server Kinde.
 - `cloudflare/worker/kinde-auth.js`: Authorization Code + PKCE, validazione RS256 ID token/subject e sessione firmata HTTP-only host-only. L'email/password è gestita esclusivamente da Kinde; password mai nel Worker o D1.
 - `cloudflare/worker/admin-inventory.js`: letture e dettagli riservati; liste paginate; dati privati non serializzati nelle API pubbliche.

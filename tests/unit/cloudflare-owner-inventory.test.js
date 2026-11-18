@@ -4,7 +4,8 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import worker from "../../cloudflare/worker/index.js";
 
-const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../../cloudflare/migrations/0001_initial.sql", import.meta.url), "utf8") + "\n" +
+  readFileSync(new URL("../../cloudflare/migrations/0002_publication_version.sql", import.meta.url), "utf8");
 const ISSUER = "https://piantee-owner-tests.kinde.com";
 const OWNER = "kp_owner_7335d41761da459d899c0a01c76a2f94";
 const SITE = "https://piantee.example.test";
@@ -163,7 +164,8 @@ test("solo il proprietario configurato: altra identità, servizio assente e bypa
     await f.jwt({ sub: "kp_different_owner_7335d417" }))).status, 403);
   assert.equal((await call("/api/v1/admin/specimens", { DB: db }, token)).status, 403);
   assert.equal((await call("/api/v1/admin/specimens", { ...f.env }, token)).status, 503);
-  assert.equal((await call("/api/v1/admin/specimens", { DB: db, ...f.env }, token, "POST")).status, 405);
+  assert.equal((await call("/api/v1/admin/specimens", { DB: db, ...f.env }, token, "POST")).status, 403,
+    "POST with session but without CSRF Origin is forbidden before parsing payload");
   assert.equal((await call("/api/v1/admin/write", { DB: db, ...f.env }, token)).status, 403);
   assert.equal((await call("/api/v1/admin/specimens/plant-999", { DB: db, ...f.env }, token)).status, 404);
   assert.equal((await call("/api/v1/admin/taxa/tax-999", { DB: db, ...f.env }, token)).status, 404);
