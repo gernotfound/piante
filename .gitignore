@@ -1,23 +1,10 @@
 node_modules/
-.firebase/
-firebase-debug.log
 .DS_Store
 .env
 .env.*
 !.env.example
-
-# Credenziali temporanee google-github-actions/auth (mai versionarle)
-gha-creds-*.json
-
-# Output statico rigenerabile, non versionare
-/dist/
-
-# Output Cloudflare generato separatamente da Firebase
 /cloudflare/dist/
-
-/.cloudflare/
 /cloudflare/public/
+/.cloudflare/
 /.wrangler/
-
-# Profilo locale creato da cf workers check --prebuilt
 /worker-startup.cpuprofile

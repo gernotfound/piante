@@ -1,5 +1,12 @@
 # Registro dei servizi esterni — Piante
 
+## 18/11/2026 — Cloudflare D1 inizializzato / Firebase legacy abbandonato nel codice
+
+- GitHub: PR #52 squash merge su `main` `edfcf680f016eedfec26ed44519373c7adb21d64`; run CI post-merge `44268668704` SUCCESS; i workflow Firebase della versione precedente hanno eseguito solo gli step consentiti dal loro controllo di scope. Nuovo branch CF06 per rimuovere interamente il codice/auth/database Firebase dal repository; il deployment del nuovo Worker non è ancora avvenuto.
+- Cloudflare API GET/POST: account condiviso verificato, creato **esclusivamente** database D1 `piantee-db` UUID `f85671bc-a83c-4319-aa0f-503d0a81f042` giurisdizione `eu`, repliche disabilitate. Eseguite 24 istruzioni dello schema versionato `0001_initial.sql`, risposta success 24/24; lettura di controllo 10 tabelle, 7 indici, 6 trigger, 1 view, 0 schede (tabelle `taxa`, `specimens`, `public_listings`). Non creati Worker, account Kinde o utenti; non modificati database/Worker TheLogBook.
+- Owner: fresh start **senza migrazione di utenti e documenti Firebase** e via libera alla rimozione della vecchia architettura dal codice. **Nessuna cancellazione reale di Firestore/Auth o Hosting effettuata**: mancando riscontro sul contenuto del provider, prima della distruzione live è necessario distinguere dati e configurazioni effettive dai file repository. Questa omissione non autorizza a considerare le risorse legacy rimosse.
+- Kinde Piantee: configurazione live separata ancora da completare dal proprietario. Worker Cloudflare e smoke login non pubblicati/verificati. Quote account condivise con TheLogBook.
+
 ## 17/11/2026 — Decisione Kinde, account Cloudflare condiviso (OWNER-APPROVED; GITHUB VERIFIED; CLOUDFLARE READ-ONLY)
 
 - Piantee e TheLogBook restano nello **stesso account Cloudflare**, con Worker, D1, sessioni, segreti, configurazioni e applicazione/tenant Kinde **separati**. Le quote Free di Workers e D1 sono condivise: le risorse software isolate non comportano quote indipendenti.

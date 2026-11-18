@@ -1,6 +1,6 @@
 # Piantee — modello dati Cloudflare D1 (candidato CF-01)
 
-**Stato: MODELLO SQL NEL REPOSITORY, MIGRATION D1 NON APPLICATA.** Questa pagina descrive il nuovo modello SQL contenuto in `cloudflare/migrations/0001_initial.sql`. La fonte di verità per l'implementazione candidata è il file SQL e i test `tests/contracts/cloudflare-schema.test.js`; i provider determinano ciò che è stato realmente distribuito. Riferimento operativo: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35).
+**Stato verificato 18/11/2026:** D1 `piantee-db` creato in giurisdizione UE e schema v1 applicato con 24 istruzioni riuscite; tabelle `taxa`, `specimens`, `public_listings` controllate a 0 righe. Nessun test CRUD o login live effettuato. Questa pagina descrive il nuovo modello SQL contenuto in `cloudflare/migrations/0001_initial.sql`. La fonte di verità per l'implementazione candidata è il file SQL e i test `tests/contracts/cloudflare-schema.test.js`; i provider determinano ciò che è stato realmente distribuito. Riferimento operativo: [EPIC #32](https://github.com/gernotfound/piante/issues/32), [CF-01 #34](https://github.com/gernotfound/piante/issues/34), [CF-02 #35](https://github.com/gernotfound/piante/issues/35).
 
 ## Confini del Fresh Start
 

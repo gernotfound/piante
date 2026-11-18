@@ -1,3 +1,13 @@
+# Piantee — aggiornamento di migrazione 18/11/2026
+
+- Autorizzato fresh start completo: la nuova applicazione non include più SDK, login, database, test o workflow di deploy Firebase. **La pulizia del repository non è cancellazione del database o degli utenti Firebase live.** Verificare i dati nel provider prima di eliminarli.
+- [PR #52](https://github.com/gernotfound/piante/pull/52) integrata con squash su main `edfcf680f016eedfec26ed44519373c7adb21d64`; CI post-merge confermata verde.
+- Cloudflare: creato `piantee-db` **EU**, UUID `f85671bc-a83c-4319-aa0f-503d0a81f042`, read replication disabilitata. D1 v1 applicata con 24 istruzioni e query di verifica su `taxa`, `specimens`, `public_listings`: tutte 0 righe.
+- Stesso account Cloudflare di TheLogBook, ma nessun binding, Worker, database o secret condiviso. Le quote Free rimangono condivise.
+- Kinde: un nuovo tenant/app Piantee con email/password owner e self-signup OFF è ancora da configurare nel provider. Kinde TheLogBook non va riutilizzato. Nessun Worker `piantee` pubblicato e nessun collaudo browser live effettuato.
+
+---
+
 
 ## Aggiornamento 17/11/2026 — Kinde e isolamento
 
