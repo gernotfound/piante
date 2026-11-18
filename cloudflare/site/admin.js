@@ -266,6 +266,11 @@ function field(form, key, value, labelText, multiline = false) {
   const control = document.createElement(multiline ? "textarea" : "input");
   control.name = key;
   control.id = "edit-" + key;
+  const maxLengths={name:120,kind:100,label:120,source_details:2000,
+    source_cultivar_label:200,private_notes:10000,internal_notes:10000,
+    display_label:180,private_location:500,note:10000};
+  if(maxLengths[key])control.maxLength=maxLengths[key];
+  if(["name","label","kind","event_on"].includes(key))control.required=true;
   lbl.htmlFor = control.id;
   if (multiline) control.rows = 3;
   if (key === "sown_on") control.type = "date";
@@ -379,11 +384,22 @@ async function refreshLots() {
     return;
   }
   try {
-    const data = await api("/api/v1/admin/seed-lots?limit=40&taxon_id=" + encodeURIComponent(taxonId));
+    const records = [];
+    const seen = new Set();
+    let cursor = null;
+    do {
+      const params = new URLSearchParams({limit:"40",taxon_id:taxonId});
+      if(cursor)params.set("cursor",cursor);
+      const data=await api("/api/v1/admin/seed-lots?"+params);
+      if(!Array.isArray(data.items))throw new Error("invalid_response");
+      records.push(...data.items);
+      cursor=data.nextCursor;
+      if(cursor && seen.has(cursor))throw new Error("invalid_cursor");
+      if(cursor)seen.add(cursor);
+      if(records.length>=800 && cursor)throw new Error("too_many_lots");
+    }while(cursor);
     if (stamp !== lotRevision || taxonId !== $("new-specimen-taxon").value) return;
-    if (!Array.isArray(data.items) || data.nextCursor)
-      throw new Error("too_many_lots");
-    choices(select,data.items.map(item=>({id:item.id,name:item.label})),"Nessun lotto associato");
+    choices(select,records.map(item=>({id:item.id,name:item.label})),"Nessun lotto associato");
   } catch {
     if (stamp === lotRevision) {
       choices(select, [], "Lotti non disponibili");
