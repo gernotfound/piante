@@ -356,3 +356,61 @@ test("admin mobile: aggiunta specie e pianta, reazione a conflitto senza perdere
     assert.equal(await page.getByLabel("Nome comune").inputValue(),"Avocado");
   } finally {await page.close();}
 });
+
+
+test("mobile: lotto privato e diario append-only senza esposizione nel catalogo",async()=>{
+  const page=await browser.newPage({viewport:{width:320,height:740}});
+  let lots=[],notes=[];
+  try{
+    await page.route("**/api/v1/admin/session",route=>route.fulfill(json({authenticated:true})));
+    await page.route("**/api/v1/admin/taxa?*",route=>route.fulfill(json({
+      items:[{id:"tax-l",name:"Passiflora",version:1}],nextCursor:null})));
+    await page.route("**/api/v1/admin/specimens?*",route=>route.fulfill(json({
+      items:[{id:"plant-l",taxon_name:"Passiflora",display_label:"Passiflora vaso",version:1}],nextCursor:null})));
+    await page.route("**/api/v1/admin/specimens/plant-l",route=>route.fulfill(json({
+      id:"plant-l",taxon_id:"tax-l",taxon_name:"Passiflora",display_label:"Passiflora vaso",
+      internal_notes:"Note interne segrete",version:1,published_at:null,
+      publication_summary:null,publication_photo_url:null})));
+    await page.route("**/api/v1/admin/seed-lots?*",route=>route.fulfill(json({items:lots,nextCursor:null})));
+    await page.route("**/api/v1/admin/seed-lots",route=>{
+      assert.equal(route.request().method(),"POST");
+      const input=route.request().postDataJSON();
+      assert.equal(input.taxon_id,"tax-l");
+      assert.equal(input.source_cultivar_label,"Frutto commerciale");
+      lots=[{id:"lot-1",taxon_id:"tax-l",label:input.label,
+        source_cultivar_label:input.source_cultivar_label,private_notes:"RISERVATO",version:1}];
+      return route.fulfill(json({id:"lot-1",version:1},201));
+    });
+    await page.route("**/api/v1/admin/seed-lots/lot-1",route=>route.fulfill(json(lots[0])));
+    await page.route("**/api/v1/admin/cultivars?*",route=>route.fulfill(json({items:[]})));
+    await page.route("**/api/v1/admin/specimens/plant-l/journal?*",route=>route.fulfill(json({
+      items:notes,nextCursor:null})));
+    await page.route("**/api/v1/admin/specimens/plant-l/journal",route=>{
+      assert.equal(route.request().method(),"POST");
+      const data=route.request().postDataJSON();
+      assert.equal(data.kind,"Concimazione");
+      assert.equal(data.note,"Evento privato");
+      notes=[{id:"evt-1",kind:data.kind,note:data.note,event_on:data.event_on,origin:"manual"}];
+      return route.fulfill(json({id:"evt-1",origin:"manual"},201));
+    });
+    await page.goto(url+"/admin.html");
+    await page.waitForFunction(()=>document.querySelector("#new-lot-taxon").options.length===2);
+    await page.locator("#new-lot-taxon").selectOption("tax-l");
+    await page.locator("#new-lot-label").fill("Semi passiflora");
+    await page.locator("#new-lot-cultivar").fill("Frutto commerciale");
+    await page.getByRole("button",{name:"Salva lotto"}).click();
+    await page.getByRole("button",{name:"Lotti di semina"}).click();
+    await page.getByRole("button",{name:"Semi passiflora"}).waitFor();
+    await page.getByRole("button",{name:"Semi passiflora"}).click();
+    await page.getByText("RISERVATO").waitFor();
+    await page.getByRole("button",{name:"Le mie piante"}).click();
+    await page.getByRole("button",{name:"Passiflora vaso"}).click();
+    await page.getByText("Diario di coltivazione").waitFor();
+    await page.locator('.admin-journal [name="kind"]').fill("Concimazione");
+    await page.locator('.admin-journal [name="event_on"]').fill("2026-11-18");
+    await page.locator('.admin-journal [name="note"]').fill("Evento privato");
+    await page.getByRole("button",{name:"Registra nel diario"}).click();
+    await page.getByText("Evento privato").waitFor();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  }finally{await page.close();}
+});
