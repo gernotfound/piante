@@ -36,6 +36,7 @@
       <div class="admin-actions">
         <button type="button" id="show-specimens" class="button button-primary">Le mie piante</button>
         <button type="button" id="show-taxa" class="button button-secondary">Specie e cultivar</button>
+        <button type="button" id="show-lots" class="button button-secondary">Lotti di semina</button>
         <button type="button" id="logout" class="button button-secondary">Esci</button>
       </div>
       <section class="admin-create" aria-labelledby="admin-create-title">
@@ -61,6 +62,24 @@
             <input id="new-cultivar-name" name="name" maxlength="120" required placeholder="Es. Bacon">
             <button class="button button-primary" type="submit">Salva cultivar</button>
           </form>
+          <form id="lot-create" class="admin-form" autocomplete="off">
+            <h3>Nuovo lotto di semina</h3>
+            <label for="new-lot-taxon">Specie del lotto</label>
+            <select id="new-lot-taxon" name="taxon_id" required>
+              <option value="">Seleziona specie</option>
+            </select>
+            <label for="new-lot-label">Identificazione lotto</label>
+            <input id="new-lot-label" name="label" maxlength="120" required placeholder="Es. Semi raccolta 2026">
+            <label for="new-lot-sown">Data semina (facoltativa)</label>
+            <input id="new-lot-sown" name="sown_on" type="date">
+            <label for="new-lot-source">Provenienza privata (facoltativa)</label>
+            <textarea id="new-lot-source" name="source_details" rows="2" maxlength="2000"></textarea>
+            <label for="new-lot-cultivar">Cultivar del frutto sorgente (solo descrittiva)</label>
+            <input id="new-lot-cultivar" name="source_cultivar_label" maxlength="200">
+            <label for="new-lot-notes">Note interne lotto</label>
+            <textarea id="new-lot-notes" name="private_notes" rows="2" maxlength="10000"></textarea>
+            <button class="button button-primary" type="submit">Salva lotto</button>
+          </form>
           <form id="specimen-create" class="admin-form" autocomplete="off">
             <h3>Pianta</h3>
             <label for="new-specimen-taxon">Specie</label>
@@ -70,6 +89,10 @@
             <label for="new-specimen-cultivar">Cultivar (facoltativa)</label>
             <select id="new-specimen-cultivar" name="cultivar_id">
               <option value="">Non specificata / pianta da seme</option>
+            </select>
+            <label for="new-specimen-lot">Lotto di semina (facoltativo)</label>
+            <select id="new-specimen-lot" name="seed_lot_id">
+              <option value="">Nessun lotto associato</option>
             </select>
             <label for="new-specimen-label">Etichetta (facoltativa)</label>
             <input id="new-specimen-label" name="display_label" maxlength="180" placeholder="Es. Avocado vaso 60 L">
