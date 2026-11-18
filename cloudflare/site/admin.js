@@ -24,6 +24,7 @@ async function api(path, options) {
 
 function label(record, type) {
   if (type === "taxa") return record.name || record.scientific_name || record.id;
+  if (type === "seed-lots") return record.label || record.id;
   return record.display_label || record.taxon_name || record.code || record.id;
 }
 
@@ -42,6 +43,7 @@ async function showDetail(id, type) {
       detailFields.append(dt, dd);
     }
     renderEditForms(data, type);
+    if (type === "specimens") renderJournal(data);
     details.hidden = false;
     details.scrollIntoView({ block: "nearest", behavior: "auto" });
   } catch {
@@ -91,13 +93,15 @@ function selectType(type) {
   cursor = null;
   list.replaceChildren();
   clearDetails();
-  $("admin-list-title").textContent = type === "taxa" ? "Specie e cultivar" : "Le mie piante";
+  $("admin-list-title").textContent = type === "taxa" ? "Specie e cultivar" :
+    type === "seed-lots" ? "Lotti di semina" : "Le mie piante";
   more.hidden = true;
   loadPage();
 }
 
 $("show-specimens").addEventListener("click", () => selectType("specimens"));
 $("show-taxa").addEventListener("click", () => selectType("taxa"));
+$("show-lots").addEventListener("click", () => selectType("seed-lots"));
 $("close-detail").addEventListener("click", clearDetails);
 more.addEventListener("click", loadPage);
 $("logout").addEventListener("click", async () => {
@@ -173,7 +177,9 @@ async function refreshTaxa() {
     const values = records.map(item => ({ id: item.id, name: item.name }));
     choices($("new-cultivar-taxon"), values, "Seleziona specie");
     choices($("new-specimen-taxon"), values, "Seleziona specie");
+    choices($("new-lot-taxon"), values, "Seleziona specie");
     refreshCultivars();
+    refreshLots();
   } catch {
     writeMessage("Impossibile caricare le specie. Le informazioni già inserite sono state conservate.");
   }
@@ -194,7 +200,10 @@ async function refreshCultivars() {
     if (stamp === cultivarRevision) writeMessage("Cultivar non disponibili. Controlla la connessione.");
   }
 }
-$("new-specimen-taxon").addEventListener("change", refreshCultivars);
+$("new-specimen-taxon").addEventListener("change", () => {
+  refreshCultivars();
+  refreshLots();
+});
 
 async function sendWrite(form, path, body, method = "POST") {
   const submit = form.querySelector('button[type="submit"]');
@@ -239,6 +248,7 @@ formSpecimen.addEventListener("submit", async event => {
   const saved = await sendWrite(formSpecimen, "/api/v1/admin/specimens", {
     taxon_id: String(data.get("taxon_id")),
     cultivar_id: String(data.get("cultivar_id")) || null,
+    seed_lot_id: String(data.get("seed_lot_id")) || null,
     display_label: String(data.get("display_label")).trim() || null,
     private_location: String(data.get("private_location")).trim() || null,
     internal_notes: String(data.get("internal_notes")).trim() || null
@@ -256,6 +266,11 @@ function field(form, key, value, labelText, multiline = false) {
   const control = document.createElement(multiline ? "textarea" : "input");
   control.name = key;
   control.id = "edit-" + key;
+  const maxLengths={name:120,kind:100,label:120,source_details:2000,
+    source_cultivar_label:200,private_notes:10000,internal_notes:10000,
+    display_label:180,private_location:500,note:10000};
+  if(maxLengths[key])control.maxLength=maxLengths[key];
+  if(["name","label","kind","event_on"].includes(key))control.required=true;
   lbl.htmlFor = control.id;
   if (multiline) control.rows = 3;
   if (key === "sown_on") control.type = "date";
@@ -281,7 +296,11 @@ function renderEditForms(data, type) {
   const title = document.createElement("h3");
   title.textContent = "Modifica scheda";
   form.append(title);
-  const config = type === "taxa" ? [
+  const config = type === "seed-lots" ? [
+    ["label","Nome lotto"],["source_details","Provenienza privata",true],
+    ["source_cultivar_label","Cultivar del frutto sorgente"],["private_notes","Note private",true],
+    ["sown_on","Data semina"]
+  ] : type === "taxa" ? [
     ["name","Nome comune"], ["scientific_name","Nome scientifico"],
     ["category","Categoria"], ["description","Descrizione",true],
     ["light","Esposizione"], ["water","Acqua"],
@@ -352,4 +371,134 @@ function renderEditForms(data, type) {
     publicationForm.append(remove);
   }
   root.append(publicationForm);
+}
+
+
+let lotRevision = 0;
+async function refreshLots() {
+  const taxonId = $("new-specimen-taxon").value;
+  const stamp = ++lotRevision;
+  const select = $("new-specimen-lot");
+  if (!taxonId) {
+    choices(select, [], "Nessun lotto associato");
+    return;
+  }
+  try {
+    const records = [];
+    const seen = new Set();
+    let cursor = null;
+    do {
+      const params = new URLSearchParams({limit:"40",taxon_id:taxonId});
+      if(cursor)params.set("cursor",cursor);
+      const data=await api("/api/v1/admin/seed-lots?"+params);
+      if(!Array.isArray(data.items))throw new Error("invalid_response");
+      records.push(...data.items);
+      cursor=data.nextCursor;
+      if(cursor && seen.has(cursor))throw new Error("invalid_cursor");
+      if(cursor)seen.add(cursor);
+      if(records.length>=800 && cursor)throw new Error("too_many_lots");
+    }while(cursor);
+    if (stamp !== lotRevision || taxonId !== $("new-specimen-taxon").value) return;
+    choices(select,records.map(item=>({id:item.id,name:item.label})),"Nessun lotto associato");
+  } catch {
+    if (stamp === lotRevision) {
+      choices(select, [], "Lotti non disponibili");
+      writeMessage("Impossibile verificare i lotti. Non associare un lotto finché il caricamento non riesce.");
+    }
+  }
+}
+$("lot-create").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = $("lot-create"), data = new FormData(form);
+  const saved = await sendWrite(form, "/api/v1/admin/seed-lots", {
+    taxon_id: String(data.get("taxon_id")),
+    label: String(data.get("label")).trim(),
+    sown_on: String(data.get("sown_on")) || null,
+    source_details: String(data.get("source_details")).trim() || null,
+    source_cultivar_label: String(data.get("source_cultivar_label")).trim() || null,
+    private_notes: String(data.get("private_notes")).trim() || null
+  });
+  if (!saved) return;
+  for(const key of ["label","sown_on","source_details","source_cultivar_label","private_notes"])
+    form.elements.namedItem(key).value="";
+  await refreshLots();
+  if(selected==="seed-lots")selectType("seed-lots");
+});
+function journalItem(record) {
+  const li=document.createElement("li");
+  const title=document.createElement("strong");
+  title.textContent=(record.event_on || "")+" — "+(record.kind || "Osservazione");
+  li.append(title);
+  if(record.note){
+    const note=document.createElement("p");
+    note.textContent=record.note;
+    li.append(note);
+  }
+  return li;
+}
+function renderJournal(specimen) {
+  const previous=$("admin-detail").querySelector(".admin-journal");
+  previous?.remove();
+  const section=document.createElement("section");
+  section.className="admin-journal";
+  const title=document.createElement("h3");
+  title.textContent="Diario di coltivazione";
+  section.append(title);
+  const list=document.createElement("ul");
+  list.className="admin-journal-list";
+  section.append(list);
+  const message=document.createElement("p");
+  message.setAttribute("role","status");
+  section.append(message);
+  const form=document.createElement("form");
+  form.className="admin-form";
+  field(form,"kind","","Intervento o osservazione");
+  field(form,"event_on",new Date().toISOString().slice(0,10),"Data dell'evento");
+  form.elements.namedItem("event_on").type="date";
+  field(form,"note","","Note (facoltative)",true);
+  formAction(form,"Registra nel diario");
+  section.append(form);
+  $("admin-detail").append(section);
+  let cursor=null;
+  const seen=new Set();
+  async function loadJournal(){
+    const params=new URLSearchParams({limit:"20"});
+    if(cursor)params.set("cursor",cursor);
+    try{
+      const result=await api("/api/v1/admin/specimens/"+specimen.id+"/journal?"+params);
+      if(!Array.isArray(result.items))throw new Error("invalid_response");
+      for(const item of result.items)list.append(journalItem(item));
+      cursor=result.nextCursor;
+      if(cursor && seen.has(cursor))throw new Error("invalid_cursor");
+      if(cursor)seen.add(cursor);
+      message.textContent=list.children.length?list.children.length+" eventi": "Nessun evento registrato.";
+      if(cursor){
+        const btn=document.createElement("button");
+        btn.type="button";
+        btn.className="button button-secondary";
+        btn.textContent="Altri eventi";
+        btn.addEventListener("click",async()=>{btn.disabled=true;await loadJournal();btn.remove();});
+        section.insertBefore(btn,form);
+      }
+    }catch{
+      message.textContent="Diario non disponibile. Puoi riprovare aprendo nuovamente la scheda.";
+    }
+  }
+  form.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const formData=new FormData(form);
+    const saved=await sendWrite(form,"/api/v1/admin/specimens/"+specimen.id+"/journal",{
+      kind:String(formData.get("kind")).trim(),event_on:String(formData.get("event_on")),
+      note:String(formData.get("note")).trim()||null
+    });
+    if(!saved)return;
+    form.elements.namedItem("kind").value="";
+    form.elements.namedItem("note").value="";
+    list.replaceChildren();
+    cursor=null;
+    seen.clear();
+    for(const old of section.querySelectorAll("button"))if(old!==form.querySelector('button[type="submit"]'))old.remove();
+    await loadJournal();
+  });
+  loadJournal();
 }

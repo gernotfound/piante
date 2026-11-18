@@ -133,3 +133,70 @@ test("valida input, origini, conflitti, associazioni cultivar e atomicità della
   assert.equal((await f.call("POST",p+"taxa",{name:"CSRF"},
     {Origin:ORIGIN,Cookie:"__Host-piantee_session=forged"})).status,403);
 });
+
+
+test("lotti: creazione e modifica CAS, specie corretta, dati privati e associazione",async t=>{
+  const f=await fixture(t),base="/api/v1/admin/";
+  const taxon=await f.call("POST",base+"taxa",{name:"Passiflora"});
+  const another=await f.call("POST",base+"taxa",{name:"Avocado"});
+  const invalid=await f.call("POST",base+"seed-lots",{
+    taxon_id:another.body.id,label:"Lotto",sown_on:"2026-02-30"});
+  assert.equal(invalid.status,400);
+  const lot=await f.call("POST",base+"seed-lots",{taxon_id:taxon.body.id,
+    label:"Semi da frutto",source_details:"Acquistati",source_cultivar_label:"Frutto Edulis",
+    private_notes:"PRIVATO",sown_on:"2026-11-17"});
+  assert.equal(lot.status,201);
+  const list=await f.call("GET",base+"seed-lots?taxon_id="+taxon.body.id);
+  assert.equal(list.status,200);
+  assert.equal(list.body.items.length,1);
+  assert.equal(list.body.items[0].private_notes,"PRIVATO");
+  assert.equal((await f.call("GET",base+"seed-lots?taxon_id="+another.body.id)).body.items.length,0);
+  const detail=await f.call("GET",base+"seed-lots/"+lot.body.id);
+  assert.equal(detail.body.source_cultivar_label,"Frutto Edulis");
+  assert.equal((await f.call("GET",base+"seed-lots/"+lot.body.id+"?bad=1")).status,400);
+  const updated=await f.call("PATCH",base+"seed-lots/"+lot.body.id,{
+    version:1,label:"Semina lotto B",private_notes:"RISERVATO"});
+  assert.equal(updated.status,200);
+  assert.equal(updated.body.version,2);
+  const stale=await f.call("PATCH",base+"seed-lots/"+lot.body.id,{version:1,label:"vecchia"});
+  assert.equal(stale.status,409);
+  assert.equal(f.sql.prepare("SELECT label FROM seed_lots WHERE id=?").get(lot.body.id).label,"Semina lotto B");
+  const invalidLink=await f.call("POST",base+"specimens",{
+    taxon_id:another.body.id,seed_lot_id:lot.body.id});
+  assert.equal(invalidLink.status,409);
+  const valid=await f.call("POST",base+"specimens",{
+    taxon_id:taxon.body.id,seed_lot_id:lot.body.id});
+  assert.equal(valid.status,201);
+  assert.equal((await f.call("GET","/api/v1/catalog")).body.items.length,0);
+  assert.equal((await f.call("POST",base+"seed-lots",{taxon_id:taxon.body.id,label:"X"},{},false)).status,403);
+});
+test("diario: inserimento manuale append-only, lettura privata, vincolo esemplare",async t=>{
+  const f=await fixture(t),base="/api/v1/admin/";
+  const taxon=await f.call("POST",base+"taxa",{name:"Tamarillo"});
+  const plant=await f.call("POST",base+"specimens",{taxon_id:taxon.body.id});
+  const url=base+"specimens/"+plant.body.id+"/journal";
+  assert.equal((await f.call("POST",url,{kind:"Annaffiatura",event_on:"2026-12-31"} ,{},false)).status,403);
+  assert.equal((await f.call("POST",url,{kind:"Annaffiatura",event_on:"2026-02-31"})).status,400);
+  assert.equal((await f.call("POST",url,{kind:"",event_on:"2026-11-18"})).status,400);
+  assert.equal((await f.call("POST",url,{kind:"Note",event_on:"2026-11-18",origin:"automatic"})).status,400);
+  const first=await f.call("POST",url,{
+    kind:"Concimazione",note:"Fertilizzante a dose ridotta",event_on:"2026-11-17"});
+  assert.equal(first.status,201);
+  const second=await f.call("POST",url,{kind:"Irrigazione",event_on:"2026-11-18"});
+  assert.equal(second.status,201);
+  const page=await f.call("GET",url+"?limit=1");
+  assert.equal(page.status,200);
+  assert.equal(page.body.items[0].kind,"Irrigazione");
+  assert.ok(page.body.nextCursor);
+  const next=await f.call("GET",url+"?limit=1&cursor="+encodeURIComponent(page.body.nextCursor));
+  assert.equal(next.status,200);
+  assert.equal(next.body.items[0].kind,"Concimazione");
+  assert.equal(next.body.items[0].origin,"manual");
+  assert.equal((await f.call("GET",url+"?cursor=bad")).status,400);
+  assert.equal((await f.call("DELETE",url,{version:1})).status,405);
+  assert.equal((await f.call("POST",base+"specimens/not-found/journal",{
+    kind:"Nota",event_on:"2026-11-18"})).status,409);
+  assert.equal(f.sql.prepare("SELECT count(*) AS n FROM journal_entries").get().n,2);
+  assert.equal((await f.call("GET","/api/v1/catalog")).body.items.length,0);
+  assert.throws(()=>f.sql.prepare("DELETE FROM journal_entries").run(),/append-only/);
+});

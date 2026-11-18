@@ -157,3 +157,8 @@ h3 { font-size: 1.38rem; line-height: 1.22; margin: 0; }
   .admin-forms { grid-template-columns: repeat(2, minmax(0,1fr)); }
   #specimen-create { grid-column: 1 / -1; }
 }
+
+.admin-journal { margin-top: 26px; border-top: 1px solid var(--sage); padding-top: 18px; }
+.admin-journal-list { list-style: none; margin: 10px 0 20px; padding: 0; display: grid; gap: 9px; }
+.admin-journal-list li { background: var(--paper); border-radius: 11px; padding: 12px; }
+.admin-journal-list p { margin: 5px 0 0; white-space: pre-wrap; }
