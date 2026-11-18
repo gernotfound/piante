@@ -1,5 +1,12 @@
 # Registro dei servizi esterni — Piante
 
+## CF-05 — lotti e diario (candidato PR #55, 18/11/2026)
+
+- API private solo owner Kinde: lotti di semina `GET/POST /api/v1/admin/seed-lots`, `GET/PATCH /api/v1/admin/seed-lots/:id` con controlli di versione/CAS; diario `GET/POST /api/v1/admin/specimens/:id/journal`, eventi append-only con origine server `manual`. Entrambe le letture paginabili e accessibili esclusivamente all'owner. `seed_lot_id` di un esemplare deve riferirsi alla stessa specie (FK composita).
+- UI privata: creazione/modifica lotto, scelta del lotto nella nuova scheda della pianta, consultazione e aggiunta eventi nel diario; controlli su input e preservazione dei dati non salvati in caso di errore. Non pubblicare nel catalogo pubblico provenienza, note o eventi.
+- Il D1 produttivo `piantee-db` usa schema v1+v2, compatibile senza nuove migration. Test e CI sullo SHA finale della PR sono obbligatori: questo testo non equivale a deploy Cloudflare o collaudo live.
+- Restano: miglioramenti UX, cancellazione controllata piante/lotti (non introdurre eliminazioni che perdano diario), backup/recovery, login Kinde reale, Worker e smoke su `workers.dev`. Nessun Worker Piantee o account Kinde reale creato in questa PR.
+
 ## CF-05 gestione dati — candidato PR #54, 18/11/2026
 
 - API owner Kinde: creazione e modifica **taxa**, cultivar ed esemplari; lettura cultivar per specie; pubblicazione e ritiro da catalogo. Solo JSON con validazione, same-origin e sessione owner Kinde. Conflitti con versioni rilevati con compare-and-swap (CAS); i codici esemplare sono prenotati atomicamente con il record tramite D1 batch.
