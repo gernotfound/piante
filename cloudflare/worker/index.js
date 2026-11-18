@@ -2,6 +2,7 @@
 import { verifyKindeOwner, handleKindeAuth } from "./kinde-auth.js";
 import { InvalidAdminQuery, isAdminInventoryPath, readAdminInventory } from "./admin-inventory.js";
 import { adminMutation } from "./admin-writes.js";
+import { adminCultivation } from "./admin-cultivation.js";
 
 const OWNER_SESSION_PATH = "/api/v1/admin/session";
 const CATALOG_PATH = "/api/v1/catalog";
@@ -200,7 +201,7 @@ export default {
     if (path === "/api" || path.startsWith("/api/")) {
       if (path === "/api/v1/admin" || path.startsWith("/api/v1/admin/")) {
         // The origin validates the Kinde owner even on alternate routes.
-        // Private CRUD remains closed until the authenticated D1 API exists.
+        // All private data operations require verified Kinde owner session.
         if (!(await verifyKindeOwner(request, env))) {
           return failure(403, "forbidden");
         }
@@ -213,6 +214,8 @@ export default {
         if(!db) return failure(503,"service_unavailable");
         const mutation=await adminMutation(request,db,url);
         if(mutation) return mutation;
+        const cultivation=await adminCultivation(request,db,url);
+        if(cultivation) return cultivation;
         const inventory=isAdminInventoryPath(path);
         if(!inventory) return failure(403,"admin_unavailable");
         if(request.method!=="GET") return failure(405,"method_not_allowed",{Allow:"GET"});

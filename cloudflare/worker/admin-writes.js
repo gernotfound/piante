@@ -248,3 +248,7 @@ export async function adminMutation(request,db,url,now=new Date().toISOString())
     return await publish(db,method,ident(entry),data,now);
   } catch(e){return safeError(e);}
 }
+
+// Reuse exact validation, input limits and error semantics in cultivation APIs.
+export { Invalid, Conflict, NotFound, respond, checkKeys, ident, version, text,
+  parseDate, parseBody, safeError, changed, versionAfterMiss };
